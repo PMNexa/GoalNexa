@@ -35,31 +35,29 @@ interface LoginResponseLike {
 
 // Dedupe concurrent refresh attempts. Refresh tokens are single-use, so two
 // concurrent refresh calls would break one of them - every caller in flight
-// shares the same promise instead.
+// shares the same promise instead. This includes AuthContext's boot-time
+// silent refresh (called directly, not just via apiFetch's 401 interceptor
+// below) - see that call site for why a failure here must NOT clear the
+// token store or redirect: on every anonymous page load (including /login
+// itself) there is no session to restore, and that is not an error worth
+// reacting to. Only the 401 interceptor's own catch does that, because only
+// there does a failed refresh mean an actual session actually went stale.
 let refreshPromise: Promise<LoginResponseLike> | null = null;
 
 export function requestRefresh(): Promise<LoginResponseLike> {
-  if (refreshPromise) return refreshPromise;
-
-  refreshPromise = apiFetch<LoginResponseLike>("/auth/refresh", {
-    method: "POST",
-    skipAuthRetry: true,
-  })
-    .then((response) => {
-      setAccessToken(response.access_token);
-      return response;
+  if (!refreshPromise) {
+    refreshPromise = apiFetch<LoginResponseLike>("/auth/refresh", {
+      method: "POST",
+      skipAuthRetry: true,
     })
-    .catch((error) => {
-      clearAccessToken();
-      // Full page reload (not a router navigation) - deliberate, ensures all
-      // in-memory state is wiped.
-      window.location.assign("/login");
-      throw error;
-    })
-    .finally(() => {
-      refreshPromise = null;
-    });
-
+      .then((response) => {
+        setAccessToken(response.access_token);
+        return response;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
   return refreshPromise;
 }
 
@@ -83,7 +81,20 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   });
 
   if (response.status === 401 && !skipAuthRetry) {
-    await requestRefresh();
+    try {
+      await requestRefresh();
+    } catch (error) {
+      // The token store had a token that a real request just got rejected
+      // with - that session is actually stale. Clear it and hard-redirect
+      // (a full reload, not a router navigation, to guarantee all in-memory
+      // state is wiped). Unlike requestRefresh() itself, this reaction is
+      // scoped to here: only reachable when an authenticated call actually
+      // failed, never for AuthContext's boot-time refresh on a page nobody
+      // was ever logged into.
+      clearAccessToken();
+      window.location.assign("/login");
+      throw error;
+    }
     return apiFetch<T>(path, { ...options, skipAuthRetry: true });
   }
 
