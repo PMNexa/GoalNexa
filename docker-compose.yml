@@ -26,7 +26,7 @@ services:
       JWT_SECRET: dev-secret-change-me
       JWT_ACCESS_TTL_MINUTES: "15"
       JWT_REFRESH_TTL_DAYS: "30"
-      CORS_ORIGINS: '["http://localhost:5173"]'
+      CORS_ORIGINS: '["http://localhost:30566"]'
       APP_BASE_URL: http://localhost:8000
     ports:
       - "8000:8000"
@@ -43,7 +43,7 @@ services:
     environment:
       VITE_API_BASE_URL: http://localhost:8000
     ports:
-      - "5173:5173"
+      - "30566:30566"
     volumes:
       - ./frontend:/app
       - goalnexa-frontend-node-modules:/app/node_modules

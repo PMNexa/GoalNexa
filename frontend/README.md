@@ -24,7 +24,7 @@ npm install
 npm run dev
 ```
 
-The dev server runs on `http://localhost:5173` and proxies any request to
+The dev server runs on `http://localhost:30566` and proxies any request to
 `/api/*` to `http://localhost:8000` (see `vite.config.ts`), where the
 GoalNexa backend is expected to be running.
 

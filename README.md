@@ -16,10 +16,10 @@ docker compose up --build
 ```
 
 - Backend: http://localhost:8000 (runs migrations on boot, hot-reloads on `backend/app` changes)
-- Frontend: http://localhost:5173 (hot-reloads on `frontend/src` changes)
+- Frontend: http://localhost:30566 (hot-reloads on `frontend/src` changes)
 - Postgres: localhost:5432 (user/pass/db: `goalnexa`)
 
-First run: open http://localhost:5173/signup — signup is bootstrap-only (the first signup creates the first organization and becomes its admin; every signup after that returns `409 signup_closed`, by design for a self-hosted single-tenant-per-instance deploy). Invite additional users from the org's Members page.
+First run: open http://localhost:30566/signup — signup is bootstrap-only (the first signup creates the first organization and becomes its admin; every signup after that returns `409 signup_closed`, by design for a self-hosted single-tenant-per-instance deploy). Invite additional users from the org's Members page.
 
 ## Adding a new entity
 

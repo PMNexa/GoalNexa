@@ -44,7 +44,7 @@ See `.env.example`. Summary:
 | `JWT_SECRET` | — | HS256 signing secret for access tokens |
 | `JWT_ACCESS_TTL_MINUTES` | `15` | float minutes |
 | `JWT_REFRESH_TTL_DAYS` | `30` | absolute refresh-token lifetime |
-| `CORS_ORIGINS` | `["http://localhost:5173"]` | JSON array; `allow_credentials=True` is required for the refresh cookie |
+| `CORS_ORIGINS` | `["http://localhost:30566"]` | JSON array; `allow_credentials=True` is required for the refresh cookie |
 | `APP_BASE_URL` | `http://localhost:8000` | used to build invite links |
 
 ## Run migrations
