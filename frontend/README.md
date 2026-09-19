@@ -26,21 +26,20 @@ npm run dev
 
 The dev server runs on `http://localhost:30566` and proxies any request to
 `/api/*` to `http://localhost:8000` (see `vite.config.ts`), where the
-GoalNexa backend is expected to be running.
+GoalNexa backend is expected to be running. Under `docker compose up`
+instead, nginx is the single entrypoint on the same port and does this same
+`/api/*` routing (see `../nginx/default.conf`) — either way the app calls
+relative `/api/...` paths by default, so it works unmodified in both setups.
 
 ### Environment variables
 
-Copy `.env.example` to `.env` if you want to point the frontend at a backend
-that isn't `http://localhost:8000` via the dev proxy (e.g. a remote/staging
-API, or a non-default port):
+Copy `.env.example` to `.env` only if you want to point the frontend at a
+backend that isn't reachable via the dev proxy / nginx (e.g. a remote or
+staging API):
 
 ```
 VITE_API_BASE_URL=http://localhost:8000
 ```
-
-When unset, the app calls relative `/api/...` paths, which only works if
-something (the Vite dev-server proxy in dev, or a reverse proxy in
-prod-like setups) forwards `/api` to the backend.
 
 ## Scripts
 

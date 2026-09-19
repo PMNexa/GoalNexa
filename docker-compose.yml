@@ -27,9 +27,7 @@ services:
       JWT_ACCESS_TTL_MINUTES: "15"
       JWT_REFRESH_TTL_DAYS: "30"
       CORS_ORIGINS: '["http://localhost:30566"]'
-      APP_BASE_URL: http://localhost:8000
-    ports:
-      - "8000:8000"
+      APP_BASE_URL: http://localhost:30566
     volumes:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic
@@ -40,14 +38,20 @@ services:
     working_dir: /app
     depends_on:
       - backend
-    environment:
-      VITE_API_BASE_URL: http://localhost:8000
-    ports:
-      - "30566:30566"
     volumes:
       - ./frontend:/app
       - goalnexa-frontend-node-modules:/app/node_modules
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
+  nginx:
+    image: nginx:alpine
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "30566:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
 volumes:
   goalnexa-postgres-data:

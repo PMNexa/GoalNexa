@@ -45,7 +45,7 @@ See `.env.example`. Summary:
 | `JWT_ACCESS_TTL_MINUTES` | `15` | float minutes |
 | `JWT_REFRESH_TTL_DAYS` | `30` | absolute refresh-token lifetime |
 | `CORS_ORIGINS` | `["http://localhost:30566"]` | JSON array; `allow_credentials=True` is required for the refresh cookie |
-| `APP_BASE_URL` | `http://localhost:8000` | used to build invite links |
+| `APP_BASE_URL` | `http://localhost:30566` | used to build invite links — points at the frontend's public URL, not the backend |
 
 ## Run migrations
 

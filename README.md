@@ -15,8 +15,10 @@ This is an early scaffold: authentication, RBAC, organizations, a design system,
 docker compose up --build
 ```
 
-- Backend: http://localhost:8000 (runs migrations on boot, hot-reloads on `backend/app` changes)
-- Frontend: http://localhost:30566 (hot-reloads on `frontend/src` changes)
+Single external entrypoint, per the reference project's single-port topology: nginx listens on **http://localhost:30566** and routes `/api/*` to the backend (prefix stripped) and everything else — including Vite's HMR websocket — to the frontend dev server. The backend and frontend containers have no host port of their own; only nginx is exposed.
+
+- App: http://localhost:30566 (hot-reloads on `frontend/src` changes)
+- API: http://localhost:30566/api/* (backend runs migrations on boot, hot-reloads on `backend/app` changes)
 - Postgres: localhost:5432 (user/pass/db: `goalnexa`)
 
 First run: open http://localhost:30566/signup — signup is bootstrap-only (the first signup creates the first organization and becomes its admin; every signup after that returns `409 signup_closed`, by design for a self-hosted single-tenant-per-instance deploy). Invite additional users from the org's Members page.
