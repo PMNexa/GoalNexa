@@ -10,12 +10,19 @@ interface OrgSummary {
   slug: string;
 }
 
+export interface AppHeaderProps {
+  mobileOpen: boolean;
+  onToggleMobile: () => void;
+}
+
 /**
  * Hand-rolled dropdown (useState + document click-outside listener) -
  * deliberately not using Bootstrap's JS bundle / data-bs-toggle, since that
- * bundle isn't loaded in this app.
+ * bundle isn't loaded in this app. The mobile navbar-toggler below follows
+ * the same convention: it flips AppShell's mobileOpen state directly rather
+ * than relying on data-bs-toggle="collapse".
  */
-export function AppHeader() {
+export function AppHeader({ mobileOpen, onToggleMobile }: AppHeaderProps) {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -64,11 +71,22 @@ export function AppHeader() {
   }
 
   return (
-    <nav className="app-header navbar navbar-expand bg-body">
-      <div className="container-fluid">
-        <span className="navbar-brand fw-bold">GoalNexa</span>
+    <header className="navbar navbar-expand-md d-print-none">
+      <div className="container-xl">
+        <button
+          type="button"
+          className="navbar-toggler"
+          aria-label="Toggle navigation"
+          aria-expanded={mobileOpen}
+          onClick={onToggleMobile}
+        >
+          <span className="navbar-toggler-icon" />
+        </button>
+        <h1 className="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
+          GoalNexa
+        </h1>
 
-        <div className="ms-auto d-flex align-items-center gap-2">
+        <div className="navbar-nav flex-row order-md-last ms-auto align-items-center gap-2">
           <div className="dropdown position-relative" ref={containerRef}>
             <button type="button" className="btn btn-outline-secondary btn-sm" onClick={toggleOpen}>
               <Icon name="building" className="me-1" />
@@ -99,6 +117,6 @@ export function AppHeader() {
           </button>
         </div>
       </div>
-    </nav>
+    </header>
   );
 }

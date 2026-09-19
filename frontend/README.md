@@ -12,8 +12,11 @@ declarative `EntityConfig`, not new pages.
 - TanStack Query v5 for server state
 - React Hook Form + Zod for forms/validation (uncontrolled inputs via
   `register()` only - this codebase never uses RHF's `Controller`)
-- Bootstrap 5 + AdminLTE v4 for styling (raw utility/component classes in
-  JSX, no CSS-in-JS, no component library)
+- Tabler (`@tabler/core`, built on Bootstrap 5) for styling — installed as
+  an npm package rather than loaded from a CDN, since this is a self-hosted
+  app (raw utility/component classes in JSX, no CSS-in-JS, no component
+  library; Tabler's own JS bundle is not loaded — all interactive state,
+  e.g. the org-switcher dropdown, is plain React state)
 - Font Awesome Free for icons
 - Vitest + Testing Library for tests
 
