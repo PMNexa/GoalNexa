@@ -3,9 +3,9 @@
 # Static for now - a human/tooling-readable list of what's wired in. See
 # docs/architecture/microservices-design.md for the planned dynamic version
 # of this (POST /internal/modules/register at runtime); this file is
-# today's stand-in. No code reads this yet (GoalNexa's root has no backend
-# of its own) - it's documentation until a gateway/core process exists to
-# load it.
+# today's stand-in. Read by platform-core's backend (GET /modules, via
+# MODULES_MANIFEST_PATH) and its frontend shell (which links out to each
+# module's own frontend_url).
 
 modules:
   - name: platform-core
@@ -18,4 +18,5 @@ modules:
     kind: module
     path: apps/platform-auth
     repo: https://github.com/EugeneNguyen/platform-auth.git
+    frontend_url: http://localhost:5173
     enabled: true
