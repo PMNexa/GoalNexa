@@ -1,0 +1,19 @@
+# Modules composed into this platform, as submodules under apps/.
+#
+# Static for now - a human/tooling-readable list of what's wired in. See
+# docs/architecture/microservices-design.md for the planned dynamic version
+# of this (POST /internal/modules/register at runtime); this file is
+# today's stand-in, read by backend/goalnexa_ext/modules.py.
+
+modules:
+  - name: platform-core
+    kind: kernel
+    path: apps/platform-core
+    repo: https://github.com/EugeneNguyen/platform-core.git
+    enabled: true
+
+  - name: platform-auth
+    kind: module
+    path: apps/platform-auth
+    repo: https://github.com/EugeneNguyen/platform-auth.git
+    enabled: true
