@@ -2,7 +2,7 @@
 
 Auth, orgs, RBAC, and the generic CRUD factory come from the [`platform-core`](https://github.com/EugeneNguyen/platform-core) git submodule (`../apps/platform-core/backend`), consumed **in place** — added to this environment's Python path as source via an editable install, not copied. This directory (`backend/`) holds only GoalNexa's own product code: the `Goal` entity, under `goalnexa_ext/` (deliberately not named `app` — that's platform-core's own top-level package name; both installed into the same environment would collide).
 
-See the root `README.md`'s "Consuming platform-core in place" section for the full picture, and platform-core's own `README.md`/`CLAUDE.md` for what it provides.
+See the root `README.md`'s "Consuming platform-core in place" section for the full picture, and platform-core's own `README.md`/`AGENTS.md` for what it provides.
 
 ## Stack
 
