@@ -1,3 +1,6 @@
 [submodule "platform-core"]
 	path = apps/platform-core
 	url = https://github.com/EugeneNguyen/platform-core.git
+[submodule "platform-auth"]
+	path = apps/platform-auth
+	url = https://github.com/EugeneNguyen/platform-auth.git
