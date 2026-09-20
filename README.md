@@ -16,8 +16,8 @@ git submodule update --init
 
 ## Stack
 
-- **Backend** (`backend/`): FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL + Alembic + JWT/argon2, from `platform-core/backend`. See `backend/README.md`.
-- **Frontend** (`frontend/`): React 18 + Vite + TypeScript, TanStack Query, react-hook-form + zod, from `platform-core/frontend`. Tabler is GoalNexa's own npm-installed design-system entry point (not platform-core's CDN link — see `frontend/README.md`).
+- **Backend** (`backend/`): FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL + Alembic + JWT/argon2, from `apps/platform-core/backend`. See `backend/README.md`.
+- **Frontend** (`frontend/`): React 18 + Vite + TypeScript, TanStack Query, react-hook-form + zod, from `apps/platform-core/frontend`. Tabler is GoalNexa's own npm-installed design-system entry point (not platform-core's CDN link — see `frontend/README.md`).
 
 ## Quickstart
 
@@ -27,7 +27,7 @@ docker compose up --build
 
 Single external entrypoint: nginx listens on **http://localhost:30566** and routes `/api/*` to the backend (passthrough — platform-core's own routes are mounted under `/api/v1/...`, `/api/health` is the one exception, see `nginx/default.conf`) and everything else, including Vite's HMR websocket, to the frontend dev server. The backend and frontend containers have no host port of their own; only nginx is exposed.
 
-- App: http://localhost:30566 (hot-reloads on `frontend/src` and `platform-core/frontend/src` changes)
+- App: http://localhost:30566 (hot-reloads on `frontend/src` and `apps/platform-core/frontend/src` changes)
 - API: http://localhost:30566/api/v1/* (runs both migration chains on boot, hot-reloads on `backend/goalnexa_ext` changes)
 - Postgres: localhost:5432 (user/pass/db: `goalnexa`)
 
@@ -37,8 +37,8 @@ First run: open http://localhost:30566/signup — signup is bootstrap-only (the 
 
 Two integration shapes exist for a project that wants platform-core's auth/org/RBAC/CRUD/design-system plumbing — "copy the pieces" (own a copy) or "consume in place" (import the submodule's source directly, stay a `git submodule update` away from upstream fixes). GoalNexa uses the latter. Concretely:
 
-- **Backend**: `backend/goalnexa_ext` is GoalNexa's own package (deliberately not named `app` — that's platform-core's own top-level package name, and both being on the same `PYTHONPATH` would collide). `pip install -e ../platform-core/backend` adds platform-core's `app` package to this environment as source (not copied); `backend/goalnexa_ext/asgi.py` is the real ASGI entrypoint — it imports platform-core's already-fully-wired `app.main:app`, mounts `goalnexa_ext`'s own `Goal` routes onto it, and calls `register_entity_config()` (a platform-core extension point added specifically for this — see below) so the generic admin frontend can render Goal with zero platform-core edits. GoalNexa's own Alembic chain (`backend/alembic/`, separate `version_table` from platform-core's) creates just the `goal` table and grants its permissions to platform-core's already-seeded system roles — it never touches platform-core's own migration history.
-- **Frontend**: `frontend/src/main.tsx` imports `App` and `registerOrgScopedEntity` directly from `../platform-core/frontend/src/...` and calls `registerOrgScopedEntity({key: "goal", label: "Goals"})` before rendering. `frontend/scripts/link-platform-core-node-modules.mjs` (this project's own `postinstall`) symlinks `platform-core/frontend/node_modules` to this project's own — without it, two independently-installed copies of React would load into the same page (a real "Invalid hook call" crash, not theoretical — see that script's own comments for the exact bug this hit during development). `frontend/src/App.smoke.test.tsx` renders platform-core's `App` from inside this project specifically to catch a regression there.
+- **Backend**: `backend/goalnexa_ext` is GoalNexa's own package (deliberately not named `app` — that's platform-core's own top-level package name, and both being on the same `PYTHONPATH` would collide). `pip install -e ../apps/platform-core/backend` adds platform-core's `app` package to this environment as source (not copied); `backend/goalnexa_ext/asgi.py` is the real ASGI entrypoint — it imports platform-core's already-fully-wired `app.main:app`, mounts `goalnexa_ext`'s own `Goal` routes onto it, and calls `register_entity_config()` (a platform-core extension point added specifically for this — see below) so the generic admin frontend can render Goal with zero platform-core edits. GoalNexa's own Alembic chain (`backend/alembic/`, separate `version_table` from platform-core's) creates just the `goal` table and grants its permissions to platform-core's already-seeded system roles — it never touches platform-core's own migration history.
+- **Frontend**: `frontend/src/main.tsx` imports `App` and `registerOrgScopedEntity` directly from `../apps/platform-core/frontend/src/...` and calls `registerOrgScopedEntity({key: "goal", label: "Goals"})` before rendering. `frontend/scripts/link-platform-core-node-modules.mjs` (this project's own `postinstall`) symlinks `apps/platform-core/frontend/node_modules` to this project's own — without it, two independently-installed copies of React would load into the same page (a real "Invalid hook call" crash, not theoretical — see that script's own comments for the exact bug this hit during development). `frontend/src/App.smoke.test.tsx` renders platform-core's `App` from inside this project specifically to catch a regression there.
 - **Extension points added to platform-core itself**: adding a new entity's schema-introspection support (`entity_registry.py`'s `register_entity_config()`) and admin-nav registration (`registry.ts`'s `registerOrgScopedEntity()`/`registerProjectScopedEntity()`) originally required editing those files directly — fine for "copy the pieces," not for a pristine submodule. Both functions were added upstream (in platform-core) specifically to make "consume in place" viable for a real entity, not just auth/org/RBAC passthrough.
 
 ## Adding a new entity

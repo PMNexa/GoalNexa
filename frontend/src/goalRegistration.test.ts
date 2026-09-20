@@ -5,7 +5,7 @@ import {
   entityLabelByKey,
   orgScopedEntities,
   registerOrgScopedEntity,
-} from "../../platform-core/frontend/src/pages/admin/registry";
+} from "../../apps/platform-core/frontend/src/pages/admin/registry";
 
 /**
  * Confirms GoalNexa's own registration call (main.tsx) actually lands in

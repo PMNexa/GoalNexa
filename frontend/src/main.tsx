@@ -17,8 +17,8 @@ import "@fortawesome/fontawesome-free/css/all.min.css";
 // directly from the git submodule rather than copied into this project
 // (see README.md). `App` already wraps its routes in `AuthProvider`
 // internally, so nothing else needs to here.
-import App from "../../platform-core/frontend/src/App";
-import { registerOrgScopedEntity } from "../../platform-core/frontend/src/pages/admin/registry";
+import App from "../../apps/platform-core/frontend/src/App";
+import { registerOrgScopedEntity } from "../../apps/platform-core/frontend/src/pages/admin/registry";
 
 // Registers GoalNexa's own `Goal` entity into platform-core's generic admin
 // CRUD surface — must run before the app's first render (see

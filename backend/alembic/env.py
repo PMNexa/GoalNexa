@@ -4,7 +4,7 @@ Distinct from platform-core's own `alembic/versions/` chain (a separate
 `script_location`/`version_table`, run separately — see this project's
 README) — this chain only ever creates/seeds `goalnexa_ext`'s own tables
 (`goal`) and data (its RBAC permission grants). It must run AFTER
-platform-core's own chain (`cd platform-core/backend && alembic upgrade
+platform-core's own chain (`cd apps/platform-core/backend && alembic upgrade
 head`) has already created `organization`/`role`/`permission`/etc., since
 `0002_seed_goal_permissions.py` looks those rows up by name.
 
@@ -21,7 +21,7 @@ from pathlib import Path
 # Makes platform-core's `app` package importable as a plain top-level
 # package (not copied here — see README.md's "consume in place" note) even
 # if the caller didn't export PYTHONPATH themselves.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "platform-core" / "backend"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "apps" / "platform-core" / "backend"))
 
 from app.core.config import settings
 from sqlalchemy import pool

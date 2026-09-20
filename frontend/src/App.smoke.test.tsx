@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
-import App from "../../platform-core/frontend/src/App";
+import App from "../../apps/platform-core/frontend/src/App";
 
 /**
  * The critical regression this guards against isn't "does the route render

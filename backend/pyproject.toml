@@ -7,7 +7,7 @@ submodule (auth/orgs/RBAC/generic CRUD factory). Consumes platform-core "in
 place" via PYTHONPATH, not a copy — see README.md.
 """
 requires-python = ">=3.11"
-# Matches platform-core/backend/pyproject.toml's own dependency list
+# Matches apps/platform-core/backend/pyproject.toml's own dependency list
 # exactly. platform-core's `app` package is added to PYTHONPATH as source
 # (see README.md), not pip-installed as a separate distribution, so its own
 # runtime dependencies must be present in this same environment for its

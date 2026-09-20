@@ -1,6 +1,6 @@
 # GoalNexa backend
 
-Auth, orgs, RBAC, and the generic CRUD factory come from the [`platform-core`](https://github.com/EugeneNguyen/platform-core) git submodule (`../platform-core/backend`), consumed **in place** — added to this environment's Python path as source via an editable install, not copied. This directory (`backend/`) holds only GoalNexa's own product code: the `Goal` entity, under `goalnexa_ext/` (deliberately not named `app` — that's platform-core's own top-level package name; both installed into the same environment would collide).
+Auth, orgs, RBAC, and the generic CRUD factory come from the [`platform-core`](https://github.com/EugeneNguyen/platform-core) git submodule (`../apps/platform-core/backend`), consumed **in place** — added to this environment's Python path as source via an editable install, not copied. This directory (`backend/`) holds only GoalNexa's own product code: the `Goal` entity, under `goalnexa_ext/` (deliberately not named `app` — that's platform-core's own top-level package name; both installed into the same environment would collide).
 
 See the root `README.md`'s "Consuming platform-core in place" section for the full picture, and platform-core's own `README.md`/`CLAUDE.md` for what it provides.
 
@@ -13,7 +13,7 @@ Python 3.11+, FastAPI, SQLAlchemy 2.0 (async, `asyncpg`), Alembic (async migrati
 ```bash
 cd backend
 python3 -m venv .venv
-.venv/bin/pip install -e ../platform-core/backend   # platform-core's `app` package, as source
+.venv/bin/pip install -e ../apps/platform-core/backend   # platform-core's `app` package, as source
 .venv/bin/pip install -e ".[dev]"                    # goalnexa_ext
 cp .env.example .env   # adjust DATABASE_URL / JWT_SECRET for your environment
 ```
@@ -28,7 +28,7 @@ docker run --rm -d --name goalnexa-pg \
 
 ## Environment variables
 
-See `.env.example`. These are exactly what `platform-core/backend/app/core/config.py`'s `Settings` class reads — there's no GoalNexa-specific settings module.
+See `.env.example`. These are exactly what `apps/platform-core/backend/app/core/config.py`'s `Settings` class reads — there's no GoalNexa-specific settings module.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ CORS isn't configurable: platform-core's `main.py` hardcodes a permissive policy
 **Two separate migration chains, run in this order** — platform-core's own, then this project's:
 
 ```bash
-(cd ../platform-core/backend && ../../backend/.venv/bin/alembic upgrade head)   # organization, user, rbac, project, ...
+(cd ../apps/platform-core/backend && ../../backend/.venv/bin/alembic upgrade head)   # organization, user, rbac, project, ...
 .venv/bin/alembic upgrade head                                                  # goal, + its RBAC grants
 ```
 

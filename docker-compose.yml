@@ -31,16 +31,16 @@ services:
       APP_BASE_URL: http://localhost:30566
     working_dir: /app
     # Bind-mounts the whole repo root (not just ./backend) — this service
-    # needs the platform-core submodule alongside backend/ (see
-    # backend/README.md's "consume in place" note), same layout the
-    # Dockerfile's own build already assumes.
+    # needs the platform-core submodule (apps/platform-core/) alongside
+    # backend/ (see backend/README.md's "consume in place" note), same
+    # layout the Dockerfile's own build already assumes.
     volumes:
       - .:/app
     command: >
       sh -c "
-      pip install -e ./platform-core/backend --quiet &&
+      pip install -e ./apps/platform-core/backend --quiet &&
       pip install -e './backend[dev]' --quiet &&
-      (cd platform-core/backend && alembic upgrade head) &&
+      (cd apps/platform-core/backend && alembic upgrade head) &&
       (cd backend && alembic upgrade head) &&
       cd backend &&
       uvicorn goalnexa_ext.asgi:app --host 0.0.0.0 --port 8000 --reload
@@ -54,16 +54,16 @@ services:
     volumes:
       - .:/app
       - goalnexa-frontend-node-modules:/app/frontend/node_modules
-      # Shadows platform-core/frontend/node_modules with a container-only
-      # volume rather than letting `scripts/link-platform-core-node-modules.mjs`
-      # write a symlink into the bind-mounted submodule checkout — that
-      # symlink would point at a container-internal path
-      # (/app/frontend/node_modules) that dangles the moment you ran
-      # anything against this checkout outside Docker. Docker creates this
-      # mount point as an empty real directory; the postinstall script
-      # specifically handles "empty directory here" as safe to replace with
-      # its own symlink (see that script's own comment).
-      - goalnexa-platform-core-frontend-node-modules:/app/platform-core/frontend/node_modules
+      # Shadows apps/platform-core/frontend/node_modules with a
+      # container-only volume rather than letting
+      # `scripts/link-platform-core-node-modules.mjs` write a symlink into
+      # the bind-mounted submodule checkout — that symlink would point at a
+      # container-internal path (/app/frontend/node_modules) that dangles
+      # the moment you ran anything against this checkout outside Docker.
+      # Docker creates this mount point as an empty real directory; the
+      # postinstall script specifically handles "empty directory here" as
+      # safe to replace with its own symlink (see that script's own comment).
+      - goalnexa-platform-core-frontend-node-modules:/app/apps/platform-core/frontend/node_modules
     # `rm -f package-lock.json` before install: a documented npm bug
     # (npm/cli#4828) can leave a lockfile generated on one platform (this
     # repo's committed one was generated on macOS/arm64) missing the correct

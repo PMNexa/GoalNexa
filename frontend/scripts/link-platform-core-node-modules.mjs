@@ -43,7 +43,7 @@ import { fileURLToPath } from "node:url";
 
 const frontendDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(frontendDir, "..");
-const platformCoreFrontend = join(repoRoot, "platform-core", "frontend");
+const platformCoreFrontend = join(repoRoot, "apps", "platform-core", "frontend");
 const target = join(frontendDir, "node_modules");
 const linkPath = join(platformCoreFrontend, "node_modules");
 const relativeTarget = relative(platformCoreFrontend, target);

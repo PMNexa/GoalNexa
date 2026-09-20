@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 
 // GoalNexa frontend. Consumes the platform-core git submodule "in place" —
 // main.tsx imports App/registerOrgScopedEntity etc. directly from
-// ../platform-core/frontend/src, rather than a copy of that code living
+// ../apps/platform-core/frontend/src, rather than a copy of that code living
 // here (see README.md).
 //
 // The dev server proxies /api to the backend so the app can use a single
@@ -18,20 +18,20 @@ export default defineConfig({
   server: {
     port: 30566,
     // Vite restricts serving files outside the project root by default —
-    // platform-core/frontend/src (a sibling of this frontend/ directory,
+    // apps/platform-core/frontend/src (a sibling of this frontend/ directory,
     // both under the repo root) needs an explicit allow.
     fs: {
       allow: [repoRoot],
     },
     proxy: {
       // platform-core's own backend mounts every feature router under
-      // prefix="/api/v1" (see platform-core/backend/app/main.py) — the
+      // prefix="/api/v1" (see apps/platform-core/backend/app/main.py) — the
       // frontend's request paths (e.g. `/api/v1/auth/login`) ARE the
       // backend's real routes, so this must pass through unchanged, not
       // strip `/api` the way a bare-mounted backend's proxy would. `/health`
       // is the one exception: platform-core mounts it with no prefix at
       // all, so it needs its own explicit rewrite (matches
-      // platform-core/nginx/nginx.dev.conf's own two-rule split exactly).
+      // platform-core's own nginx/nginx.dev.conf two-rule split exactly).
       "/api/health": {
         target: "http://localhost:8000",
         changeOrigin: true,
@@ -49,7 +49,7 @@ export default defineConfig({
     // packages — regardless of which physical node_modules a given import
     // site would otherwise walk up to — to the one copy this project
     // installs. Without this, React loaded twice (once via this project's
-    // own node_modules, once via platform-core/frontend's, if the symlink
+    // own node_modules, once via apps/platform-core/frontend's, if the symlink
     // were ever missing) throws the classic "Invalid hook call" crash.
     dedupe: ["react", "react-dom", "react-router-dom", "@tanstack/react-query", "react-hook-form", "zod"],
   },

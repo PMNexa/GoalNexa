@@ -1,13 +1,13 @@
 # Build context is the REPO ROOT (see docker-compose.yml's `context: .`,
 # `dockerfile: frontend/Dockerfile`), not this directory — this image needs
-# both `frontend/` and the `platform-core/` git submodule, which sits at the
-# repo root as a sibling of `frontend/`, not inside it (see README.md's
+# both `frontend/` and the `apps/platform-core/` git submodule, which sits
+# at the repo root under apps/, not inside frontend/ (see README.md's
 # "consume in place" note).
 
 # Build stage
 FROM node:20 AS build
 WORKDIR /app
-COPY platform-core/frontend ./platform-core/frontend
+COPY apps/platform-core/frontend ./apps/platform-core/frontend
 COPY frontend/package.json frontend/package-lock.json* ./frontend/
 COPY frontend/scripts ./frontend/scripts
 WORKDIR /app/frontend
