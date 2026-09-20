@@ -28,6 +28,30 @@ See `modules.yaml` for the machine-readable version of this list.
 `MODULES_MANIFEST_PATH=<path to this repo's modules.yaml>` — see its own
 README for the full env var.
 
-## Running a module
+## Running the whole platform
 
-Each module has its own backend/frontend and its own setup instructions — see that module's own README. There is no root-level `docker compose up` for the whole platform yet; that's follow-up work once there's an actual gateway composing these modules together (see the architecture doc).
+```
+docker compose up --build
+```
+
+Brings up every module's backend + frontend together (currently
+platform-auth + platform-core), wired via `modules.yaml`. No single
+external entrypoint yet (see the architecture doc — a real gateway is
+future work), so each service is exposed on its own host port:
+
+| Service | URL |
+|---|---|
+| platform-core frontend | http://localhost:5174 |
+| platform-core backend | http://localhost:8000 |
+| platform-auth frontend | http://localhost:5173 |
+| platform-auth backend | http://localhost:8001 |
+| Postgres (platform-auth's) | localhost:5432 |
+
+platform-core's frontend fetches `GET /modules` and, for a module with a
+`frontend_url`, hands the browser off to it (a full page navigation, not
+module federation) — visit http://localhost:5174 and follow the link to
+platform-auth to see this in action.
+
+## Running a single module
+
+Each module has its own backend/frontend and its own setup instructions — see that module's own README.
