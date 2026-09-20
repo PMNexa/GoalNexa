@@ -24,6 +24,9 @@ git submodule update --init
 | platform-auth | module | `apps/platform-auth` | [EugeneNguyen/platform-auth](https://github.com/EugeneNguyen/platform-auth) |
 
 See `modules.yaml` for the machine-readable version of this list.
+`platform-core` reads it (as `GET /modules`) when started with
+`MODULES_MANIFEST_PATH=<path to this repo's modules.yaml>` — see its own
+README for the full env var.
 
 ## Running a module
 
