@@ -3,7 +3,9 @@
 # Static for now - a human/tooling-readable list of what's wired in. See
 # docs/architecture/microservices-design.md for the planned dynamic version
 # of this (POST /internal/modules/register at runtime); this file is
-# today's stand-in, read by backend/goalnexa_ext/modules.py.
+# today's stand-in. No code reads this yet (GoalNexa's root has no backend
+# of its own) - it's documentation until a gateway/core process exists to
+# load it.
 
 modules:
   - name: platform-core

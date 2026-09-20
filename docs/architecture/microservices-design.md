@@ -1,6 +1,6 @@
 # GoalNexa microservice system design
 
-Status: proposed, not yet implemented. Today's actual architecture is `backend/goalnexa_ext` + the `platform-core` git submodule, consumed in place inside one deployable (see root `README.md`). This document defines the target architecture for splitting GoalNexa into independently deployable, independently enable/disable-able modules, each in its own repo with its own frontend/backend/MCP server — and a phased path from where we are today to that target.
+Status: proposed, not yet implemented. Today's actual architecture is a step toward this already: GoalNexa's root holds no backend/frontend of its own, only an `apps/` folder of independent git submodules (`platform-core`, `platform-auth`, ...), each with its own repo/backend/frontend, listed in root `modules.yaml` (see root `README.md`/`AGENTS.md`). What's still missing versus this document's target: a real gateway/registry process, dynamic module registration, an event bus, and per-module MCP servers — this document defines that target and a phased path to it.
 
 ## Why now, not hypothetically
 
