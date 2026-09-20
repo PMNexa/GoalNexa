@@ -1,12 +1,7 @@
-# Serves the whole platform for local dev: platform-auth (backend+frontend)
-# and platform-core (backend+frontend), wired together via modules.yaml.
-#
-# No single external entrypoint yet (see docs/architecture/
-# microservices-design.md - a real gateway is future work) - each
-# service is exposed on its own host port directly. This actually matches
-# how the pieces work today: platform-core's frontend hands the browser
-# off to another module's frontend_url via a full page navigation, which
-# only works if that URL is something the browser can reach directly.
+# Serves the whole platform behind a single external port (nginx) - see
+# nginx/default.conf for the path-prefix routing (mirrors modules.yaml's
+# url_prefix per module). Every other service is internal-only on the
+# compose network, not exposed to the host directly.
 services:
   postgres:
     image: postgres:16
@@ -38,8 +33,7 @@ services:
       JWT_SECRET: dev-secret-change-me
       JWT_ACCESS_TTL_MINUTES: "15"
       JWT_REFRESH_TTL_DAYS: "30"
-    ports:
-      - "8001:8000"
+      URL_PREFIX: /platform-auth
     command: >
       sh -c "
       python manage.py migrate &&
@@ -52,12 +46,13 @@ services:
     depends_on:
       - platform-auth-backend
     environment:
-      VITE_API_BASE_URL: http://localhost:8001
+      # This module is mounted at /platform-auth behind nginx - both the
+      # Vite base path (own asset/HMR URLs) and the API base (own fetch
+      # calls) need that same prefix, matching modules.yaml's url_prefix.
+      VITE_API_BASE_URL: /platform-auth
     volumes:
       - ./apps/platform-auth/frontend:/app
       - platform-auth-frontend-node-modules:/app/node_modules
-    ports:
-      - "5173:5173"
     # rm -f package-lock.json / retry dance: works around a documented npm
     # bug (npm/cli#4828) where an optional native dependency
     # (@rollup/rollup-*) intermittently fails to install.
@@ -66,7 +61,7 @@ services:
       rm -f package-lock.json &&
       npm install &&
       (node -e \"require('rollup')\" || npm install --force) &&
-      npm run dev -- --host 0.0.0.0
+      npm run dev -- --host 0.0.0.0 --base=/platform-auth/
       "
 
   platform-core-backend:
@@ -79,21 +74,15 @@ services:
       MODULES_MANIFEST_PATH: /modules.yaml
     volumes:
       - ./modules.yaml:/modules.yaml:ro
-    ports:
-      - "8000:8000"
 
   platform-core-frontend:
     image: node:20
     working_dir: /app
     depends_on:
       - platform-core-backend
-    environment:
-      VITE_API_BASE_URL: http://localhost:8000
     volumes:
       - ./apps/platform-core/frontend:/app
       - platform-core-frontend-node-modules:/app/node_modules
-    ports:
-      - "5174:5174"
     command: >
       sh -c "
       rm -f package-lock.json &&
@@ -101,6 +90,18 @@ services:
       (node -e \"require('rollup')\" || npm install --force) &&
       npm run dev -- --host 0.0.0.0 --port 5174
       "
+
+  nginx:
+    image: nginx:alpine
+    depends_on:
+      - platform-core-backend
+      - platform-core-frontend
+      - platform-auth-backend
+      - platform-auth-frontend
+    ports:
+      - "41830:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
 volumes:
   platform-auth-postgres-data:

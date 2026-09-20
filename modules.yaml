@@ -3,9 +3,9 @@
 # Static for now - a human/tooling-readable list of what's wired in. See
 # docs/architecture/microservices-design.md for the planned dynamic version
 # of this (POST /internal/modules/register at runtime); this file is
-# today's stand-in. Read by platform-core's backend (GET /modules, via
-# MODULES_MANIFEST_PATH) and its frontend shell (which links out to each
-# module's own frontend_url).
+# today's stand-in. Read by platform-core's backend (GET /api/modules, via
+# MODULES_MANIFEST_PATH) and its frontend shell (which links to each
+# module's url_prefix - same origin, single port, see nginx/default.conf).
 
 modules:
   - name: platform-core
@@ -18,5 +18,8 @@ modules:
     kind: module
     path: apps/platform-auth
     repo: https://github.com/EugeneNguyen/platform-auth.git
-    frontend_url: http://localhost:5173
+    # Path this module is mounted at behind the single-port gateway -
+    # nginx/default.conf proxies "/platform-auth/" to this module's
+    # frontend and "/platform-auth/api/" to its backend's own "/api/".
+    url_prefix: /platform-auth
     enabled: true

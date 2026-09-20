@@ -17,9 +17,10 @@ matching `platform-auth`'s shape (own backend, own frontend, own repo).
 
 | Path | What |
 |---|---|
-| `modules.yaml` | Static registry of which modules this platform composes (name, kind, path, repo, enabled). See that file's own header comment for the planned dynamic version. |
-| `apps/platform-core/` | git submodule. FastAPI+SQLAlchemy backend, React+Tabler frontend. Auth/orgs/RBAC/generic-CRUD-factory (kernel). Own repo, own AGENTS.md — read that for what it provides, don't duplicate that knowledge here. |
-| `apps/platform-auth/` | git submodule. Django+DRF backend, React+Tabler frontend. Standalone login module. Own repo, own AGENTS.md. |
+| `modules.yaml` | Static registry of which modules this platform composes (name, kind, path, repo, `url_prefix`, enabled). See that file's own header comment for the planned dynamic version. |
+| `docker-compose.yml` / `nginx/default.conf` | The single-port gateway that actually composes every module for local dev — nginx routes each module's `url_prefix` to its own frontend/backend containers. Add a new module here too (two location blocks) when you add one to `modules.yaml`. |
+| `apps/platform-core/` | git submodule. Django+DRF kernel: no models, shared conventions only (`core_api/`), plus a thin React Router frontend shell that lists modules from `GET /api/modules`. Own repo, own AGENTS.md — read that for what it provides, don't duplicate that knowledge here. |
+| `apps/platform-auth/` | git submodule. Django+DRF backend, React frontend. Standalone login module, mounted at `/platform-auth`. Own repo, own AGENTS.md. |
 | `docs/architecture/` | Target-state design docs (microservices/module system). Not yet implemented — see status note in that doc. |
 | `docs/product-discovery/` | Market/customer research, not implementation-relevant. |
 
@@ -27,8 +28,13 @@ matching `platform-auth`'s shape (own backend, own frontend, own repo).
 
 Follow `platform-auth` as the template: its own repo, its own
 `backend/`+`frontend/`, own AGENTS.md, added here via
-`git submodule add <repo> apps/<name>`, then listed in `modules.yaml`.
-Don't build a new capability directly in this repo's root.
+`git submodule add <repo> apps/<name>`, then listed in `modules.yaml`
+with a `url_prefix`. Don't build a new capability directly in this repo's
+root. Also add two `location` blocks to `nginx/default.conf` (api, then
+frontend) and a backend+frontend service pair to `docker-compose.yml` —
+see `platform-auth`'s own entries for the pattern (its backend reads
+`URL_PREFIX` so any absolute cookie paths stay correct under the prefix;
+its frontend is started with `vite --base=<url_prefix>/`).
 
 ## History note
 
