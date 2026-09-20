@@ -1,8 +1,17 @@
 [project]
-name = "goalnexa-backend"
+name = "goalnexa-backend-ext"
 version = "0.1.0"
-description = "GoalNexa: a self-hosted goal/habit/OKR tracker backend (personal + team use)."
+description = """
+GoalNexa backend extension: the `Goal` entity, on top of the platform-core
+submodule (auth/orgs/RBAC/generic CRUD factory). Consumes platform-core "in
+place" via PYTHONPATH, not a copy — see README.md.
+"""
 requires-python = ">=3.11"
+# Matches platform-core/backend/pyproject.toml's own dependency list
+# exactly. platform-core's `app` package is added to PYTHONPATH as source
+# (see README.md), not pip-installed as a separate distribution, so its own
+# runtime dependencies must be present in this same environment for its
+# imports to resolve.
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
@@ -33,7 +42,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["goalnexa_ext*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

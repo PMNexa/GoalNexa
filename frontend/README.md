@@ -1,24 +1,14 @@
 # GoalNexa Frontend
 
-A self-hosted goal/habit/OKR tracker (personal + team use). This is the React
-frontend, built with a small, config-driven "entity CRUD" engine so new
-tracked entity types (habits, OKRs, ...) can be added later by writing a
-declarative `EntityConfig`, not new pages.
+Auth, the design-system components, the generic entity-CRUD engine, and the app shell all come from the [`platform-core`](https://github.com/EugeneNguyen/platform-core) git submodule (`../platform-core/frontend`), consumed **in place** — `src/main.tsx` imports `App` and `registerOrgScopedEntity` directly from `../platform-core/frontend/src/...`, not a copy of that code. This directory's own source is deliberately tiny: `main.tsx` (registers the `Goal` entity, sets up the design system, mounts `App`) plus test files that exercise the "consume in place" wiring itself.
+
+See the root `README.md`'s "Consuming platform-core in place" section for the full picture.
 
 ## Stack
 
-- React 18 + Vite 5 + TypeScript 5
-- React Router v6 (flat routes, no layout routes)
-- TanStack Query v5 for server state
-- React Hook Form + Zod for forms/validation (uncontrolled inputs via
-  `register()` only - this codebase never uses RHF's `Controller`)
-- Tabler (`@tabler/core`, built on Bootstrap 5) for styling — installed as
-  an npm package rather than loaded from a CDN, since this is a self-hosted
-  app (raw utility/component classes in JSX, no CSS-in-JS, no component
-  library; Tabler's own JS bundle is not loaded — all interactive state,
-  e.g. the org-switcher dropdown, is plain React state)
-- Font Awesome Free for icons
-- Vitest + Testing Library for tests
+React 18, Vite 5, TypeScript 5, React Router v6, TanStack Query v5, React Hook Form + Zod — all platform-core's own choices, since its source is what actually renders. This project's own `package.json` declares the exact same runtime dependency versions platform-core's does, for a reason that matters more than usual here: see "Why the symlink" below.
+
+**Design system**: Tabler (`@tabler/core`), installed as an npm package here rather than loaded from platform-core's own CDN `<link>` (see `../platform-core/frontend/index.html`) — GoalNexa is self-hosted, and its core UI shouldn't depend on jsdelivr being reachable at runtime. Font Awesome for icons. Both imported once in `main.tsx`; platform-core's own source files carry no CSS imports of their own, so this is enough for every component rendered through `App`.
 
 ## Getting started
 
@@ -27,22 +17,29 @@ npm install
 npm run dev
 ```
 
-The dev server runs on `http://localhost:30566` and proxies any request to
-`/api/*` to `http://localhost:8000` (see `vite.config.ts`), where the
-GoalNexa backend is expected to be running. Under `docker compose up`
-instead, nginx is the single entrypoint on the same port and does this same
-`/api/*` routing (see `../nginx/default.conf`) — either way the app calls
-relative `/api/...` paths by default, so it works unmodified in both setups.
+`npm install`'s `postinstall` runs `scripts/link-platform-core-node-modules.mjs` automatically — see "Why the symlink" below before assuming you can skip it.
+
+The dev server runs on `http://localhost:30566` and proxies `/api/*` to `http://localhost:8000` (see `vite.config.ts`) — platform-core's own backend mounts everything under `/api/v1/...` except `/health`, so this must pass the path through unchanged rather than stripping `/api`, with one explicit exception for `/api/health`. Under `docker compose up`, nginx does the same routing on the same port (see `../nginx/default.conf`) — either way the app calls relative `/api/...` paths by default, so it works unmodified in both setups.
 
 ### Environment variables
 
-Copy `.env.example` to `.env` only if you want to point the frontend at a
-backend that isn't reachable via the dev proxy / nginx (e.g. a remote or
-staging API):
+Copy `.env.example` to `.env` only if you want to point the frontend at a backend that isn't reachable via the dev proxy / nginx (e.g. a remote or staging API):
 
 ```
 VITE_API_BASE_URL=http://localhost:8000
 ```
+
+## Why the symlink
+
+Node/Vite resolves a bare import (`react`, `react-router-dom`, ...) by walking **up the directory tree from the importing file's own location** looking for a `node_modules` folder. A file under `../platform-core/frontend/src/...` walking up from there would find `platform-core/frontend/node_modules` (if it existed) or `platform-core/node_modules` — neither of which is an ancestor of this project's own `frontend/node_modules`, since `frontend/` and `platform-core/` are siblings under the repo root.
+
+Left alone, that means npm-installing `platform-core/frontend` separately would give the page **two independent copies of React** — components under `platform-core/frontend/src` (i.e. almost the whole app) would use one, this project's own two files would use the other. React's hooks require every component in a tree to share exactly one React module instance; two copies throws the classic "Invalid hook call" error the moment anything tries to render.
+
+`scripts/link-platform-core-node-modules.mjs` (this project's own `postinstall`) fixes this by symlinking `platform-core/frontend/node_modules` to this project's own — so the directory walk described above finds this project's copy instead of a second one. It's a **relative** symlink (`../../frontend/node_modules`), not absolute — an absolute one bit a real bug during development: the same script also runs inside the docker-compose frontend container's own `npm install`, and an absolute container-internal path written into the bind-mounted host checkout dangled the moment anything ran against it outside Docker (see the script's own comments for the full story, including a second real bug it hit: `fs.rmSync` on a symlink-to-a-directory throws "Path is a directory" unless given `recursive: true`, which a naive `catch {}` silently swallowed).
+
+`vite.config.ts`'s `resolve.dedupe` is a second, independent layer of defense against the same failure mode.
+
+`src/App.smoke.test.tsx` is the regression test for all of this: it renders platform-core's actual `App` from inside this project and asserts it doesn't throw. A passing `npm run build` alone would **not** catch a broken symlink — bundlers happily bundle two copies of a package without erroring; only a real render exercises React's hook-dispatcher singleton check.
 
 ## Scripts
 
@@ -53,57 +50,13 @@ VITE_API_BASE_URL=http://localhost:8000
 - `npm run test` - run the Vitest suite once
 - `npm run test:watch` - run Vitest in watch mode
 
-## Architecture notes
+## Adding a new entity
 
-- **Auth** (`src/lib/auth/tokenStore.ts`, `src/lib/api/client.ts`,
-  `src/auth/AuthContext.tsx`): the access token lives in an in-memory module
-  singleton, never localStorage - deliberate, since `apiFetch` needs a
-  synchronous read outside of React and an in-memory token backed by an
-  httpOnly refresh cookie is less exposed to XSS than a token sitting in
-  localStorage. `apiFetch` retries once on a 401 via a deduped
-  `requestRefresh()` (refresh tokens are single-use, so concurrent callers
-  share one in-flight refresh); a failed refresh clears the token and does a
-  full `window.location.assign("/login")` reload to guarantee all in-memory
-  state is wiped.
-- **RBAC**: there is no role/admin boolean in the client. Every write
-  affordance is gated by `usePermissions(orgId).has("<resource>.<action>")`,
-  which fails closed (returns `false` while loading or on error) and hides
-  the element entirely rather than disabling it. The server remains the real
-  enforcement point; these checks are UX-only. Sidebar nav links are
-  deliberately *not* permission-gated - navigating to something you can't
-  use just surfaces the API's 403.
-- **Entity CRUD engine** (`src/entityConfigs/`, `src/lib/api/entityCrud.ts`,
-  `src/components/organisms/entity-form`, `entity-table`,
-  `src/container/entity-crud/`): list/detail/form pages, the table, and the
-  form (including its Zod schema) are all generated from a static
-  `EntityConfig` object (see `src/entityConfigs/goal.ts` for the one entity
-  currently wired up, Goal). Adding a new tracked entity is meant to mostly
-  be "write a new `EntityConfig` + register it in
-  `entityConfigByKey`", not new page components.
+One line in `main.tsx`: `registerOrgScopedEntity({key: "<resource>s", label: "<Label>"})`, called before `ReactDOM.createRoot(...).render(...)`. `registerOrgScopedEntity` (from `platform-core/frontend/src/pages/admin/registry.ts`) is an extension point added to platform-core specifically for a git-submodule consumer — it mutates the registry's existing arrays/maps in place rather than requiring an edit to that file, so `AppSidebar`/`AppBreadcrumb`/`useEntitySchema` all pick it up with no platform-core changes. The matching backend half is `backend/goalnexa_ext/routes/<entity>.py`'s `register_entity_config()` call — see `../backend/README.md`. Once both are registered, the list/form/detail admin pages are fully generic; no new frontend page code is needed.
 
 ## Testing
 
-A handful of smoke tests exercise the load-bearing pieces:
+- `src/App.smoke.test.tsx` - renders platform-core's `App` from inside this project; the regression test for the "consume in place" symlink setup (see above).
+- `src/goalRegistration.test.ts` - confirms `registerOrgScopedEntity` actually lands in platform-core's registry (and is a no-op on a duplicate key).
 
-- `src/auth/ProtectedRoute.test.tsx` - unauthenticated visitors get redirected
-  to `/login`.
-- `src/components/organisms/entity-form/entity-form.test.tsx` - the
-  config-driven form surfaces Zod validation errors for required fields.
-- `src/components/atoms/button/button.test.tsx` - trivial render check
-  confirming the test runner itself works.
-
-This is not full coverage - see TODOs below.
-
-## Known TODOs / deviations for a human to revisit
-
-- Test coverage is intentionally minimal (a handful of smoke tests, not a
-  full suite) per the scaffold's scope.
-- `EntityTable` sorting toggles asc -> desc -> unsorted client-side state;
-  it assumes the backend understands a `sort` query param of `field` /
-  `-field`, matching the API contract's `GET /goals?...&sort=` param but not
-  yet verified against a live backend.
-- The org switcher and `OrgMembers` invite/suspend flows are wired against
-  the documented API contract but have not been exercised against a running
-  backend (per the task, the backend is being built in parallel).
-- No dark/light theme toggle, no responsive collapse for the sidebar on
-  mobile - the shell is intentionally minimal.
+Platform-core's own frontend test suite (component-level, ~600 tests as of this writing) covers everything it renders — `AppShell`, `AppHeader`, `Login`, the generic `EntityTable`/`EntityForm`, etc. — from inside its own repo; this project doesn't re-test that.
