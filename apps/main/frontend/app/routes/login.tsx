@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { RemoteLogin } from "platform-auth-frontend";
+import { LoginScreen } from "platform-auth-frontend";
 import type { Route } from "./+types/login";
 
 export function meta({}: Route.MetaArgs) {
@@ -8,5 +8,5 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Login() {
   const navigate = useNavigate();
-  return <RemoteLogin onSuccess={() => navigate("/", { replace: true })} />;
+  return <LoginScreen onSuccess={() => navigate("/", { replace: true })} />;
 }

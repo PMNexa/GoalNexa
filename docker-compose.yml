@@ -16,13 +16,19 @@ services:
       "
 
   main-frontend:
-    image: node:20
-    working_dir: /app
+    image: node:22
+    working_dir: /apps/main/frontend
     depends_on:
       - main-backend
+    # Mounts the whole apps/ tree, not just apps/main/frontend: main's
+    # package.json depends on platform-auth-frontend via a relative
+    # `file:../../platform-auth/frontend` path (see the frontend rule in
+    # root AGENTS.md), so that sibling directory has to be present in the
+    # container too, at the same relative position, for npm's symlink to
+    # resolve.
     volumes:
-      - ./apps/main/frontend:/app
-      - main-frontend-node-modules:/app/node_modules
+      - ./apps:/apps
+      - main-frontend-node-modules:/apps/main/frontend/node_modules
     ports:
       - "3000:3000"
     # rm -f package-lock.json / retry dance: works around a documented npm
