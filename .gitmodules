@@ -7,6 +7,3 @@
 [submodule "platform-org"]
 	path = apps/platform-org
 	url = https://github.com/EugeneNguyen/platform-org.git
-[submodule "apps/platform-ui"]
-	path = apps/platform-ui
-	url = https://github.com/EugeneNguyen/platform-ui.git

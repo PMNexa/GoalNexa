@@ -48,7 +48,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
-        {/* Tabler's JS bundle (includes Bootstrap's) - platform-ui-frontend's
+        {/* Tabler's JS bundle (includes Bootstrap's) - platform-core's
             Sidebar organism uses data-bs-toggle="collapse" for its mobile
             navbar-toggler button, which is inert without it. Same "host
             loads the design system" convention as the Tabler CSS link

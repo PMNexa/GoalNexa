@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link as RouterLink, Outlet, useLocation } from "react-router";
-import { AppShell } from "platform-ui-frontend";
-import type { LinkComponentProps } from "platform-ui-frontend";
+import { AppShell } from "platform-core";
+import type { LinkComponentProps } from "platform-core";
 import { ORGS_PATH } from "platform-org-frontend";
 import { clearSession, getSession, subscribeSession } from "../lib/session";
 
@@ -19,8 +19,8 @@ const NAV_ITEMS = [
 ];
 
 /**
- * Wraps every screen except login/signup (see routes.ts) with platform-ui-
- * frontend's AppShell (sidemenu + sticky header). Owns the pieces AppShell
+ * Wraps every screen except login/signup (see routes.ts) with platform-
+ * core's AppShell (sidemenu + sticky header). Owns the pieces AppShell
  * deliberately doesn't: the router Link, the nav item list (spans multiple
  * modules' routes, so it can't live in any one module's package), and the
  * session read.

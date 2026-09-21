@@ -17,7 +17,7 @@ export default defineConfig({
     // Treat these as ordinary project source (processed by the react
     // plugin), not pre-built dependencies to pre-bundle - they're TS/TSX
     // source, not compiled JS.
-    exclude: ["platform-auth-frontend", "platform-org-frontend", "platform-ui-frontend"],
+    exclude: ["platform-auth-frontend", "platform-org-frontend", "platform-core"],
   },
   ssr: {
     // `resolve.dedupe` only affects Vite's client bundle graph - SSR by
@@ -33,7 +33,7 @@ export default defineConfig({
     noExternal: [
       "platform-auth-frontend",
       "platform-org-frontend",
-      "platform-ui-frontend",
+      "platform-core",
       "react-hook-form",
       "@hookform/resolvers",
     ],
