@@ -21,6 +21,15 @@ export const links: Route.LinksFunction = () => [
     rel: "stylesheet",
     href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
   },
+  // Tabler - screen packages (e.g. platform-auth-frontend's LoginScreen)
+  // are built against its class names (card, form-control, btn, alert,
+  // ...); a package's own index.html (which had its own Tabler <link>
+  // for standalone dev) isn't used when imported as a package, so this
+  // app - the one that actually owns the page shell - has to load it.
+  {
+    rel: "stylesheet",
+    href: "https://cdn.jsdelivr.net/npm/@tabler/core@1.5.1/dist/css/tabler.min.css",
+  },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
