@@ -4,14 +4,25 @@
 # their own; only nginx is exposed.
 services:
   main-backend:
-    build:
-      context: ./apps/main/backend
+    image: python:3.12-slim
+    working_dir: /apps/main/backend
     environment:
       DJANGO_DEBUG: "true"
       DJANGO_SECRET_KEY: dev-secret-change-me
       DJANGO_ALLOWED_HOSTS: "*"
+    # Mounts the whole apps/ tree, not just apps/main/backend: platform_auth
+    # is installed editable from the sibling apps/platform-auth/backend
+    # directory (see the backend rule in root AGENTS.md, mirroring the
+    # frontend's file: dependency) - that path has to exist in the
+    # container too, at the same relative position.
+    volumes:
+      - ./apps:/apps
+      - main-backend-venv:/apps/main/backend/.venv
     command: >
       sh -c "
+      python -m venv .venv &&
+      . .venv/bin/activate &&
+      pip install --no-cache-dir -q -r requirements.txt -e /apps/platform-auth/backend &&
       python manage.py migrate &&
       python manage.py runserver 0.0.0.0:8000
       "
@@ -53,3 +64,4 @@ services:
 
 volumes:
   main-frontend-node-modules:
+  main-backend-venv:

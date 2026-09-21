@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -39,6 +40,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    # Backend rule mirrors the frontend one: a module's backend is an
+    # importable Django app (packaged via that module's own
+    # pyproject.toml, editable-installed here) rather than a copy - see
+    # root AGENTS.md. Login/User/RefreshToken all come from this app.
+    'platform_auth',
 ]
 
 MIDDLEWARE = [
@@ -125,5 +131,24 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
-REST_FRAMEWORK = {}
+# --- platform_auth app config (same settings it reads via django.conf.settings
+# in its own security.py/views - see apps/platform-auth/backend/config/settings.py
+# for the reference values) ---
+JWT_SECRET = os.environ.get("JWT_SECRET", "dev-only-insecure-jwt-secret")
+JWT_ACCESS_TTL_MINUTES = float(os.environ.get("JWT_ACCESS_TTL_MINUTES", "15"))
+JWT_REFRESH_TTL_DAYS = int(os.environ.get("JWT_REFRESH_TTL_DAYS", "30"))
+REFRESH_COOKIE_NAME = "refresh_token"
+REFRESH_COOKIE_SECURE = os.environ.get("DJANGO_DEBUG", "true").lower() != "true"
+# main is the top-level app, not mounted under a gateway path prefix
+# itself - unlike platform-auth's own standalone deployment (which sets
+# this to e.g. "/platform-auth"), this stays empty.
+URL_PREFIX = ""
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": ["platform_auth.authentication.ActorAuthentication"],
+    "DEFAULT_PERMISSION_CLASSES": [],
+    "EXCEPTION_HANDLER": "core_api.exceptions.platform_auth_exception_handler",
+    "UNAUTHENTICATED_USER": None,
+}
