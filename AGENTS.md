@@ -96,6 +96,22 @@ full navigation (`page.goto`-style, session resets but the boot refresh
 restores it) — both are exercised in this feature's own verification,
 worth re-checking if you touch either.
 
+**App shell (sidemenu + sticky header)**: `platform-ui-frontend`'s
+`AppShell` wraps post-login screens only — `apps/main`'s `routes.ts` puts
+it behind `layout("routes/app-shell.tsx", [...])` around routes like
+`orgs.tsx`, while the public landing page (`home.tsx`) and login/signup
+stay outside it, unwrapped. `app-shell.tsx` is where main plugs in the
+pieces `AppShell` deliberately doesn't own: a `linkComponent` wrapping
+react-router's own `Link` (same "no router dependency inside the package"
+convention as the screens), the `navItems` list (spans routes from
+multiple modules — `ORGS_PATH` from `platform-org-frontend`, `/` for
+home — so it can't live inside any one module's package), and the
+session read for the header's user/logout display. "Log out" there only
+clears main's local session singleton — there's no backend `/logout`
+endpoint yet, so the refresh cookie is still valid and a full reload
+after logging out silently logs back in; fine for now, revisit once a
+real logout endpoint exists.
+
 ### Backend half
 
 A module's backend Django app is a pip package too (packaged via that
@@ -158,6 +174,7 @@ already, worth checking for again:**
 | `apps/main/` | The host app. `backend/` — Django+DRF, imports `platform_auth` as a pip package (see above); otherwise still empty (no models/apps of its own yet). `frontend/` — `create-react-router` scaffold; owns all routing, imports module packages for screens, loads Tabler. Plain directory, not a submodule. |
 | `apps/platform-auth/` | git submodule. Django+DRF backend (standalone, own Postgres, own `pyproject.toml` packaging its Django app for reuse) + a frontend package (own `package.json`/`exports`). Both halves are also consumed by `apps/main` — see above. Own repo, own AGENTS.md. |
 | `apps/platform-org/` | git submodule. Multi-tenant `Organization`/`OrgMembership`, same packaged-both-halves pattern as `platform-auth`. No User table of its own — see the "module with no User table" note above. No roles/permissions yet (deliberate follow-up, likely a `platform-rbac` module). Own repo, own AGENTS.md. |
+| `apps/platform-ui/` | git submodule. Frontend-only — no backend, no auth state. `AppShell` (sidemenu + sticky header), pure presentation, packaged the same "frontend npm package, main imports it" way. See the "App shell" note above. Own repo, own AGENTS.md. |
 | `apps/platform-core/` | git submodule. Django+DRF kernel (no models) + a Module Federation shell frontend — this was an earlier composition approach (runtime remote loading across separately-deployed apps), superseded by the package-import rule above for the active `apps/main` host. Not part of the default `docker-compose.yml`; kept for reference. |
 | `modules.yaml` | Written for the platform-core/platform-auth Module Federation phase (module registry with `url_prefix`/`remote_entry`). Not read by anything in the current `docker-compose.yml` — `apps/main`'s own imports (file:/pip editable) replace what this was for. |
 | `nginx/default.conf` | Actively used — the single-port gateway in front of `apps/main`'s backend+frontend (rewritten for this when reused; a previous version was written for the platform-core/platform-auth setup instead). |
