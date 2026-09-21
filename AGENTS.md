@@ -3,56 +3,86 @@
 Guidance for AI agents (and humans) working in this repo. GoalNexa is a
 self-hosted goal/habit/OKR tracker (personal + team use) — see
 `docs/product-discovery/` for the market research behind the idea and
-`docs/architecture/microservices-design.md` for where this is headed.
+`docs/architecture/microservices-design.md` for where this is headed
+(that doc predates the current approach below in some details — this
+file is the source of truth for what's actually running).
 
-## What this repo actually is
+## Current architecture: apps/main is the host app
 
-GoalNexa's root has **no backend or frontend of its own** — it's a pure
-`apps/` container. Every capability lives in its own repo, consumed here
-as a git submodule under `apps/`. Don't add product code directly to this
-repo's root; a new capability gets its own repo/submodule under `apps/`,
-matching `platform-auth`'s shape (own backend, own frontend, own repo).
+`apps/main/` is the running application — a plain directory in this repo
+(not a submodule), Django+DRF backend + `create-react-router` frontend.
+`docker-compose.yml` starts only this (`main-backend` + `main-frontend`).
+
+**Frontend rule: apps provide router/screen, packaged as an npm package;
+`main` calls on it.** A module's frontend is an npm package (a local
+`file:` dependency for now, e.g. `platform-auth-frontend`) exporting
+plain, self-contained screen components — no bundled routing, no
+assumptions about where it's mounted. `apps/main`'s own `routes.ts` owns
+every actual path/URL; a route file there imports a package's screen and
+wires it into that path. See `apps/platform-auth/frontend/src/index.ts` /
+`src/remote/RemoteLogin.tsx` and `apps/main/frontend/app/routes/login.tsx`
+for the concrete example.
+
+Why a screen must have **no `react-router` dependency of its own**: a
+consuming app may be on a completely different `react-router` major
+version (main is on v8, platform-auth's own standalone app is on v7) or
+just a separate module instance of the same one — either way calling a
+hook like `useNavigate()` inside the screen would throw. Anything
+routing-dependent (redirect after success, etc.) is passed in as a prop
+instead (see `Login`'s `onSuccess` prop).
+
+**The React-singleton trap (this WILL bite you again):** a local `file:`
+package ships its own `node_modules` with its own React copy. Vite's
+`resolve.dedupe` only fixes the CLIENT bundle graph — React Router
+framework mode also does SSR, which by default externalizes node_modules
+packages to plain Node `require()`, which resolves the symlinked package
+to its REAL path and walks up THAT directory's ancestry for `react`,
+never finding the host's copy (siblings under `apps/` share no real
+ancestor). You need **both**:
+```ts
+resolve: { dedupe: ["react", "react-dom"] },
+ssr: { noExternal: ["<package-name>", /* + any of its deps that touch react hooks */] },
+```
+Getting only the first one produces a genuinely confusing "Invalid hook
+call" error from *inside* the package's own code, not obviously pointing
+at the real cause. See `apps/main/frontend/vite.config.ts`.
 
 ## Repo layout
 
 | Path | What |
 |---|---|
-| `modules.yaml` | Static registry of which modules this platform composes (name, kind, path, repo, `url_prefix`, `remote_entry`, enabled). See that file's own header comment for the planned dynamic version. |
-| `docker-compose.yml` / `nginx/default.conf` | The single-port gateway that actually composes every module for local dev — nginx routes each module's `url_prefix` to its own frontend/backend containers. Add a new module here too (two location blocks) when you add one to `modules.yaml`. |
-| `apps/platform-core/` | git submodule. Django+DRF kernel: no models, shared conventions only (`core_api/`), plus a thin React Router frontend shell that fetches `GET /api/modules` and renders each module's UI inline via Module Federation (`remote_entry`), falling back to a `url_prefix` link. Own repo, own AGENTS.md — read that for what it provides, don't duplicate that knowledge here. |
-| `apps/platform-auth/` | git submodule. Django+DRF backend, React frontend. Standalone login module, mounted at `/platform-auth`. Own repo, own AGENTS.md. |
-| `docs/architecture/` | Target-state design docs (microservices/module system). Not yet implemented — see status note in that doc. |
+| `apps/main/` | The host app. `backend/` — empty Django+DRF project (no models/apps yet). `frontend/` — `create-react-router` scaffold; owns all routing, imports module packages for screens. Plain directory, not a submodule. |
+| `apps/platform-auth/` | git submodule. Django+DRF backend (standalone, own Postgres). `frontend/` is now consumed as a package by `apps/main` (see above) — its own standalone dev server/routes still work too. Own repo, own AGENTS.md. |
+| `apps/platform-core/` | git submodule. Django+DRF kernel (no models) + a Module Federation shell frontend — this was the previous composition approach (runtime remote loading across separately-deployed apps), now superseded by the package-import rule above for the active `apps/main` host. Not part of the default `docker-compose.yml` anymore; kept for reference/possible future use, not actively developed against. |
+| `modules.yaml`, `nginx/` | Leftover from the platform-core/platform-auth multi-port gateway approach. Not read by anything in the current `docker-compose.yml`. |
+| `docs/architecture/` | Target-state design docs (microservices/module system) — written before the current package-import approach; treat as historical context, not a spec to follow literally. |
 | `docs/product-discovery/` | Market/customer research, not implementation-relevant. |
 
-## Adding a new module
+## Adding a new module's screen to main
 
-Follow `platform-auth` as the template: its own repo, its own
-`backend/`+`frontend/`, own AGENTS.md, added here via
-`git submodule add <repo> apps/<name>`, then listed in `modules.yaml`
-with a `url_prefix`. Don't build a new capability directly in this repo's
-root. Also add two `location` blocks to `nginx/default.conf` (api, then
-frontend) and a backend+frontend service pair to `docker-compose.yml` —
-see `platform-auth`'s own entries for the pattern (its backend reads
-`URL_PREFIX` so any absolute cookie paths stay correct under the prefix;
-its frontend is started with `vite --base=<url_prefix>/`).
-
-**If the new module should also render inline in platform-core's shell**
-(not just link out to), it needs a Module Federation setup too: expose a
-self-contained component (bundles its own providers/context, no
-`react-router-dom` dependency - see `platform-auth`'s `RemoteLogin.tsx`
-for why), add `remote_entry` to its `modules.yaml` entry, and run it via
-`vite build --watch` + `vite preview` in `docker-compose.yml` instead of
-`vite dev` (federation's remote side needs a real build to emit
-`remoteEntry.js` from - platform-core, the host, stays on `vite dev`
-fine). `shared: { react, 'react-dom' }` singleton config must match
-platform-core's own `vite.config.ts` exactly or you get a duplicate-React
-crash.
+1. Build it as a package (own `frontend/`, own `package.json` with a
+   `name` and an `exports` field pointing at source — no build step
+   needed, Vite processes the TS/TSX directly).
+2. Export self-contained screen components (bundle their own
+   providers/context, zero `react-router` dependency, routing-dependent
+   behavior via props).
+3. In `apps/main/frontend/package.json`, add it as
+   `"<name>": "file:../../<module>/frontend"`, then `npm install`.
+4. Add it to `resolve.dedupe`'s targets implicitly (dedupe list is by
+   package name, not per-dependency — `react`/`react-dom` already
+   covers every package) and to `ssr.noExternal` (the package itself,
+   plus any of ITS OWN dependencies that call React hooks — check for
+   "Invalid hook call" pointing into `node_modules/<other-package>` if
+   you missed one).
+5. Add a route file under `apps/main/frontend/app/routes/` that imports
+   the screen and registers it in `routes.ts`.
 
 ## History note
 
 GoalNexa previously had its own root `backend/`/`frontend/` (a `Goal`
-entity mounted onto platform-core "in place", per an earlier
-integration approach) — deliberately removed. If you're looking for that
-code, it's in this repo's git history, not something to resurrect as-is;
-any future product feature should land as its own `apps/` submodule
-instead.
+entity mounted onto platform-core "in place"), then a platform-core/
+platform-auth multi-port setup composed via nginx + Module Federation —
+both deliberately superseded by the current `apps/main` + package-import
+approach above. Old code/docs from those phases are in git history or
+left in place for reference (see the platform-core/platform-auth row
+above); don't extend them as if they were still the active pattern.
