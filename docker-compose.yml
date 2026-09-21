@@ -1,118 +1,40 @@
-# Serves the whole platform behind a single external port (nginx) - see
-# nginx/default.conf for the path-prefix routing (mirrors modules.yaml's
-# url_prefix per module). Every other service is internal-only on the
-# compose network, not exposed to the host directly.
+# Runs only apps/main for now (frontend + backend).
 services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: platform_auth
-      POSTGRES_PASSWORD: platform_auth_dev_password
-      POSTGRES_DB: platform_auth
-    ports:
-      - "5432:5432"
-    volumes:
-      - platform-auth-postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U platform_auth"]
-      interval: 2s
-      timeout: 3s
-      retries: 20
-
-  platform-auth-backend:
+  main-backend:
     build:
-      context: ./apps/platform-auth/backend
-    depends_on:
-      postgres:
-        condition: service_healthy
+      context: ./apps/main/backend
     environment:
       DJANGO_DEBUG: "true"
       DJANGO_SECRET_KEY: dev-secret-change-me
       DJANGO_ALLOWED_HOSTS: "*"
-      DATABASE_URL: postgresql://platform_auth:platform_auth_dev_password@postgres:5432/platform_auth
-      JWT_SECRET: dev-secret-change-me
-      JWT_ACCESS_TTL_MINUTES: "15"
-      JWT_REFRESH_TTL_DAYS: "30"
-      URL_PREFIX: /platform-auth
+    ports:
+      - "8000:8000"
     command: >
       sh -c "
       python manage.py migrate &&
       python manage.py runserver 0.0.0.0:8000
       "
 
-  platform-auth-frontend:
+  main-frontend:
     image: node:20
     working_dir: /app
     depends_on:
-      - platform-auth-backend
-    environment:
-      # This module is mounted at /platform-auth behind nginx - both the
-      # Vite base path (own asset/HMR URLs) and the API base (own fetch
-      # calls) need that same prefix, matching modules.yaml's url_prefix.
-      VITE_API_BASE_URL: /platform-auth
+      - main-backend
     volumes:
-      - ./apps/platform-auth/frontend:/app
-      - platform-auth-frontend-node-modules:/app/node_modules
+      - ./apps/main/frontend:/app
+      - main-frontend-node-modules:/app/node_modules
+    ports:
+      - "3000:3000"
     # rm -f package-lock.json / retry dance: works around a documented npm
     # bug (npm/cli#4828) where an optional native dependency
     # (@rollup/rollup-*) intermittently fails to install.
-    #
-    # `vite build --watch` + `vite preview`, not `npm run dev`: this
-    # module is a Module Federation remote (exposes RemoteLogin), and
-    # federation's remote side needs a real build to emit remoteEntry.js
-    # from - Vite's dev server has no bundling step to generate that from.
-    # `--watch` rebuilds dist/ on save (not true HMR, but close enough);
-    # `preview` serves whatever's currently in dist/.
     command: >
       sh -c "
       rm -f package-lock.json &&
       npm install &&
       (node -e \"require('rollup')\" || npm install --force) &&
-      npx vite build --base=/platform-auth/ &&
-      (npx vite build --watch --base=/platform-auth/ &) &&
-      npx vite preview --host 0.0.0.0 --port 5173 --base=/platform-auth/
+      npm run dev -- --host 0.0.0.0 --port 3000
       "
-
-  platform-core-backend:
-    build:
-      context: ./apps/platform-core/backend
-    environment:
-      DJANGO_DEBUG: "true"
-      DJANGO_SECRET_KEY: dev-secret-change-me
-      DJANGO_ALLOWED_HOSTS: "*"
-      MODULES_MANIFEST_PATH: /modules.yaml
-    volumes:
-      - ./modules.yaml:/modules.yaml:ro
-
-  platform-core-frontend:
-    image: node:20
-    working_dir: /app
-    depends_on:
-      - platform-core-backend
-    volumes:
-      - ./apps/platform-core/frontend:/app
-      - platform-core-frontend-node-modules:/app/node_modules
-    command: >
-      sh -c "
-      rm -f package-lock.json &&
-      npm install &&
-      (node -e \"require('rollup')\" || npm install --force) &&
-      npm run dev -- --host 0.0.0.0 --port 5174
-      "
-
-  nginx:
-    image: nginx:alpine
-    depends_on:
-      - platform-core-backend
-      - platform-core-frontend
-      - platform-auth-backend
-      - platform-auth-frontend
-    ports:
-      - "41830:80"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
 volumes:
-  platform-auth-postgres-data:
-  platform-auth-frontend-node-modules:
-  platform-core-frontend-node-modules:
+  main-frontend-node-modules:
