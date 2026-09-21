@@ -27,8 +27,12 @@ now, e.g. `platform-auth-frontend`) exporting plain, self-contained
 screen components — no bundled routing, no assumptions about where it's
 mounted. `apps/main`'s own `routes.ts` owns every actual path/URL; a
 route file there imports a package's screen and wires it into that path.
-See `apps/platform-auth/frontend/src/index.ts` (exports `LoginScreen` +
-`LOGIN_PATH`) and `apps/main/frontend/app/routes/login.tsx`.
+See `apps/platform-auth/frontend/src/index.ts` (exports `LoginScreen`/
+`SignupScreen` + `BASE_PATH`/`LOGIN_PATH`/`SIGNUP_PATH`) and
+`apps/main/frontend/app/routes.ts`/`routes/login.tsx`/`routes/signup.tsx`
+— main nests both under `BASE_PATH` ("auth"), giving `/auth/login` and
+`/auth/signup`; that nesting choice is the host's, the package only
+names its own bare segments.
 
 Why a screen must have **no `react-router` dependency of its own**: a
 consuming app may be on a completely different `react-router` major
