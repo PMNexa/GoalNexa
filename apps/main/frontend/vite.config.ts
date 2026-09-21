@@ -14,21 +14,27 @@ export default defineConfig({
     dedupe: ["react", "react-dom"],
   },
   optimizeDeps: {
-    // Treat this as ordinary project source (processed by the react
-    // plugin), not a pre-built dependency to pre-bundle - it's TS/TSX
+    // Treat these as ordinary project source (processed by the react
+    // plugin), not pre-built dependencies to pre-bundle - they're TS/TSX
     // source, not compiled JS.
-    exclude: ["platform-auth-frontend"],
+    exclude: ["platform-auth-frontend", "platform-org-frontend"],
   },
   ssr: {
     // `resolve.dedupe` only affects Vite's client bundle graph - SSR by
     // default externalizes node_modules packages to plain Node `require`,
     // which resolves symlinks to their REAL path and walks up THAT
     // directory's own ancestry for "react", never finding this app's copy
-    // (platform-auth-frontend lives under a sibling apps/ dir, not a real
+    // (these packages live under sibling apps/ dirs, not a real
     // ancestor). Forcing these into Vite's own SSR bundle instead makes
     // dedupe apply to them too. Without this: "Invalid hook call" from
-    // inside the package's own react-hook-form usage, not obviously
-    // pointing at the real cause.
-    noExternal: ["platform-auth-frontend", "react-hook-form", "@hookform/resolvers"],
+    // inside a package's own react-hook-form usage, not obviously
+    // pointing at the real cause. Every module's screen package that
+    // uses react-hook-form needs to be listed here.
+    noExternal: [
+      "platform-auth-frontend",
+      "platform-org-frontend",
+      "react-hook-form",
+      "@hookform/resolvers",
+    ],
   },
 });

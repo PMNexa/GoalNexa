@@ -1,0 +1,26 @@
+# 07 — Industry Factors: What Companies in This Space Compete On
+
+Factors drawn from the products, pricing pages, and complaint patterns documented in [04 — Current Solutions](04-current-solutions.md) and [05 — Competitor Map](05-competitor-map.md). Ranking by customer importance is an INSIGHT triangulated from the pain/jobs evidence in [02](02-customer-jobs.md) and [03](03-customer-pain.md) — not a survey — and is split by segment, since individual habit-tracker buyers and team-OKR buyers weight these differently.
+
+## Ranked factors — individual habit/goal tracking
+
+1. **Trust / data ownership / vendor risk** — HIGH. The single most-repeated theme across every SaaS complaint found (Habitica governance failures, Strides subscription resentment framed as unfairness, Way of Life sync failures) and every self-hosting motivation quote (own my data, avoid platform risk). FACT-grounded via direct quotes in [03](03-customer-pain.md) and [02](02-customer-jobs.md).
+2. **Price / pricing model fairness** — HIGH. Not simply "cheap vs expensive" — the recurring complaint pattern is that a *subscription* feels unjustified for a simple product (Strides: *"I don't agree with justification for a subscription model"*), while one-time or free models draw explicit praise (Way of Life).
+3. **Reliability (sync, crashes)** — MEDIUM-HIGH. Concrete complaints on both Habitica (*"crash on startup"*) and Way of Life (*"never works"* re: sync).
+4. **Simplicity vs. feature depth** — MEDIUM. Cuts both ways: over-simplified tools (BeaverHabits explicitly omits goal-setting "by design") lose users who want structure; over-built tools cause the "burned out on complicated periodization" pattern documented in [02](02-customer-jobs.md). No product in this research has found the middle durably — this is a live, unresolved tension, not a solved factor.
+5. **Gamification / motivation mechanics** — MEDIUM, polarizing. Habitica's RPG system is simultaneously its differentiator and its top complaint source (pay-to-unlock currency, streak anxiety). Beeminder's financial-penalty mechanic is the opposite bet and has run successfully for 15 years — evidence that motivation-mechanic choice is a segmentation factor, not a universal feature to maximize.
+6. **Deployment ease (self-hosted segment only)** — MEDIUM, but rising. Plane's well-documented "VERY BAD SELF HOSTING EXPERIENCE" GitHub issue (7+ containers, ~200 env vars) shows this can be a dealbreaker specifically for self-hosted products; one-click platforms (Coolify, CapRover, PikaPods — [06](06-pressure-test.md)) are emerging as the answer.
+7. **Cross-platform coverage** — LOW-MEDIUM. Several SaaS products lose users purely to platform lock-in (Streaks/Strides: iOS-only).
+
+## Ranked factors — team/OKR tracking
+
+1. **Deployment model / vendor risk at the business level** — HIGH. The Viva Goals discontinuation is the sharpest evidence: an entire enterprise product line vanished with no self-host escape hatch. Whether this actually drives *choice* of self-hosting (as opposed to just re-choosing another SaaS vendor) remains genuinely contested — see [06 — Pressure Test](06-pressure-test.md).
+2. **Pricing model (flat-rate vs. per-seat)** — HIGH. Every SaaS OKR competitor (Weekdone, Perdoo, Quantive) prices per-seat, which scales against the buyer as teams grow. Operately's explicit "one price for your whole team, add people without adding costs" pitch directly targets this factor — a real signal it matters enough to build a product's core value prop around.
+3. **Alignment/cascading structure and reporting** — MEDIUM-HIGH. This is what makes "OKR software" a distinct category from generic task tools — objectives cascading to key results to check-ins, with dashboards showing alignment. Not deeply evidenced in this research beyond product feature lists, flagged as ASSUMPTION based on category norms.
+4. **Ease of adoption for non-technical teams** — MEDIUM, and it's the load-bearing factor behind the TCO/self-hosting-fatigue objections raised in [06](06-pressure-test.md). One-click deploy (Railway, in Operately's case) is a direct response to this factor.
+5. **Integrations (Slack, Teams, project tools)** — MEDIUM. Open OKR explicitly lists Slack/Teams/WhatsApp/Telegram integration as a headline feature; unclear how much this is buyer-decisive vs. table-stakes, flagged as ASSUMPTION.
+6. **AI-assisted goal-setting/coaching** — LOW-MEDIUM, emerging. Both Open OKR and the individual-use RUOK project ([06](06-pressure-test.md)) lead with "AI-native"/"AI-powered analytics" positioning — too new in this research to rank with confidence; flagged as a trend to watch, not a proven factor.
+
+## Cross-segment insight
+
+INSIGHT — every product in this space, SaaS or self-hosted, individual or team, competes primarily on **trust/pricing-fairness and reliability**, not on feature sophistication. This matters for [08 — Strategy Canvas](08-strategy-canvas.md): if the whole industry is fighting over the same few factors (price model, gamification depth, feature breadth), that is itself evidence of a red ocean — competing to be a *better* version of the same thing — rather than a blue ocean built on a different value curve.

@@ -22,7 +22,7 @@ services:
       sh -c "
       python -m venv .venv &&
       . .venv/bin/activate &&
-      pip install --no-cache-dir -q -r requirements.txt -e /apps/platform-auth/backend &&
+      pip install --no-cache-dir -q -r requirements.txt -e /apps/platform-auth/backend -e /apps/platform-org/backend &&
       python manage.py migrate &&
       python manage.py runserver 0.0.0.0:8000
       "

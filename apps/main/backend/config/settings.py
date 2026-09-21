@@ -45,6 +45,13 @@ INSTALLED_APPS = [
     # pyproject.toml, editable-installed here) rather than a copy - see
     # root AGENTS.md. Login/User/RefreshToken all come from this app.
     'platform_auth',
+    # Organization/OrgMembership. Its own JWTBearerAuthentication is
+    # unused here - main's own DEFAULT_AUTHENTICATION_CLASSES
+    # (platform_auth's ActorAuthentication, above) resolves request.user
+    # to a real platform_auth.User already, and platform_org's views only
+    # ever read request.user.id, so which one resolved it is invisible
+    # to them.
+    'platform_org',
 ]
 
 MIDDLEWARE = [

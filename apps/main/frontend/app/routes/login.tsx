@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router";
 import { LoginScreen } from "platform-auth-frontend";
+import { setSession } from "../lib/session";
 import type { Route } from "./+types/login";
 
 export function meta({}: Route.MetaArgs) {
@@ -8,5 +9,12 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Login() {
   const navigate = useNavigate();
-  return <LoginScreen onSuccess={() => navigate("/", { replace: true })} />;
+  return (
+    <LoginScreen
+      onSuccess={(session) => {
+        setSession(session);
+        navigate("/", { replace: true });
+      }}
+    />
+  );
 }

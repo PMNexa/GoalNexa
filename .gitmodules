@@ -4,3 +4,6 @@
 [submodule "platform-auth"]
 	path = apps/platform-auth
 	url = https://github.com/EugeneNguyen/platform-auth.git
+[submodule "platform-org"]
+	path = apps/platform-org
+	url = https://github.com/EugeneNguyen/platform-org.git

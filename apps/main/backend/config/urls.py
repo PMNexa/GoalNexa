@@ -26,4 +26,8 @@ urlpatterns = [
     # nginx's /api/ location must forward this prefix through unstripped
     # (see nginx/default.conf) to match.
     path('api/v1/auth/', include('platform_auth.urls')),
+    # Same "api/v1/" prefix platform_org's own standalone config/urls.py
+    # uses (its own urls.py adds "orgs" under this), matching the
+    # frontend package's already-hardcoded fetch path ("/api/v1/orgs").
+    path('api/v1/', include('platform_org.urls')),
 ]

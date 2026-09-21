@@ -66,6 +66,20 @@ shell. Don't load a design system from inside a screen package; that's
 the host's job. (Tailwind was removed from `apps/main` — its preflight
 reset conflicts with Tabler's own button/input/card styles.)
 
+**Sharing auth state across modules' screens**: `platform-auth-frontend`'s
+`LoginScreen`/`SignupScreen` `onSuccess` callback returns a `Session`
+(`{accessToken, user}`) — `apps/main` captures this into its own
+module-singleton store (`app/lib/session.ts`, same "plain singleton, lost
+on full reload" tradeoff as `platform-auth-frontend`'s own token store)
+and passes the token down to any OTHER module's screen that needs to
+make its own authenticated calls (e.g. `platform-org-frontend`'s
+`OrgsScreen` takes `accessToken` as a plain prop — it owns no auth state
+of its own, since it's a pure consumer of a session platform-auth
+created). Note: navigating between pages that read this store must be
+**client-side** (`<Link>`/`navigate()`) — a full `page.goto`-style
+navigation reloads the JS module graph and wipes it, same as a real
+browser refresh would.
+
 ### Backend half
 
 A module's backend Django app is a pip package too (packaged via that
@@ -94,12 +108,40 @@ path/slash) specifically so `/api/v1/auth/login` arrives at the backend
 as `/api/v1/auth/login`, not stripped to `/v1/auth/login`. Getting this
 wrong looks like a plain 404, not an obviously-nginx-shaped error.
 
+**A module with no User table of its own** (e.g. `platform-org` —
+multi-tenant orgs shouldn't own auth) still needs to know "who" is
+calling: it authenticates via a JWT bearer token against a *shared*
+`JWT_SECRET`, resolving to a lightweight actor stub exposing only `.id`
+(see `platform-org/backend/platform_org/authentication.py`) — no
+cross-module DB access, no Python import of another module's models.
+When such a module is imported into a host that ALSO has an app with a
+real User model (`apps/main` has both `platform_auth` and
+`platform_org`), the host's own `DEFAULT_AUTHENTICATION_CLASSES` (set to
+`platform_auth`'s) resolves `request.user` to a real `User` instance
+instead, and the imported module's own authentication class goes
+unused — its views only ever read `request.user.id`, so which one
+resolved it is invisible to them. **Two gotchas this pattern hit
+already, worth checking for again:**
+- Any object DRF might put on `request.user` needs an `is_authenticated`
+  attribute (DRF's built-in `IsAuthenticated` permission class checks it
+  directly) — a hand-rolled actor stub needs it declared explicitly
+  (fixed `True`), and so does a real model like `platform_auth.User`
+  that was never designed with DRF's permission classes in mind (see
+  `platform-auth/AGENTS.md`'s own note on this).
+- A view relying on DRF's `IsAuthenticated` permission class should
+  declare `permission_classes = [IsAuthenticated]` on itself, not rely
+  on the process's `DEFAULT_PERMISSION_CLASSES` — the host may set that
+  to something else (or nothing) for its own reasons (`apps/main` can't
+  default every view to `IsAuthenticated` globally, since
+  `platform_auth`'s login/signup must stay public).
+
 ## Repo layout
 
 | Path | What |
 |---|---|
 | `apps/main/` | The host app. `backend/` — Django+DRF, imports `platform_auth` as a pip package (see above); otherwise still empty (no models/apps of its own yet). `frontend/` — `create-react-router` scaffold; owns all routing, imports module packages for screens, loads Tabler. Plain directory, not a submodule. |
 | `apps/platform-auth/` | git submodule. Django+DRF backend (standalone, own Postgres, own `pyproject.toml` packaging its Django app for reuse) + a frontend package (own `package.json`/`exports`). Both halves are also consumed by `apps/main` — see above. Own repo, own AGENTS.md. |
+| `apps/platform-org/` | git submodule. Multi-tenant `Organization`/`OrgMembership`, same packaged-both-halves pattern as `platform-auth`. No User table of its own — see the "module with no User table" note above. No roles/permissions yet (deliberate follow-up, likely a `platform-rbac` module). Own repo, own AGENTS.md. |
 | `apps/platform-core/` | git submodule. Django+DRF kernel (no models) + a Module Federation shell frontend — this was an earlier composition approach (runtime remote loading across separately-deployed apps), superseded by the package-import rule above for the active `apps/main` host. Not part of the default `docker-compose.yml`; kept for reference. |
 | `modules.yaml` | Written for the platform-core/platform-auth Module Federation phase (module registry with `url_prefix`/`remote_entry`). Not read by anything in the current `docker-compose.yml` — `apps/main`'s own imports (file:/pip editable) replace what this was for. |
 | `nginx/default.conf` | Actively used — the single-port gateway in front of `apps/main`'s backend+frontend (rewritten for this when reused; a previous version was written for the platform-core/platform-auth setup instead). |
