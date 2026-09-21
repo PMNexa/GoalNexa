@@ -167,6 +167,30 @@ already, worth checking for again:**
   default every view to `IsAuthenticated` globally, since
   `platform_auth`'s login/signup must stay public).
 
+**Generic CRUD entities: subclass `core_api.serializers.BaseSerializer`/
+`core_api.viewsets.BaseViewSet` from `platform-core`**, not plain DRF
+`ModelSerializer`/`ModelViewSet` — see platform-core's own AGENTS.md for
+what they add (dynamic-rest-inspired: `?include[]=`/`?exclude[]=` field
+selection, relation sideloading via `DynamicRelationField`, `?filter{field}
+=value` filtering, all on top of this platform's own `?sort=`/`?q=` and
+`{items,total,page,page_size}` pagination envelope). `platform-org`'s
+`OrganizationViewSet`/`OrganizationSerializer` are the reference
+implementation. This makes `platform-core` a real backend dependency of
+any module with generic CRUD entities, not just something "kept for
+reference" — see its repo-layout row below.
+
+**Every process (including `apps/main` itself) needs its OWN
+`REST_FRAMEWORK["EXCEPTION_HANDLER"]` pointed at
+`"core_api.exceptions.platform_exception_handler"`.** Each module's own
+`settings.py` already has this right (for ITS standalone deployment), but
+a host importing the module has a completely separate `settings.py` that
+doesn't inherit it — `apps/main/backend/config/settings.py` had a stale
+copy-pasted value pointing at a module-specific handler name that no
+longer existed, and every error response 500'd on an `ImportError`
+*inside DRF's own exception handling* instead of returning the error it
+was trying to report. Grep every `settings.py` in the platform for
+`EXCEPTION_HANDLER` if you ever rename that function.
+
 ## Repo layout
 
 | Path | What |
@@ -175,7 +199,7 @@ already, worth checking for again:**
 | `apps/platform-auth/` | git submodule. Django+DRF backend (standalone, own Postgres, own `pyproject.toml` packaging its Django app for reuse) + a frontend package (own `package.json`/`exports`). Both halves are also consumed by `apps/main` — see above. Own repo, own AGENTS.md. |
 | `apps/platform-org/` | git submodule. Multi-tenant `Organization`/`OrgMembership`, same packaged-both-halves pattern as `platform-auth`. No User table of its own — see the "module with no User table" note above. No roles/permissions yet (deliberate follow-up, likely a `platform-rbac` module). Own repo, own AGENTS.md. |
 | `apps/platform-ui/` | git submodule. Frontend-only — no backend, no auth state. `AppShell` (sidemenu + sticky header), pure presentation, packaged the same "frontend npm package, main imports it" way. See the "App shell" note above. Own repo, own AGENTS.md. |
-| `apps/platform-core/` | git submodule. Django+DRF kernel (no models) + a Module Federation shell frontend — this was an earlier composition approach (runtime remote loading across separately-deployed apps), superseded by the package-import rule above for the active `apps/main` host. Not part of the default `docker-compose.yml`; kept for reference. |
+| `apps/platform-core/` | git submodule. Django+DRF kernel (no models) — `core_api`: error contract, pagination, filters, uuid7 utils, and `BaseSerializer`/`BaseViewSet` (dynamic fields + relation sideloading, inspired by dynamic-rest — see "Generic CRUD entities" below). **A real backend dependency of `platform-auth` and `platform-org`** (both used to vendor their own copy of the small stuff; that stopped scaling once `BaseSerializer`/`BaseViewSet` existed) — editable-installed into `apps/main`'s venv alongside them. Its own Module Federation shell frontend is a separate, still-unused leftover from platform-core's earlier composition approach; not part of the default `docker-compose.yml`. Own repo, own AGENTS.md. |
 | `modules.yaml` | Written for the platform-core/platform-auth Module Federation phase (module registry with `url_prefix`/`remote_entry`). Not read by anything in the current `docker-compose.yml` — `apps/main`'s own imports (file:/pip editable) replace what this was for. |
 | `nginx/default.conf` | Actively used — the single-port gateway in front of `apps/main`'s backend+frontend (rewritten for this when reused; a previous version was written for the platform-core/platform-auth setup instead). |
 | `docs/architecture/` | Target-state design docs (microservices/module system) — written before the current package-import approach; treat as historical context, not a spec to follow literally. |
