@@ -17,9 +17,9 @@ matching `platform-auth`'s shape (own backend, own frontend, own repo).
 
 | Path | What |
 |---|---|
-| `modules.yaml` | Static registry of which modules this platform composes (name, kind, path, repo, `url_prefix`, enabled). See that file's own header comment for the planned dynamic version. |
+| `modules.yaml` | Static registry of which modules this platform composes (name, kind, path, repo, `url_prefix`, `remote_entry`, enabled). See that file's own header comment for the planned dynamic version. |
 | `docker-compose.yml` / `nginx/default.conf` | The single-port gateway that actually composes every module for local dev — nginx routes each module's `url_prefix` to its own frontend/backend containers. Add a new module here too (two location blocks) when you add one to `modules.yaml`. |
-| `apps/platform-core/` | git submodule. Django+DRF kernel: no models, shared conventions only (`core_api/`), plus a thin React Router frontend shell that lists modules from `GET /api/modules`. Own repo, own AGENTS.md — read that for what it provides, don't duplicate that knowledge here. |
+| `apps/platform-core/` | git submodule. Django+DRF kernel: no models, shared conventions only (`core_api/`), plus a thin React Router frontend shell that fetches `GET /api/modules` and renders each module's UI inline via Module Federation (`remote_entry`), falling back to a `url_prefix` link. Own repo, own AGENTS.md — read that for what it provides, don't duplicate that knowledge here. |
 | `apps/platform-auth/` | git submodule. Django+DRF backend, React frontend. Standalone login module, mounted at `/platform-auth`. Own repo, own AGENTS.md. |
 | `docs/architecture/` | Target-state design docs (microservices/module system). Not yet implemented — see status note in that doc. |
 | `docs/product-discovery/` | Market/customer research, not implementation-relevant. |
@@ -35,6 +35,18 @@ frontend) and a backend+frontend service pair to `docker-compose.yml` —
 see `platform-auth`'s own entries for the pattern (its backend reads
 `URL_PREFIX` so any absolute cookie paths stay correct under the prefix;
 its frontend is started with `vite --base=<url_prefix>/`).
+
+**If the new module should also render inline in platform-core's shell**
+(not just link out to), it needs a Module Federation setup too: expose a
+self-contained component (bundles its own providers/context, no
+`react-router-dom` dependency - see `platform-auth`'s `RemoteLogin.tsx`
+for why), add `remote_entry` to its `modules.yaml` entry, and run it via
+`vite build --watch` + `vite preview` in `docker-compose.yml` instead of
+`vite dev` (federation's remote side needs a real build to emit
+`remoteEntry.js` from - platform-core, the host, stays on `vite dev`
+fine). `shared: { react, 'react-dom' }` singleton config must match
+platform-core's own `vite.config.ts` exactly or you get a duplicate-React
+crash.
 
 ## History note
 

@@ -56,12 +56,21 @@ services:
     # rm -f package-lock.json / retry dance: works around a documented npm
     # bug (npm/cli#4828) where an optional native dependency
     # (@rollup/rollup-*) intermittently fails to install.
+    #
+    # `vite build --watch` + `vite preview`, not `npm run dev`: this
+    # module is a Module Federation remote (exposes RemoteLogin), and
+    # federation's remote side needs a real build to emit remoteEntry.js
+    # from - Vite's dev server has no bundling step to generate that from.
+    # `--watch` rebuilds dist/ on save (not true HMR, but close enough);
+    # `preview` serves whatever's currently in dist/.
     command: >
       sh -c "
       rm -f package-lock.json &&
       npm install &&
       (node -e \"require('rollup')\" || npm install --force) &&
-      npm run dev -- --host 0.0.0.0 --base=/platform-auth/
+      npx vite build --base=/platform-auth/ &&
+      (npx vite build --watch --base=/platform-auth/ &) &&
+      npx vite preview --host 0.0.0.0 --port 5173 --base=/platform-auth/
       "
 
   platform-core-backend:

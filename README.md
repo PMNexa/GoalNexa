@@ -26,8 +26,10 @@ git submodule update --init
 See `modules.yaml` for the machine-readable version of this list.
 `platform-core` reads it (as `GET /api/modules`) when started with
 `MODULES_MANIFEST_PATH=<path to this repo's modules.yaml>` — see its own
-README for the full env var. Each module declares a `url_prefix` — the
-path it's mounted at behind the single-port gateway below.
+README for the full env var. Each module declares a `url_prefix` (the
+path it's mounted at behind the single-port gateway) and optionally a
+`remote_entry` (a Module Federation entry point platform-core's frontend
+can load and render inline, instead of just linking out to `url_prefix`).
 
 ## Running the whole platform
 
@@ -46,11 +48,15 @@ platform-core: `/`, the root).
 - platform-auth: http://localhost:41830/platform-auth
 - Postgres (platform-auth's): localhost:5432
 
-platform-core's frontend fetches `GET /api/modules` and lists each
-module's `url_prefix` as a plain link — visit http://localhost:41830 and
-follow it to platform-auth to see this in action. There's no client-side
-cross-module routing; the gateway (nginx) is what actually routes each
-prefix to that module's own containers.
+platform-core's frontend fetches `GET /api/modules` and renders
+platform-auth's login form **inline, on the same page**, via Module
+Federation (`remote_entry`) — visit http://localhost:41830 to see it
+directly, no navigation required. The `url_prefix` link (to
+http://localhost:41830/platform-auth) still works too, as a full-page
+fallback. There's no client-side cross-module *routing*, though — the
+gateway (nginx) is what routes each `url_prefix` to that module's own
+containers; federation is a separate, additional way to compose a
+module's UI into another page.
 
 ## Running a single module
 

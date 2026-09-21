@@ -22,4 +22,10 @@ modules:
     # nginx/default.conf proxies "/platform-auth/" to this module's
     # frontend and "/platform-auth/api/" to its backend's own "/api/".
     url_prefix: /platform-auth
+    # Module Federation remote entry - platform-core's frontend loads
+    # this at runtime (see src/lib/remoteComponents.tsx) to render this
+    # module's exposed components inline, no page navigation. Path is
+    # relative (resolved against whatever origin the browser loaded the
+    # shell from), matching url_prefix's own convention.
+    remote_entry: /platform-auth/remoteEntry.js
     enabled: true
