@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { getSession, subscribeSession } from "../lib/session";
+import { getSession, isSessionInitialized, subscribeSession } from "../lib/session";
 import type { Route } from "./+types/home";
 
 export function meta({}: Route.MetaArgs) {
@@ -9,13 +9,22 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
   const [session, setSessionState] = useState(() => getSession());
+  // Avoids a flash of "log in / sign up" before root.tsx's boot-time
+  // refreshSession() has had a chance to restore an existing session on
+  // a fresh page load - see lib/session.ts's own docstring.
+  const [initialized, setInitialized] = useState(isSessionInitialized());
 
-  useEffect(() => subscribeSession(() => setSessionState(getSession())), []);
+  useEffect(() => {
+    return subscribeSession(() => {
+      setSessionState(getSession());
+      setInitialized(isSessionInitialized());
+    });
+  }, []);
 
   return (
     <div className="container py-4">
       <h1 className="h2 mb-4">GoalNexa</h1>
-      {session ? (
+      {!initialized ? null : session ? (
         <>
           <p>
             Signed in as {session.user.name} ({session.user.email}).

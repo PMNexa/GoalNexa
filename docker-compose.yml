@@ -10,6 +10,11 @@ services:
       DJANGO_DEBUG: "true"
       DJANGO_SECRET_KEY: dev-secret-change-me
       DJANGO_ALLOWED_HOSTS: "*"
+      # Without this, Python buffers stdout and `docker compose logs`
+      # shows NOTHING even while the server is running fine - confirmed
+      # directly during development (had to exec in and check /proc to
+      # find the real, silently-running process).
+      PYTHONUNBUFFERED: "1"
     # Mounts the whole apps/ tree, not just apps/main/backend: platform_auth
     # is installed editable from the sibling apps/platform-auth/backend
     # directory (see the backend rule in root AGENTS.md, mirroring the
@@ -26,6 +31,20 @@ services:
       python manage.py migrate &&
       python manage.py runserver 0.0.0.0:8000
       "
+    # First boot can take minutes (compiling argon2-cffi/psycopg from
+    # source if no prebuilt wheel matches this image) - a generous
+    # retry budget, not a short one. Without this healthcheck, nginx's
+    # plain `depends_on` only waits for the CONTAINER to start, not the
+    # app inside it to actually be ready; nginx resolves an upstream
+    # hostname ONCE at its own startup, so starting before this is ready
+    # means every request 502s until nginx itself is restarted, even
+    # once the backend comes up on its own.
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/admin/')"]
+      interval: 3s
+      timeout: 3s
+      retries: 100
+      start_period: 5s
 
   main-frontend:
     image: node:22
@@ -55,8 +74,10 @@ services:
   nginx:
     image: nginx:alpine
     depends_on:
-      - main-backend
-      - main-frontend
+      main-backend:
+        condition: service_healthy
+      main-frontend:
+        condition: service_started
     ports:
       - "55607:80"
     volumes:

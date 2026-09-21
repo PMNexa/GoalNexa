@@ -69,16 +69,32 @@ reset conflicts with Tabler's own button/input/card styles.)
 **Sharing auth state across modules' screens**: `platform-auth-frontend`'s
 `LoginScreen`/`SignupScreen` `onSuccess` callback returns a `Session`
 (`{accessToken, user}`) — `apps/main` captures this into its own
-module-singleton store (`app/lib/session.ts`, same "plain singleton, lost
-on full reload" tradeoff as `platform-auth-frontend`'s own token store)
-and passes the token down to any OTHER module's screen that needs to
-make its own authenticated calls (e.g. `platform-org-frontend`'s
-`OrgsScreen` takes `accessToken` as a plain prop — it owns no auth state
-of its own, since it's a pure consumer of a session platform-auth
-created). Note: navigating between pages that read this store must be
-**client-side** (`<Link>`/`navigate()`) — a full `page.goto`-style
-navigation reloads the JS module graph and wipes it, same as a real
-browser refresh would.
+module-singleton store (`app/lib/session.ts`) and passes the token down
+to any OTHER module's screen that needs to make its own authenticated
+calls (e.g. `platform-org-frontend`'s `OrgsScreen` takes `accessToken` as
+a plain prop — it owns no auth state of its own, since it's a pure
+consumer of a session platform-auth created).
+
+**Persisting login across a real reload**: the singleton above resets on
+every fresh page load, same as `platform-auth-frontend`'s own in-memory
+token store — what makes it survive anyway is `root.tsx`'s boot effect
+calling `platform-auth-frontend`'s exported `refreshSession()` on every
+mount, exchanging the httpOnly refresh cookie (which DOES survive a
+reload) for a new access token. A protected route (`orgs.tsx`) tracks a
+separate `isSessionInitialized()` flag and must wait for it before
+deciding "no session → redirect to login" — checking `accessToken ===
+null` alone would redirect on every fresh load, before the boot refresh
+even had a chance to run. `refreshSession()` itself dedupes concurrent
+calls (see `platform-auth`'s own AGENTS.md) — React StrictMode
+double-invokes effects in dev, and the backend's refresh token is
+single-use/rotating, so two naive concurrent calls would race and one
+would spuriously 401.
+
+Navigating between pages that read the session store still works fine
+either client-side (`<Link>`/`navigate()`, session survives) or via a
+full navigation (`page.goto`-style, session resets but the boot refresh
+restores it) — both are exercised in this feature's own verification,
+worth re-checking if you touch either.
 
 ### Backend half
 

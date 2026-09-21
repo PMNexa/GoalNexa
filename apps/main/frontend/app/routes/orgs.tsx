@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { OrgsScreen } from "platform-org-frontend";
-import { getSession, subscribeSession } from "../lib/session";
+import { getSession, isSessionInitialized, subscribeSession } from "../lib/session";
 import type { Route } from "./+types/orgs";
 
 export function meta({}: Route.MetaArgs) {
@@ -10,20 +10,26 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Orgs() {
   const navigate = useNavigate();
-  // Client-only, populated after hydration - the session store is a
-  // plain module singleton with no SSR-visible state (see lib/session.ts's
-  // own docstring), so this always starts null on the server render and
-  // only resolves once the browser's own session (if any) is checked.
   const [accessToken, setAccessToken] = useState<string | null>(() => getSession()?.accessToken ?? null);
+  // Distinguishes "haven't checked yet" from "checked, no session" -
+  // root.tsx's boot-time refreshSession() call hasn't necessarily
+  // resolved yet on a fresh page load. Redirecting on accessToken===null
+  // alone would fire before that check even had a chance to restore a
+  // real session from the refresh cookie.
+  const [initialized, setInitialized] = useState(isSessionInitialized());
 
   useEffect(() => {
-    return subscribeSession(() => setAccessToken(getSession()?.accessToken ?? null));
+    return subscribeSession(() => {
+      setAccessToken(getSession()?.accessToken ?? null);
+      setInitialized(isSessionInitialized());
+    });
   }, []);
 
   useEffect(() => {
-    if (accessToken === null) navigate("/auth/login", { replace: true });
-  }, [accessToken, navigate]);
+    if (initialized && accessToken === null) navigate("/auth/login", { replace: true });
+  }, [initialized, accessToken, navigate]);
 
+  if (!initialized) return null;
   if (accessToken === null) return null;
   return <OrgsScreen accessToken={accessToken} />;
 }

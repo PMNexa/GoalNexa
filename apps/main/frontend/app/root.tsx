@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -6,9 +7,11 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
+import { refreshSession } from "platform-auth-frontend";
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { isSessionInitialized, markSessionInitialized, setSession } from "./lib/session";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -51,6 +54,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // Runs once per real page load (never on client-side navigation
+  // between routes, matching what it's actually restoring) - main's own
+  // session store is a plain module singleton that resets on every fresh
+  // load, but the httpOnly refresh cookie survives one, so this is what
+  // makes "stay logged in across a reload" work. Idempotent no-op if
+  // already initialized (e.g. React StrictMode's double-invoke in dev).
+  useEffect(() => {
+    if (isSessionInitialized()) return;
+    let cancelled = false;
+    refreshSession()
+      .then((session) => {
+        if (!cancelled) setSession(session);
+      })
+      .catch(() => {
+        // No valid refresh cookie - just means "not logged in", not an error.
+      })
+      .finally(() => {
+        if (!cancelled) markSessionInitialized();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return <Outlet />;
 }
 
