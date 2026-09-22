@@ -1,6 +1,4 @@
-import { CrudEditScreen } from "platform-core";
-import { createGoalsCrudConfig } from "../lib/goalsCrudConfig";
-import { useGoalOptions } from "../lib/useGoalOptions";
+import { GoalsRouter } from "../lib/goalsRouter";
 import type { Goal } from "../lib/api/goals";
 import GoalMetricsSection from "./GoalMetricsSection";
 
@@ -13,17 +11,15 @@ export interface GoalsEditScreenProps {
 }
 
 /**
- * The edit screen - `platform-core`'s `CrudEditScreen` preconfigured for
- * `Goal`, plus this goal's own metrics (list + a lightweight add form -
- * see `GoalMetricsSection`'s own docstring for why it isn't a full CRUD
- * screen). `useGoalOptions(accessToken, id)` excludes this goal itself
- * from its own `parent` picker - see that hook's own docstring.
+ * The edit screen - `GoalsRouter.Edit` (see `lib/goalsRouter.ts`),
+ * schema-driven, plus this goal's own metrics (list + a lightweight add
+ * form - see `GoalMetricsSection`'s own docstring for why it isn't a
+ * full CRUD screen).
  */
 function GoalsEditScreen({ accessToken, id, onUpdated, onDeleted }: GoalsEditScreenProps) {
-  const { goalOptions } = useGoalOptions(accessToken, id);
   return (
     <>
-      <CrudEditScreen config={createGoalsCrudConfig(accessToken, goalOptions ?? [])} id={id} onUpdated={onUpdated} onDeleted={onDeleted} />
+      <GoalsRouter.Edit accessToken={accessToken} id={id} onUpdated={onUpdated} onDeleted={onDeleted} />
       <GoalMetricsSection accessToken={accessToken} goalId={id} />
     </>
   );

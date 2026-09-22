@@ -1,7 +1,5 @@
-import { CrudListScreen } from "platform-core";
 import type { LinkComponent } from "platform-core";
-import { createCheckInsCrudConfig } from "../lib/checkInsCrudConfig";
-import { useMetricOptions } from "../lib/useMetricOptions";
+import { CheckInsRouter } from "../lib/checkInsRouter";
 import type { CheckIn } from "../lib/api/checkIns";
 
 export interface CheckInsScreenProps {
@@ -10,12 +8,9 @@ export interface CheckInsScreenProps {
   onDeleted?: (checkIn: CheckIn) => void;
 }
 
-/** The list screen - `platform-core`'s `CrudListScreen` preconfigured for `CheckIn`. Same non-blocking `useMetricOptions` use as `MetricsScreen`'s own `useGoalOptions` - see its docstring. */
-function CheckInsScreen({ accessToken, linkComponent, onDeleted }: CheckInsScreenProps) {
-  const { metricOptions } = useMetricOptions(accessToken);
-  return (
-    <CrudListScreen config={createCheckInsCrudConfig(accessToken, metricOptions ?? [], linkComponent)} onDeleted={onDeleted} />
-  );
+/** The list screen - `CheckInsRouter.List` (see `lib/checkInsRouter.ts`), schema-driven (same known regression as `MetricsScreen`'s own note: `metric` shows its bare id). */
+function CheckInsScreen(props: CheckInsScreenProps) {
+  return <CheckInsRouter.List {...props} />;
 }
 
 export default CheckInsScreen;

@@ -1,7 +1,5 @@
-import { CrudListScreen } from "platform-core";
 import type { LinkComponent } from "platform-core";
-import { createGoalsCrudConfig } from "../lib/goalsCrudConfig";
-import { useGoalOptions } from "../lib/useGoalOptions";
+import { GoalsRouter } from "../lib/goalsRouter";
 import type { Goal } from "../lib/api/goals";
 
 export interface GoalsScreenProps {
@@ -17,10 +15,15 @@ export interface GoalsScreenProps {
   onDeleted?: (goal: Goal) => void;
 }
 
-/** The list screen - `platform-core`'s `CrudListScreen` preconfigured for `Goal`. See `goalsCrudConfig.ts` for the actual API wiring. Renders straight away, same non-blocking `useGoalOptions` use as `MetricsScreen` - see its own docstring. */
-function GoalsScreen({ accessToken, linkComponent, onDeleted }: GoalsScreenProps) {
-  const { goalOptions } = useGoalOptions(accessToken);
-  return <CrudListScreen config={createGoalsCrudConfig(accessToken, goalOptions ?? [], linkComponent)} onDeleted={onDeleted} />;
+/**
+ * The list screen - `GoalsRouter.List` (see `lib/goalsRouter.ts`),
+ * schema-driven (see `platform-core`'s `CrudListScreen` docstring). A
+ * real, known regression versus the old hand-written column: `parent`
+ * renders as a bare id, not a looked-up goal title - `createSchemaColumns`
+ * (platform-core) has no way to know that lookup itself yet.
+ */
+function GoalsScreen(props: GoalsScreenProps) {
+  return <GoalsRouter.List {...props} />;
 }
 
 export default GoalsScreen;

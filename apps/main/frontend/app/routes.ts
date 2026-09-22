@@ -1,17 +1,6 @@
 import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
-import {
-  CHECK_INS_NEW_PATH,
-  CHECK_INS_PATH,
-  checkInsEditPath,
-  GOALS_NEW_PATH,
-  GOALS_PATH,
-  goalsEditPath,
-  METRICS_NEW_PATH,
-  METRICS_PATH,
-  metricsEditPath,
-} from "goalnexa-frontend";
+import { createCrudRoutes } from "platform-core/routes";
 import { BASE_PATH, LOGIN_PATH, SIGNUP_PATH } from "platform-auth-frontend";
-import { ORGS_NEW_PATH, ORGS_PATH, orgsEditPath } from "platform-org-frontend";
 
 export default [
   index("routes/home.tsx"),
@@ -21,35 +10,18 @@ export default [
   // the public landing page (home) and login/signup stay bare. See
   // routes/app-shell.tsx.
   //
-  // The org routes' own leaf files live in platform-org-frontend itself
-  // (routes/orgs.tsx etc.) - this app still owns the actual URL (the
-  // string on the left) and still registers it, it just doesn't
-  // hand-write the component anymore. See platform-org-frontend's
-  // routes/orgs.tsx for why this is the one screen package that isn't
-  // react-router-free.
-  //
-  // A relative path, not the package specifier ("platform-org-frontend/
-  // routes/orgs") you'd use to IMPORT it - react-router's own route()
-  // resolves `file` with a plain `readFileSync` relative to this app's
-  // `appDirectory` ("app/"), not real module resolution, so a bare
-  // specifier just gets literally appended to "app/" and 404s. A `../`
-  // path is still a real filesystem path once joined, so it works.
+  // Every generic CRUD resource's actual route leaf files live in
+  // platform-core itself now (crud-list.tsx/crud-new.tsx/crud-edit.tsx,
+  // shared by every resource - see their own docstrings and
+  // createCrudRoutes's) - this app still owns every actual URL, it just
+  // registers a whole resource with one call, giving only its own
+  // backend base URL. `CrudListScreen`/`CrudCreateScreen`/`CrudEditScreen`
+  // are already fully generic (schema-driven), so there's no per-
+  // resource UI left to justify per-module route files anymore.
   layout("routes/app-shell.tsx", [
-    route(ORGS_PATH, "../../../platform-org/frontend/src/routes/orgs.tsx"),
-    route(ORGS_NEW_PATH, "../../../platform-org/frontend/src/routes/orgs-new.tsx"),
-    route(orgsEditPath(":id"), "../../../platform-org/frontend/src/routes/orgs-edit.tsx"),
-    // goalnexa-frontend's own route modules, same "package owns the leaf
-    // file, this app still owns the actual URL" pattern as the org routes
-    // above (see their own comment on why a relative path, not a package
-    // specifier).
-    route(GOALS_PATH, "../../../goalnexa/frontend/src/routes/goals.tsx"),
-    route(GOALS_NEW_PATH, "../../../goalnexa/frontend/src/routes/goals-new.tsx"),
-    route(goalsEditPath(":id"), "../../../goalnexa/frontend/src/routes/goals-edit.tsx"),
-    route(METRICS_PATH, "../../../goalnexa/frontend/src/routes/metrics.tsx"),
-    route(METRICS_NEW_PATH, "../../../goalnexa/frontend/src/routes/metrics-new.tsx"),
-    route(metricsEditPath(":id"), "../../../goalnexa/frontend/src/routes/metrics-edit.tsx"),
-    route(CHECK_INS_PATH, "../../../goalnexa/frontend/src/routes/check-ins.tsx"),
-    route(CHECK_INS_NEW_PATH, "../../../goalnexa/frontend/src/routes/check-ins-new.tsx"),
-    route(checkInsEditPath(":id"), "../../../goalnexa/frontend/src/routes/check-ins-edit.tsx"),
+    ...createCrudRoutes("/api/v1/orgs"),
+    ...createCrudRoutes("/api/v1/goals"),
+    ...createCrudRoutes("/api/v1/metrics"),
+    ...createCrudRoutes("/api/v1/check-ins"),
   ]),
 ] satisfies RouteConfig;

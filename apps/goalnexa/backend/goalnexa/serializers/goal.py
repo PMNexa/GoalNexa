@@ -11,9 +11,18 @@ class GoalSerializer(BaseSerializer):
     the field off. `owner_id` is read-only, same as `Organization.slug` -
     it's always `request.user.id` (see `GoalViewSet.perform_create`),
     never something a caller sets directly.
+
+    `org_id` is a bare `UUIDField`, not a real FK (see `Goal.org_id`'s own
+    docstring - no cross-module DB access from goalnexa into
+    platform_org). `related_endpoints` tells `BaseViewSet.schema` to
+    describe it as a relation anyway, purely so the frontend gets a real
+    org picker instead of a raw-id text box - it's still a plain
+    serializer field otherwise, written through `validated_data` like any
+    other (no `GoalViewSet._resolve_*` needed for it).
     """
 
     class Meta:
         model = Goal
         extra_kwargs = {"owner_id": {"read_only": True}}
         auto_exclude = ["created_at", "updated_at"]
+        related_endpoints = {"org_id": "/api/v1/orgs"}

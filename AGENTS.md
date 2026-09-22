@@ -58,24 +58,70 @@ Getting only the first one produces a genuinely confusing "Invalid hook
 call" error from *inside* the package's own code, not obviously pointing
 at the real cause. See `apps/main/frontend/vite.config.ts`.
 
-**`platform-org-frontend` is the one deliberate exception to "no
-react-router dependency of its own"**: at the host's explicit request,
-its `routes/orgs.tsx`/`orgs-new.tsx`/`orgs-edit.tsx` are real
-react-router route modules (not just screens) - `apps/main`'s `routes.ts`
-still registers the actual URL and still owns nesting, it just points
-`route()`'s `file` argument at a path INSIDE `platform-org-frontend`
-instead of a local file:
+**A generic CRUD resource (any `BaseViewSet`-backed one) needs ZERO
+route files in its own domain module - route modules live in
+`platform-core` now, shared by every resource.** This wasn't the design
+from the start; it's where two earlier, reverted attempts led (worth
+knowing before re-trying either):
+1. First, each domain module (`platform-org-frontend`, `goalnexa-frontend`)
+   owned its OWN `routes/orgs.tsx`/`orgs-new.tsx`/`orgs-edit.tsx` (etc) -
+   the historical "one deliberate exception to no react-router dependency"
+   - with `apps/main/routes.ts` hand-writing three `route()` calls per
+   resource pointing at them.
+2. Then those per-module route files got collapsed into a per-module
+   `./routes` package.json subpath (`platform-org-frontend/routes`
+   exporting a pre-built `orgRoutes` array) - worked, but was reverted for
+   being more machinery than it was worth.
+3. **Then it became clear there was no reason for PER-RESOURCE route
+   files at all**: `CrudListScreen`/`CrudCreateScreen`/`CrudEditScreen`
+   (platform-core) are fully schema-driven now (see platform-core's own
+   AGENTS.md's CrudRouter section) - there's no remaining UI difference
+   between one resource's route file and another's, so `platform-core`
+   itself now ships THREE GENERIC route files
+   (`crud-list.tsx`/`crud-new.tsx`/`crud-edit.tsx`) that every resource
+   shares, deriving which resource they're rendering from the URL's own
+   path segment at render time. `platform-org-frontend`/`goalnexa-frontend`
+   have gone back to owning zero route files and zero `react-router`
+   dependency - back to this section's own DEFAULT rule, not an exception
+   to it anymore.
+
+**How a resource actually gets registered today** - `platform-core`'s
+`createCrudRoutes` (its own `"./routes"` `exports` subpath - `import {
+createCrudRoutes } from "platform-core/routes"`), one call per resource,
+taking only that resource's own backend base URL:
 ```ts
-route(ORGS_PATH, "../../../platform-org/frontend/src/routes/orgs.tsx"),
+// apps/main/frontend/app/routes.ts
+import { createCrudRoutes } from "platform-core/routes";
+...
+layout("routes/app-shell.tsx", [
+  ...createCrudRoutes("/api/v1/orgs"),
+  ...createCrudRoutes("/api/v1/goals"),
+]),
 ```
-Two things this costs, worth knowing before repeating the pattern
-elsewhere:
+No file paths, no `CrudPaths` object, no per-module import at all -
+`createCrudRoutes` derives the resource name from the URL's own last
+`/`-segment and points every registration at its OWN `src/routes/`
+files (`import.meta.url`-derived, self-referential - never a relative
+string baking in the CALLER's directory depth). See platform-core's own
+AGENTS.md for the full mechanics (the `id`-collision gotcha, why this is
+the one place in the whole platform allowed to import
+`@react-router/dev/routes` from a CLIENT-bundled package's OWN `"."`
+entry without doing so, and the cookbook for adding a brand-new
+resource's UI end-to-end - two one-line files in the domain module,
+`createCrudRoutes(...)` in `routes.ts`, a nav item in `app-shell.tsx`,
+nothing else).
+
+Two things worth knowing regardless, if a resource ever DOES need a
+route module of its own again (custom UI a generic screen can't do -
+see platform-core's own cookbook for when to reach for this instead of
+composing a custom screen around `XRouter.Edit`):
 - **A relative filesystem path, not a package import.** `route()`
-  resolves `file` with a plain `readFileSync` relative to the host's
-  `appDirectory` ("app/"), not real module resolution - a bare
+  resolves a relative `file` with a plain `readFileSync` relative to the
+  host's `appDirectory` ("app/"), not real module resolution - a bare
   specifier like `"platform-org-frontend/routes/orgs"` just gets
   literally appended to `app/` and 404s (confirmed the hard way). A
-  package's `exports` map is irrelevant here.
+  package's `exports` map is irrelevant here - an ABSOLUTE path (see
+  `import.meta.url`, above) is what actually sidesteps this.
 - **`react-router` itself joins the React-singleton list.** Once a
   module's OWN files import `useOutletContext`/etc. directly, the same
   duplicate-copy risk above applies to `react-router`, not just
@@ -252,7 +298,12 @@ Frontend:
    pointing into `node_modules/<other-package>` if you missed one).
    `resolve.dedupe` already covers every package by name.
 5. Add a route file under `apps/main/frontend/app/routes/` that imports
-   the screen and registers it in `routes.ts`.
+   the screen and registers it in `routes.ts`. (This is for ONE plain
+   screen, e.g. login/signup. A `BaseViewSet`-backed CRUD resource -
+   list/create/edit, like orgs/goals/metrics/check-ins - needs NO route
+   file at all: `platform-core`'s generic route files + `createCrudRoutes`
+   handle it in one line; see "A generic CRUD resource..." above and
+   platform-core's own AGENTS.md for the full cookbook.)
 
 Backend:
 1. Add a `pyproject.toml` to the module's `backend/` declaring its

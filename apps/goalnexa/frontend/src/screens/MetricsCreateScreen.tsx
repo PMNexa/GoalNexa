@@ -1,7 +1,4 @@
-import { CrudCreateScreen } from "platform-core";
-import { createMetricsCrudConfig } from "../lib/metricsCrudConfig";
-import { useGoalOptions } from "../lib/useGoalOptions";
-import { useMetricOptions } from "../lib/useMetricOptions";
+import { MetricsRouter } from "../lib/metricsRouter";
 import type { Metric } from "../lib/api/metrics";
 
 export interface MetricsCreateScreenProps {
@@ -10,27 +7,14 @@ export interface MetricsCreateScreenProps {
 }
 
 /**
- * The create screen - `platform-core`'s `CrudCreateScreen` preconfigured
- * for `Metric`. Gated on `useGoalOptions` (unlike `MetricsScreen`) - the
- * required `goal` select field is meaningless with zero options, so this
- * waits for them rather than rendering an empty dropdown. NOT gated on
- * `useMetricOptions` - `parent` is optional, same reasoning
- * `GoalsCreateScreen` uses for its own `parent` field.
+ * The create screen - `MetricsRouter.Create` (see `lib/metricsRouter.ts`),
+ * schema-driven. `goal` is a required field on the form - the backend
+ * still 400s without it (`MetricViewSet.perform_create`) - but it's a
+ * plain text input for the goal's id now, not a `useGoalOptions`-built
+ * select (see `MetricsScreen`'s own docstring on this regression).
  */
-function MetricsCreateScreen({ accessToken, onCreated }: MetricsCreateScreenProps) {
-  const { goalOptions, error } = useGoalOptions(accessToken);
-  const { metricOptions } = useMetricOptions(accessToken);
-
-  if (error)
-    return (
-      <p className="text-danger" role="alert">
-        {error.message}
-      </p>
-    );
-  if (!goalOptions) return <p className="text-secondary">Loading…</p>;
-  if (goalOptions.length === 0) return <p className="text-secondary">Create a goal first - a metric always belongs to one.</p>;
-
-  return <CrudCreateScreen config={createMetricsCrudConfig(accessToken, goalOptions, metricOptions ?? [])} onCreated={onCreated} />;
+function MetricsCreateScreen(props: MetricsCreateScreenProps) {
+  return <MetricsRouter.Create {...props} />;
 }
 
 export default MetricsCreateScreen;
