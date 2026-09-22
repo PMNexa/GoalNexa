@@ -30,4 +30,9 @@ urlpatterns = [
     # uses (its own urls.py adds "orgs" under this), matching the
     # frontend package's already-hardcoded fetch path ("/api/v1/orgs").
     path('api/v1/', include('platform_org.urls')),
+    # Same "api/v1/" prefix goalnexa's own standalone config/urls.py uses
+    # (its own urls.py adds "goals"/"metrics"/"check-ins" under this) -
+    # distinct resource names from platform_org's "orgs", so sharing the
+    # bare prefix doesn't collide.
+    path('api/v1/', include('goalnexa.urls')),
 ]

@@ -52,6 +52,10 @@ INSTALLED_APPS = [
     # ever read request.user.id, so which one resolved it is invisible
     # to them.
     'platform_org',
+    # Goal/Metric/CheckIn - the product's own core domain. No User/Org
+    # table of its own either, same "module with no User table" pattern
+    # as platform_org above.
+    'goalnexa',
 ]
 
 MIDDLEWARE = [

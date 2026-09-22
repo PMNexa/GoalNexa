@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link as RouterLink, Outlet, useLocation } from "react-router";
+import { CHECK_INS_PATH, GOALS_PATH, METRICS_PATH } from "goalnexa-frontend";
 import { AppShell } from "platform-core";
 import type { LinkComponentProps } from "platform-core";
 import { ORGS_PATH } from "platform-org-frontend";
@@ -16,6 +17,9 @@ function ShellLink({ to, className, children, ...rest }: LinkComponentProps) {
 
 const NAV_ITEMS = [
   { label: "Home", to: "/" },
+  { label: "Goals", to: `/${GOALS_PATH}` },
+  { label: "Metrics", to: `/${METRICS_PATH}` },
+  { label: "Check-ins", to: `/${CHECK_INS_PATH}` },
   { label: "Organizations", to: `/${ORGS_PATH}` },
 ];
 

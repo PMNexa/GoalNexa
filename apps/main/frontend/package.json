@@ -12,6 +12,7 @@
     "@react-router/node": "^8.4.0",
     "@react-router/serve": "^8.4.0",
     "isbot": "^5.1.36",
+    "goalnexa-frontend": "file:../../goalnexa/frontend",
     "platform-auth-frontend": "file:../../platform-auth/frontend",
     "platform-org-frontend": "file:../../platform-org/frontend",
     "platform-core": "file:../../platform-core/frontend",
