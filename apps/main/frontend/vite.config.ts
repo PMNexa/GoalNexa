@@ -11,7 +11,16 @@ export default defineConfig({
     // copy, loading two React instances and crashing with "invalid hook
     // call" the moment a package's component actually renders. `dedupe`
     // forces every resolution of these names to this app's own copy.
-    dedupe: ["react", "react-dom"],
+    // "react-router" joined this list once platform-org-frontend's own
+    // route modules (routes/orgs*.tsx) started importing it directly
+    // (useOutletContext, etc.) - without dedupe, that import resolves to
+    // ITS OWN nested react-router copy, a different module instance than
+    // this app's, so `useOutletContext()` inside those files would read
+    // from a context object app-shell.tsx's `<Outlet context={...}>`
+    // never touches - "must be used within a data router" or a silently
+    // wrong (undefined) value, not an obvious crash pointing at the
+    // real cause.
+    dedupe: ["react", "react-dom", "react-router"],
   },
   optimizeDeps: {
     // Treat these as ordinary project source (processed by the react

@@ -58,6 +58,38 @@ Getting only the first one produces a genuinely confusing "Invalid hook
 call" error from *inside* the package's own code, not obviously pointing
 at the real cause. See `apps/main/frontend/vite.config.ts`.
 
+**`platform-org-frontend` is the one deliberate exception to "no
+react-router dependency of its own"**: at the host's explicit request,
+its `routes/orgs.tsx`/`orgs-new.tsx`/`orgs-edit.tsx` are real
+react-router route modules (not just screens) - `apps/main`'s `routes.ts`
+still registers the actual URL and still owns nesting, it just points
+`route()`'s `file` argument at a path INSIDE `platform-org-frontend`
+instead of a local file:
+```ts
+route(ORGS_PATH, "../../../platform-org/frontend/src/routes/orgs.tsx"),
+```
+Two things this costs, worth knowing before repeating the pattern
+elsewhere:
+- **A relative filesystem path, not a package import.** `route()`
+  resolves `file` with a plain `readFileSync` relative to the host's
+  `appDirectory` ("app/"), not real module resolution - a bare
+  specifier like `"platform-org-frontend/routes/orgs"` just gets
+  literally appended to `app/` and 404s (confirmed the hard way). A
+  package's `exports` map is irrelevant here.
+- **`react-router` itself joins the React-singleton list.** Once a
+  module's OWN files import `useOutletContext`/etc. directly, the same
+  duplicate-copy risk above applies to `react-router`, not just
+  `react`/`react-dom` - `apps/main/frontend/vite.config.ts`'s `dedupe`
+  includes `"react-router"` for exactly this, and the module's own
+  `package.json` pins the SAME `react-router` version as `apps/main`
+  (both `^8.4.0` today). Since different modules' own standalone deploys
+  can genuinely sit on different react-router majors (main is on v8,
+  platform-auth's own standalone app is on v7, per above), this is a
+  real version-drift risk to watch, not just a doubled-instance one -
+  verified end-to-end with a real browser (signup → list → create →
+  edit) specifically because a context-passing bug here fails silently
+  past `tsc`/`vite build` and would only surface at runtime.
+
 Tabler is loaded once, at the host level (`apps/main/frontend/app/root.tsx`'s
 `links` function) — a screen package's own `index.html` (which has its
 own Tabler `<link>` for standalone dev) isn't used when the package is
