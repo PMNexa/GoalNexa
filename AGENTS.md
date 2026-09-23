@@ -449,6 +449,25 @@ there too. Client setup (Claude Code, Claude Desktop, Codex, Cursor, VS
 Code, Gemini CLI, Windsurf): `apps/platform-mcp/README.md`, and the
 same steps on the page. Mechanics: platform-mcp's AGENTS.md.
 
+**Agent skills**: goalnexa ships `goalnexa-check-in`/`-review`/`-plan`
+as `apps/goalnexa/backend/goalnexa/mcp_skills/<name>/SKILL.md`
+(package data in its pyproject). platform-mcp discovers `mcp_skills/`
+in every installed app and serves them publicly, with the index at
+`/api/v1/mcp/skills` doubling as the install procedure. One prompt, "Install the
+goalnexa skills from <host>/api/v1/mcp/skills", installs them (README and
+the `/mcp` page show it). A skill may only rely on the MCP tools and on
+filters that actually work (`org_id.isnull`, `name.icontains`,
+`sort: "-checked_in_at"`) - test a changed skill with a real client run
+(`claude -p ... --mcp-config`), not just by reading it. **nginx forwards
+`$http_host`, not `$host`**: `$host` drops the `:55607` port, which
+broke the skills' absolute URLs and react-router's action CSRF origin
+check (a form submitted before hydration came back as a bare
+"Bad Request").
+
+**Demo data / README media**: `scripts/seed_demo.py` (REST API only,
+`--reset` to start over) seeds the account behind `docs/media/`. Re-shoot
+after UI changes that the README shows.
+
 **Every process (including `apps/main` itself) needs its OWN
 `REST_FRAMEWORK["EXCEPTION_HANDLER"]` pointed at
 `"core_api.exceptions.platform_exception_handler"`.** Each module's own
