@@ -40,7 +40,9 @@ main picks the mount, the module owns every page under it, including
 what happens on success (platform-auth stores the session in its OWN
 store and redirects to `?next=`, or `/`) - so main has no auth route
 file at all. Main steers the destination by putting `?next=` on its
-links (`home.tsx`'s login link, `useRequireAccessToken`'s redirect).
+links (`useRequireAccessToken`'s redirect). There is no landing page:
+`/` (`routes/index.tsx`) redirects to `/dashboard`, so login's default
+`/` target lands there too.
 
 **Route builders ride in the CLIENT bundle** (a module's `"."` entry is
 imported by client code too, e.g. `root.tsx`'s `initSession`,
@@ -69,7 +71,7 @@ goal). Progress over time is PER METRIC, as small multiples: one card
 per shown goal (titled with the goal + its %), one straight-segment line per shown
 metric; the tooltip shows each metric's % AND its actual reading
 ("57,000 / 100,000"), and end labels sit past the plot edge with a
-leader line (`value / target` as a %,
+leader line (progress from base to target as a %,
 replayed from check-ins, `computeMetricSeries`). All panels share one
 time range and % ceiling (`fitDomain`) so they can be compared side by
 side. A single chart could need more lines than the palette has colors.
@@ -78,7 +80,10 @@ name), so it stays put when other metrics are hidden. A goal's 9th+
 metric isn't charted: the palette has 8 slots, colors are never cycled,
 and the panel notes how many were left out. The goal tree shows each
 metric's color key, so it doubles as the panels' legend. A goal's progress = the mean of its
-metrics' `value / target_value`; the math is in `lib/progress.ts`. The
+metrics' `(value - base_value) / (target_value - base_value)` (so a
+metric meant to go down works too); the math is in `lib/progress.ts`.
+A new metric's `current_value` starts at its `base_value` unless one is
+sent (`MetricViewSet.perform_create`). The
 charts are plain SVG, no chart library. The cap of 8 goals matches the
 8 validated categorical color slots. A goal keeps its color slot for as
 long as it's selected. Each selected goal lists its metrics in the filter
@@ -94,7 +99,10 @@ it as leaves, joined by tree lines drawn in CSS from the key: name
 (truncates, with a tooltip), current / target, "+" check-in, eye. The
 eye (show/hide, `aria-pressed`) is always the last control on a row. A
 hidden goal collapses to its muted title; a hidden metric stays in
-place, dimmed. The color tokens live on the `.gn-dashboard` root, not just on
+place, dimmed. A goal's or metric's name opens its platform-core `CrudDetailScreen` in
+a right-hand `Drawer` (closing it refreshes the charts). The picked org
+is remembered in localStorage (`goalnexa:dashboard-org`). There is no
+table view - charts only. The color tokens live on the `.gn-dashboard` root, not just on
 `.gn-viz`, because the filter card's color keys sit outside the charts.
 
 **Check-in time is `CheckIn.checked_in_at`**, not `created_at`. It's
@@ -118,7 +126,7 @@ is the ONLY host, it already owns every actual URL by calling
 `createCrudRoutes`/`createOrgsRoutes` itself, and a link that never
 varies gains nothing from a computed "suggested path" import over a
 plain string literal at its one or two use sites (`app-shell.tsx`'s
-`NAV_ITEMS`, `home.tsx`'s quick link) - it's one more file/import to
+`NAV_ITEMS`) - it's one more file/import to
 trace for zero actual flexibility. The bar for a module exporting a path
 constant: does ANY consumer actually need to know it varies (e.g. it's
 parameterized, like `createOrgsRoutes(basePath)`'s own `basePath` arg -
@@ -345,13 +353,13 @@ worth re-checking if you touch either.
 **App shell (sidemenu + sticky header)**: `platform-core`'s
 `AppShell` wraps post-login screens only — `apps/main`'s `routes.ts` puts
 it behind `layout("routes/app-shell.tsx", [...])` around every generic
-CRUD resource's routes, while the public landing page (`home.tsx`) and
+CRUD resource's routes, while
 login/signup stay outside it, unwrapped. `app-shell.tsx` is where main
 plugs in the pieces `AppShell` deliberately doesn't own: a
 `linkComponent` wrapping react-router's own `Link` (same "no router
 dependency inside the package" convention as the screens), the
 `navItems` list (spans routes from multiple modules, each a plain
-string literal - `/goals`, `/platform-org/orgs`, `/` for home - not a
+string literal - `/goals`, `/platform-org/orgs` - not a
 computed path import; see this section's own note above on why - so it
 can't live inside any one module's package anyway), and the session
 read for the header's user/logout display. "Log out" there is

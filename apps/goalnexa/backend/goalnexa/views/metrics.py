@@ -47,7 +47,12 @@ class MetricViewSet(BaseViewSet):
         return get_object_or_404(Metric, id=parent_id, goal__owner_id=self.request.user.id)
 
     def perform_create(self, serializer):
-        serializer.save(goal=self._resolve_goal(), parent=self._resolve_parent())
+        # A new metric starts at its base, unless the caller gave a current
+        # value explicitly (an emptied form field is omitted, not sent).
+        extra = {}
+        if "current_value" not in self.request.data:
+            extra["current_value"] = serializer.validated_data.get("base_value", 0)
+        serializer.save(goal=self._resolve_goal(), parent=self._resolve_parent(), **extra)
 
     def perform_update(self, serializer):
         # Presence, not truthiness - see GoalViewSet.perform_update's own

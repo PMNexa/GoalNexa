@@ -189,6 +189,21 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* A goal's / metric's name opens its details - a bare button, text-styled. */
+.gn-name-btn {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.gn-name-btn:hover > span {
+  text-decoration: underline;
+}
 .gn-goal-group:not(.is-shown) .gn-goal-title {
   font-weight: 500;
   color: var(--gn-text-secondary);
@@ -278,6 +293,7 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   width: 10px;
 }
 .gn-metric-name {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

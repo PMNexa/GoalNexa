@@ -92,6 +92,7 @@ function CheckInForm({
         {goalTitle && <>{goalTitle} · </>}
         now {formatAmount(metric.current_value)} of {formatAmount(metric.target_value)}
         {metric.unit ? ` ${metric.unit}` : ""}
+        {Number(metric.base_value) !== 0 && <> · started at {formatAmount(metric.base_value)}</>}
       </p>
       <div className="mb-3">
         <FormLabel htmlFor="dashboard-check-in-value" required>

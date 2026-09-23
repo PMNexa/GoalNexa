@@ -5,14 +5,15 @@ import { createCrudRoutes } from "platform-core";
 import { createOrgsRoutes } from "platform-org-frontend";
 
 export default [
-  index("routes/home.tsx"),
+  // `/` only redirects to /dashboard - there is no landing page.
+  index("routes/index.tsx"),
   // platform-auth registered ONCE: this app picks the mount ("auth"),
   // platform-auth-frontend supplies every page under it (/auth/login,
   // /auth/signup) - storing the session and redirecting to `?next=`
-  // (or /) on success are its own job, no route file here.
+  // (or /, i.e. the dashboard) on success are its own job, no route file here.
   ...createAuthRoutes("auth"),
   // AppShell (sidemenu + sticky header) wraps post-login screens only -
-  // the public landing page (home) and login/signup stay bare. See
+  // login/signup stay bare. See
   // routes/app-shell.tsx.
   //
   // Every generic CRUD resource's actual route leaf files live in
@@ -32,11 +33,10 @@ export default [
   // same as it decides every other resource's URL - so its real URLs
   // are `platform-org/orgs`, `platform-org/orgs/new`,
   // `platform-org/orgs/:id/edit`. The sidebar nav link (app-shell.tsx)
-  // and the home page's quick link both hardcode that same
-  // `"/platform-org/orgs"` string rather than importing a computed
-  // path from platform-org-frontend - deliberately: this is the ONE
-  // place that string is decided, so a plain literal at each of the two
-  // other use sites is no less "single source of truth" than a shared
+  // hardcodes that same `"/platform-org/orgs"` string rather than
+  // importing a computed path from platform-org-frontend - deliberately:
+  // this is the ONE place that string is decided, so a plain literal at
+  // its use site is no less "single source of truth" than a shared
   // constant would be, for a link that doesn't change.
   layout("routes/app-shell.tsx", [
     ...createDashboardRoutes("dashboard"),

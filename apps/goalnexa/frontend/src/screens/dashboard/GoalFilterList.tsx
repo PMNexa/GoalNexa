@@ -20,6 +20,9 @@ export interface GoalFilterListProps {
   /** Metrics for the current selection are still loading. */
   loading: boolean;
   onCheckIn: (metricId: string) => void;
+  /** A goal's / metric's name was clicked - the host shows its details. */
+  onOpenGoal: (goalId: string) => void;
+  onOpenMetric: (metricId: string) => void;
 }
 
 function formatAmount(value: string): string {
@@ -97,7 +100,8 @@ function VisibilityToggle({
  * line-color key + name, current / target, "+" check-in, eye) - the
  * leaves' keys are the legend for each goal's progress-over-time panel. The eye is always the last
  * control on a row. A hidden goal collapses to its muted title; a hidden
- * metric stays in place, dimmed, so it's easy to show again. Styles:
+ * metric stays in place, dimmed, so it's easy to show again. A goal's or
+ * metric's name is a button: the host opens its details. Styles:
  * `dashboardStyles.ts` (`.gn-goal-*`, `.gn-metric*`, `.gn-row-btn`).
  */
 function GoalFilterList({
@@ -113,6 +117,8 @@ function GoalFilterList({
   currentByGoal,
   loading,
   onCheckIn,
+  onOpenGoal,
+  onOpenMetric,
 }: GoalFilterListProps) {
   return (
     <ul className="gn-goal-list" aria-label="Goals">
@@ -131,9 +137,15 @@ function GoalFilterList({
                 className={`gn-key gn-goal-key${shown ? "" : " is-empty"}`}
                 style={shown ? { background: seriesColor(slot) } : undefined}
               />
-              <span className="gn-goal-title" title={goal.title}>
-                {goal.title}
-              </span>
+              <button
+                type="button"
+                className="gn-name-btn"
+                title={goal.title}
+                aria-haspopup="dialog"
+                onClick={() => onOpenGoal(goal.id)}
+              >
+                <span className="gn-goal-title">{goal.title}</span>
+              </button>
               {shown && !loading ? <span className="gn-goal-pct">{current === null ? "—" : formatPct(current)}</span> : <span />}
               <VisibilityToggle
                 shown={shown}
@@ -168,13 +180,21 @@ function GoalFilterList({
                           className="gn-key"
                           style={{ background: metricShown && slot !== undefined ? seriesColor(slot) : "var(--gn-grid)" }}
                         />
-                        <span className="gn-metric-name" title={metric.name}>
-                          {metric.name}
-                        </span>
+                        <button
+                          type="button"
+                          className="gn-name-btn"
+                          title={metric.name}
+                          aria-haspopup="dialog"
+                          onClick={() => onOpenMetric(metric.id)}
+                        >
+                          <span className="gn-metric-name">{metric.name}</span>
+                        </button>
                       </span>
                       <span
                         className="gn-metric-value"
-                        title={`${formatAmount(metric.current_value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}`}
+                        title={`${formatAmount(metric.current_value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}${
+                          Number(metric.base_value) === 0 ? "" : ` (from ${formatAmount(metric.base_value)})`
+                        }`}
                       >
                         {formatCompact(metric.current_value)}
                         <span className="gn-metric-target">

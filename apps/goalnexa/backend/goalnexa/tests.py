@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from goalnexa.models import CheckIn, Goal, Metric
-from goalnexa.views import CheckInViewSet
+from goalnexa.views import CheckInViewSet, MetricViewSet
 
 
 class Actor:
@@ -67,3 +67,24 @@ class CheckInTimeTests(TestCase):
         # Deleting it falls back to the remaining latest.
         self.call("delete", pk=backdated.data["id"])
         self.assertEqual(self.current_value(), Decimal("50"))
+
+
+class MetricBaseValueTests(TestCase):
+    def setUp(self):
+        self.actor = Actor()
+        self.goal = Goal.objects.create(title="Lose weight", owner_id=self.actor.id)
+
+    def create(self, data):
+        request = APIRequestFactory().post("/api/v1/metrics", {"goal": str(self.goal.id), **data}, format="json")
+        force_authenticate(request, user=self.actor)
+        return MetricViewSet.as_view({"post": "create"})(request)
+
+    def test_new_metric_starts_at_its_base(self):
+        response = self.create({"name": "kg", "base_value": 80, "target_value": 70})
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Decimal(response.data["current_value"]), Decimal("80"))
+
+    def test_explicit_current_value_is_kept(self):
+        response = self.create({"name": "kg", "base_value": 80, "target_value": 70, "current_value": 76})
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Decimal(response.data["current_value"]), Decimal("76"))

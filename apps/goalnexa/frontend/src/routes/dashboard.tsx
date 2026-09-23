@@ -1,9 +1,19 @@
-import { useOutletContext } from "react-router";
+import { Link as RouterLink, useOutletContext } from "react-router";
+import { useResourcePath, type LinkComponentProps } from "platform-core";
 import DashboardScreen from "../screens/DashboardScreen";
 
 // oxlint-disable-next-line react/only-export-components
 export function meta() {
   return [{ title: "Dashboard" }];
+}
+
+/** The details drawer's links (Edit, related rows) are relative mount paths - same as platform-core's `crud-detail.tsx`. */
+function DashboardLink({ to, className, children, ...rest }: LinkComponentProps) {
+  return (
+    <RouterLink to={`/${to}`} className={className} {...rest}>
+      {children}
+    </RouterLink>
+  );
 }
 
 /**
@@ -14,5 +24,6 @@ export function meta() {
  */
 export default function DashboardRoute() {
   const accessToken = useOutletContext<string>();
-  return <DashboardScreen accessToken={accessToken} />;
+  const resourcePath = useResourcePath();
+  return <DashboardScreen accessToken={accessToken} linkComponent={DashboardLink} resourcePath={resourcePath} />;
 }

@@ -1,19 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Button,
   Card,
   CardBody,
   CardHeader,
   CardTitle,
+  CrudDetailScreen,
+  Drawer,
   FormLabel,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
+  type LinkComponent,
 } from "platform-core";
-import type { Goal, GoalStatus } from "../lib/api/goals";
+import type { Goal } from "../lib/api/goals";
 import type { Metric } from "../lib/api/metrics";
 import {
   fetchCheckIns,
@@ -28,23 +24,44 @@ import ProgressBarChart from "./dashboard/ProgressBarChart";
 import CheckInModal from "./dashboard/CheckInModal";
 import GoalFilterList from "./dashboard/GoalFilterList";
 import ProgressLineChart, { fitDomain } from "./dashboard/ProgressLineChart";
-import { formatPct, seriesColor } from "./dashboard/chartUtils";
+import { formatPct } from "./dashboard/chartUtils";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
 
 export interface DashboardScreenProps {
   accessToken: string;
+  /** For links inside the details drawer (Edit, related rows) - same as `CrudDetailScreen`'s. */
+  linkComponent?: LinkComponent;
+  /** Where each resource's pages are mounted - same as `CrudDetailScreen`'s. */
+  resourcePath?: (endpoint: string) => string | null;
+}
+
+/** What the details drawer shows: a goal or a metric, by its API base URL. */
+interface DetailTarget {
+  endpoint: "/api/v1/goals" | "/api/v1/metrics";
+  id: string;
 }
 
 /** Palette has 8 validated categorical slots - a 9th series would need a generated hue, so selection stops at 8. */
 const MAX_GOALS = 8;
 const PERSONAL = "__personal__";
+/** The picked org is remembered per browser; a storage failure just means it isn't. */
+const ORG_STORAGE_KEY = "goalnexa:dashboard-org";
 
-const STATUS_LABEL: Record<GoalStatus, string> = {
-  not_started: "Not started",
-  in_progress: "In progress",
-  completed: "Completed",
-  archived: "Archived",
-};
+function readStoredOrg(): string | null {
+  try {
+    return window.localStorage.getItem(ORG_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeOrg(key: string) {
+  try {
+    window.localStorage.setItem(ORG_STORAGE_KEY, key);
+  } catch {
+    // Not remembered - nothing else depends on it.
+  }
+}
 
 function formatAmount(value: string | number): string {
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -65,13 +82,14 @@ function freeSlot(slots: Map<string, number>): number {
  * Goal dashboard: pick ONE org (or personal goals), pick up to 8 of its
  * goals, see their progress over time + where each stands now. Each
  * selected goal lists its metrics: unticking one leaves it out of that
- * goal's progress (both charts + table), and "Check in" logs a reading
- * inline - the charts refresh in place. Progress
+ * goal's progress (both charts), and "Check in" logs a reading
+ * inline - the charts refresh in place. A goal's or metric's name opens
+ * platform-core's `CrudDetailScreen` in a right-hand drawer. Progress
  * math lives in `lib/progress.ts`; charts are plain SVG
  * (`dashboard/`), no chart library. Self-contained like every screen in
  * this package - `accessToken` in, no router dependency.
  */
-function DashboardScreen({ accessToken }: DashboardScreenProps) {
+function DashboardScreen({ accessToken, linkComponent, resourcePath }: DashboardScreenProps) {
   const [orgs, setOrgs] = useState<OrgOption[] | null>(null);
   const [orgKey, setOrgKey] = useState<string | null>(null);
   const [goals, setGoals] = useState<Goal[] | null>(null);
@@ -89,7 +107,7 @@ function DashboardScreen({ accessToken }: DashboardScreenProps) {
   // flashing the charts back to "Loading…" (see the effect below).
   const [seriesVersion, setSeriesVersion] = useState(0);
   const loadedKeyRef = useRef<string | null>(null);
-  const [view, setView] = useState<"chart" | "table">("chart");
+  const [detail, setDetail] = useState<DetailTarget | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -98,7 +116,10 @@ function DashboardScreen({ accessToken }: DashboardScreenProps) {
       .then((items) => {
         if (cancelled) return;
         setOrgs(items);
-        setOrgKey(items[0]?.id ?? PERSONAL);
+        // The last pick, if it's still one of this user's orgs.
+        const stored = readStoredOrg();
+        const valid = stored === PERSONAL || items.some((org) => org.id === stored);
+        setOrgKey(valid && stored ? stored : (items[0]?.id ?? PERSONAL));
       })
       .catch((thrown: unknown) => !cancelled && setError(toError(thrown)));
     return () => {
@@ -237,9 +258,28 @@ function DashboardScreen({ accessToken }: DashboardScreenProps) {
     setSelected(new Map((goals ?? []).slice(0, MAX_GOALS).map((goal, i) => [goal.id, i + 1])));
   }
 
+  // Anything may have changed in the drawer (a check-in, a metric's
+  // target), so closing it refreshes the charts.
+  function closeDetail() {
+    setDetail(null);
+    setSeriesVersion((v) => v + 1);
+  }
+
+  function handleDetailDeleted() {
+    if (detail?.endpoint === "/api/v1/goals") {
+      const goalId = detail.id;
+      setGoals((prev) => prev?.filter((goal) => goal.id !== goalId) ?? prev);
+      setSelected((prev) => {
+        const next = new Map(prev);
+        next.delete(goalId);
+        return next;
+      });
+    }
+    closeDetail();
+  }
+
   const slotOf = (goalId: string) => selected.get(goalId) ?? 1;
   const atLimit = selected.size >= MAX_GOALS;
-  const tableDate = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
   return (
     <div className="row g-3 gn-dashboard">
@@ -256,6 +296,19 @@ function DashboardScreen({ accessToken }: DashboardScreenProps) {
           setSeriesVersion((v) => v + 1);
         }}
       />
+      <Drawer open={detail !== null} title={detail?.endpoint === "/api/v1/metrics" ? "Metric" : "Goal"} onClose={closeDetail}>
+        {detail && (
+          <CrudDetailScreen
+            key={`${detail.endpoint}/${detail.id}`}
+            baseUrl={detail.endpoint}
+            accessToken={accessToken}
+            id={detail.id}
+            linkComponent={linkComponent}
+            resourcePath={resourcePath}
+            onDeleted={handleDetailDeleted}
+          />
+        )}
+      </Drawer>
       {error && (
         <div className="col-12">
           <div className="alert alert-danger mb-0">{error.message}</div>
@@ -275,7 +328,10 @@ function DashboardScreen({ accessToken }: DashboardScreenProps) {
                 className="form-select form-select-sm"
                 value={orgKey ?? ""}
                 disabled={orgs === null}
-                onChange={(event) => setOrgKey(event.target.value)}
+                onChange={(event) => {
+                  setOrgKey(event.target.value);
+                  storeOrg(event.target.value);
+                }}
               >
                 {orgs === null && <option value="">Loading…</option>}
                 {orgs?.map((org) => (
@@ -326,6 +382,8 @@ function DashboardScreen({ accessToken }: DashboardScreenProps) {
                 currentByGoal={currentByGoal}
                 loading={loadingSeries}
                 onCheckIn={setCheckInFor}
+                onOpenGoal={(id) => setDetail({ endpoint: "/api/v1/goals", id })}
+                onOpenMetric={(id) => setDetail({ endpoint: "/api/v1/metrics", id })}
               />
             )}
             {atLimit && goals && goals.length > MAX_GOALS && (
@@ -344,112 +402,65 @@ function DashboardScreen({ accessToken }: DashboardScreenProps) {
           </Card>
         ) : (
           <div className="d-flex flex-column gap-3">
-            <div className="d-flex justify-content-end">
-              <div className="btn-group" role="group" aria-label="View">
-                <Button variant={view === "chart" ? "primary" : "secondary"} outline={view !== "chart"} onClick={() => setView("chart")}>
-                  Chart
-                </Button>
-                <Button variant={view === "table" ? "primary" : "secondary"} outline={view !== "table"} onClick={() => setView("table")}>
-                  Table
-                </Button>
-              </div>
-            </div>
-
-            {view === "chart" ? (
-              <>
-                {/* Progress over time: one card per shown goal, one line per
-                    shown metric. All cards share one time range + % scale
-                    (panelDomain) so they compare at a glance. */}
-                {loadingSeries ? (
-                  <Card>
-                    <CardBody>
-                      <div className="text-secondary py-4 text-center">Loading…</div>
-                    </CardBody>
-                  </Card>
-                ) : (
-                  metricPanels.map(({ progress: p, series, overflow }) => (
-                    <Card key={p.goal.id}>
-                      <CardHeader>
-                        <CardTitle>
-                          <span className="d-inline-flex align-items-center gap-2">
-                            {p.goal.title}
-                            {p.current !== null && <span className="gn-goal-pct">{formatPct(p.current)}</span>}
-                          </span>
-                        </CardTitle>
-                        <span className="card-subtitle ms-auto text-secondary small d-none d-md-inline">
-                          Progress over time · each metric as % of its target
-                        </span>
-                      </CardHeader>
-                      <CardBody>
-                        {series.length === 0 ? (
-                          <p className="text-secondary small mb-0">
-                            {(metricsByGoal.get(p.goal.id)?.length ?? 0) === 0 ? "No metrics yet." : "All metrics hidden."}
-                          </p>
-                        ) : (
-                          <ProgressLineChart
-                            series={series}
-                            height={220}
-                            domain={panelDomain}
-                            alwaysLegend
-                            emptyText="No check-ins yet."
-                            ariaLabel={`${p.goal.title}: metric progress over time`}
-                          />
-                        )}
-                        {overflow > 0 && (
-                          <p className="text-secondary small mb-0 mt-1">
-                            +{overflow} more metric{overflow === 1 ? "" : "s"} not charted (max {MAX_GOALS} lines per goal).
-                          </p>
-                        )}
-                      </CardBody>
-                    </Card>
-                  ))
-                )}
-                <Card>
+            {/* Progress over time: one card per shown goal, one line per
+                shown metric. All cards share one time range + % scale
+                (panelDomain) so they compare at a glance. */}
+            {loadingSeries ? (
+              <Card>
+                <CardBody>
+                  <div className="text-secondary py-4 text-center">Loading…</div>
+                </CardBody>
+              </Card>
+            ) : (
+              metricPanels.map(({ progress: p, series, overflow }) => (
+                <Card key={p.goal.id}>
                   <CardHeader>
-                    <CardTitle>Current progress</CardTitle>
+                    <CardTitle>
+                      <span className="d-inline-flex align-items-center gap-2">
+                        {p.goal.title}
+                        {p.current !== null && <span className="gn-goal-pct">{formatPct(p.current)}</span>}
+                      </span>
+                    </CardTitle>
+                    <span className="card-subtitle ms-auto text-secondary small d-none d-md-inline">
+                      Progress over time · each metric as % of its target
+                    </span>
                   </CardHeader>
                   <CardBody>
-                    {loadingSeries ? (
-                      <div className="text-secondary py-4 text-center">Loading…</div>
+                    {series.length === 0 ? (
+                      <p className="text-secondary small mb-0">
+                        {(metricsByGoal.get(p.goal.id)?.length ?? 0) === 0 ? "No metrics yet." : "All metrics hidden."}
+                      </p>
                     ) : (
-                      <ProgressBarChart rows={progress.map((p) => ({ progress: p, slot: slotOf(p.goal.id) }))} />
+                      <ProgressLineChart
+                        series={series}
+                        height={220}
+                        domain={panelDomain}
+                        alwaysLegend
+                        emptyText="No check-ins yet."
+                        ariaLabel={`${p.goal.title}: metric progress over time`}
+                      />
+                    )}
+                    {overflow > 0 && (
+                      <p className="text-secondary small mb-0 mt-1">
+                        +{overflow} more metric{overflow === 1 ? "" : "s"} not charted (max {MAX_GOALS} lines per goal).
+                      </p>
                     )}
                   </CardBody>
                 </Card>
-              </>
-            ) : (
-              <Card>
-                <Table vcenter responsive>
-                  <TableHead>
-                    <TableRow>
-                      <TableHeaderCell>Goal</TableHeaderCell>
-                      <TableHeaderCell>Status</TableHeaderCell>
-                      <TableHeaderCell>Metrics</TableHeaderCell>
-                      <TableHeaderCell>Progress</TableHeaderCell>
-                      <TableHeaderCell>Check-ins</TableHeaderCell>
-                      <TableHeaderCell>Last check-in</TableHeaderCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {progress.map((p) => (
-                      <TableRow key={p.goal.id}>
-                        <TableCell>
-                          <span className="d-inline-flex align-items-center gap-2">
-                            <span className="gn-key" style={{ background: seriesColor(slotOf(p.goal.id)) }} />
-                            {p.goal.title}
-                          </span>
-                        </TableCell>
-                        <TableCell>{STATUS_LABEL[p.goal.status] ?? p.goal.status}</TableCell>
-                        <TableCell>{p.metricCount}</TableCell>
-                        <TableCell>{p.current === null ? "—" : formatPct(p.current)}</TableCell>
-                        <TableCell>{p.series.length}</TableCell>
-                        <TableCell>{p.lastCheckIn === null ? "—" : tableDate.format(p.lastCheckIn)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
+              ))
             )}
+            <Card>
+              <CardHeader>
+                <CardTitle>Current progress</CardTitle>
+              </CardHeader>
+              <CardBody>
+                {loadingSeries ? (
+                  <div className="text-secondary py-4 text-center">Loading…</div>
+                ) : (
+                  <ProgressBarChart rows={progress.map((p) => ({ progress: p, slot: slotOf(p.goal.id) }))} />
+                )}
+              </CardBody>
+            </Card>
           </div>
         )}
       </div>

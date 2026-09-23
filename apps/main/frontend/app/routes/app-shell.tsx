@@ -3,7 +3,7 @@ import { Link as RouterLink, Outlet, useLocation } from "react-router";
 import { AppShell } from "platform-core";
 import type { LinkComponentProps } from "platform-core";
 import { getSession, logout, subscribeSession } from "platform-auth-frontend";
-import { CheckInsIcon, DashboardIcon, GoalsIcon, HomeIcon, MetricsIcon, OrgsIcon } from "../lib/navIcons";
+import { CheckInsIcon, DashboardIcon, GoalsIcon, MetricsIcon, OrgsIcon } from "../lib/navIcons";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
 
 function ShellLink({ to, className, children, ...rest }: LinkComponentProps) {
@@ -20,7 +20,6 @@ function ShellLink({ to, className, children, ...rest }: LinkComponentProps) {
 // link that never changes gains nothing from a shared constant over a
 // literal at its one use site. See root AGENTS.md's routing section.
 const NAV_ITEMS = [
-  { label: "Home", to: "/", icon: HomeIcon },
   { label: "Dashboard", to: "/dashboard", icon: DashboardIcon },
   { label: "Goals", to: "/goals", icon: GoalsIcon },
   { label: "Metrics", to: "/metrics", icon: MetricsIcon },
