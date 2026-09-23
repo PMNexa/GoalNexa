@@ -12,10 +12,16 @@ Class-based views
     2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
 Including another URLconf
     1. Import the include() function: from django.urls import include, path
+from rest_framework.permissions import IsAuthenticated
+
+from core_api.mcp import McpView
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
 from django.urls import include, path
+from rest_framework.permissions import IsAuthenticated
+
+from core_api.mcp import McpView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -35,4 +41,9 @@ urlpatterns = [
     # distinct resource names from platform_org's "orgs", so sharing the
     # bare prefix doesn't collide.
     path('api/v1/', include('goalnexa.urls')),
+    # MCP server over every BaseViewSet above (orgs, goals, metrics,
+    # check-ins) - each tool call is an internal sub-request to the same
+    # API with the caller's own bearer token, so the same auth/scoping
+    # applies. See core_api/mcp.py.
+    path('api/v1/mcp', McpView.as_view(permission_classes=[IsAuthenticated])),
 ]

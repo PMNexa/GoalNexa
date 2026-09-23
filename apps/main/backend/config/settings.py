@@ -157,6 +157,9 @@ REFRESH_COOKIE_SECURE = os.environ.get("DJANGO_DEBUG", "true").lower() != "true"
 # this to e.g. "/platform-auth"), this stays empty.
 URL_PREFIX = ""
 
+# core_api.mcp.McpView's serverInfo name.
+MCP_SERVER_NAME = "goalnexa"
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["platform_auth.authentication.ActorAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": [],

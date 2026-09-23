@@ -435,6 +435,14 @@ implementation. This makes `platform-core` a real backend dependency of
 any module with generic CRUD entities, not just something "kept for
 reference" — see its repo-layout row below.
 
+**MCP server**: `POST /api/v1/mcp` (platform-core's `McpView`, mounted
+in `apps/main`'s `config/urls.py`, `IsAuthenticated`) gives an AI client
+tools for every `BaseViewSet` resource - orgs, goals, metrics,
+check-ins - with nothing per resource to write. Each tool call is an
+internal sub-request to the same REST API with the caller's own
+`Authorization: Bearer <access token>`, so the same auth, scoping and
+validation apply. See platform-core's AGENTS.md "MCP server".
+
 **Every process (including `apps/main` itself) needs its OWN
 `REST_FRAMEWORK["EXCEPTION_HANDLER"]` pointed at
 `"core_api.exceptions.platform_exception_handler"`.** Each module's own
