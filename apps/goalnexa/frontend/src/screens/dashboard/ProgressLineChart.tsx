@@ -23,20 +23,17 @@ function stepPointAt(points: ProgressPoint[], t: number): ProgressPoint | null {
   return current;
 }
 
-/** Step-after path: a goal's progress holds flat until its next check-in. */
-function stepPath(points: ProgressPoint[], x: (t: number) => number, y: (pct: number) => number): string {
-  return points
-    .map((p, i) => (i === 0 ? `M${x(p.t)},${y(p.pct)}` : `H${x(p.t)}V${y(p.pct)}`))
-    .join("");
+/** Straight segments from one check-in to the next. */
+function linePath(points: ProgressPoint[], x: (t: number) => number, y: (pct: number) => number): string {
+  return points.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.t)},${y(p.pct)}`).join("");
 }
 
 /**
- * Progress over time, one 2px step line per goal, a single % axis.
- * Step, not straight segments: progress only changes AT a check-in, so a
- * diagonal between two would invent in-between values - and the hover
- * readout (value held from the last check-in) would sit off the line.
- * Hover snaps a crosshair to the nearest check-in time and lists every
- * goal's value there. <= 4 series also get direct end
+ * Progress over time, one 2px line per series joining its check-ins with
+ * straight segments, a single % axis. Hover snaps a crosshair to the
+ * nearest check-in time and lists every series' latest reading as of then;
+ * the hover dot only marks series with a check-in AT that time, since a
+ * held value between two check-ins sits off the diagonal. <= 4 series also get direct end
  * labels; the legend above is always there for >= 2.
  */
 export interface ProgressLineChartProps {
@@ -197,7 +194,7 @@ function ProgressLineChart({
           <g key={s.id}>
             {s.points.length > 1 && (
               <path
-                d={stepPath(s.points, x, y)}
+                d={linePath(s.points, x, y)}
                 fill="none"
                 stroke={seriesColor(s.slot)}
                 strokeWidth={2}
@@ -248,7 +245,7 @@ function ProgressLineChart({
         {hoverT !== null && (
           <g pointerEvents="none">
             <line x1={hoverX} x2={hoverX} y1={margin.top} y2={margin.top + plotH} stroke="var(--gn-axis)" strokeWidth={1} />
-            {hoverRows.map(({ s, value }) => (
+            {hoverRows.filter(({ point }) => point.t === hoverT).map(({ s, value }) => (
               <circle
                 key={s.id}
                 cx={hoverX}

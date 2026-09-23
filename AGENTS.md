@@ -66,7 +66,7 @@ mounted with `...createDashboardRoutes("dashboard")` inside the
 app-shell layout): pick one org (or personal goals), pick up to 8 of its
 goals, and see progress over time plus current progress (bars, one per
 goal). Progress over time is PER METRIC, as small multiples: one card
-per shown goal (titled with the goal + its %), one step line per shown
+per shown goal (titled with the goal + its %), one straight-segment line per shown
 metric; the tooltip shows each metric's % AND its actual reading
 ("57,000 / 100,000"), and end labels sit past the plot edge with a
 leader line (`value / target` as a %,
