@@ -1,5 +1,6 @@
 import type { Goal } from "../../lib/api/goals";
 import type { Metric } from "../../lib/api/metrics";
+import type { ProgressPoint } from "../../lib/progress";
 import { formatPct, seriesColor } from "./chartUtils";
 
 export interface GoalFilterListProps {
@@ -17,6 +18,9 @@ export interface GoalFilterListProps {
   onToggleMetric: (metricId: string) => void;
   /** Goal id -> current progress % (shown metrics only); `null` = no usable metrics. */
   currentByGoal: Map<string, number | null>;
+  /** Goal / metric id -> linear projection at the goal's target date (absent = none). */
+  projectionByGoal: Map<string, ProgressPoint>;
+  projectionByMetric: Map<string, ProgressPoint>;
   /** Metrics for the current selection are still loading. */
   loading: boolean;
   onCheckIn: (metricId: string) => void;
@@ -25,14 +29,16 @@ export interface GoalFilterListProps {
   onOpenMetric: (metricId: string) => void;
 }
 
-function formatAmount(value: string): string {
+const TARGET_DATE = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+
+function formatAmount(value: string | number): string {
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 /** Compact for the narrow tree row (93,500,000 -> "93.5M", 200,000 -> "200K"); the exact figures stay in the row's tooltip. */
 const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 
-function formatCompact(value: string): string {
+function formatCompact(value: string | number): string {
   return COMPACT.format(Number(value));
 }
 
@@ -97,7 +103,9 @@ function VisibilityToggle({
  * The dashboard's goal picker, as a tree: each goal is a node (color key,
  * title, current % pill, eye) with a thin progress bar in its series
  * color; a shown goal's metrics hang off it as leaves (tree connector,
- * line-color key + name, current / target, "+" check-in, eye) - the
+ * line-color key + name, current / target, "+" check-in, eye). A goal with
+ * a target date adds its projection: "→ 62%" in the pill and a faint bar
+ * extension; its metrics read "current → projected / target" - the
  * leaves' keys are the legend for each goal's progress-over-time panel. The eye is always the last
  * control on a row. A hidden goal collapses to its muted title; a hidden
  * metric stays in place, dimmed, so it's easy to show again. A goal's or
@@ -115,6 +123,8 @@ function GoalFilterList({
   disabledMetrics,
   onToggleMetric,
   currentByGoal,
+  projectionByGoal,
+  projectionByMetric,
   loading,
   onCheckIn,
   onOpenGoal,
@@ -126,6 +136,7 @@ function GoalFilterList({
         const slot = selected.get(goal.id);
         const shown = slot !== undefined;
         const current = currentByGoal.get(goal.id) ?? null;
+        const projection = projectionByGoal.get(goal.id);
         const goalMetrics = shown ? (metricsByGoal.get(goal.id) ?? []) : [];
         return (
           <li
@@ -146,7 +157,17 @@ function GoalFilterList({
               >
                 <span className="gn-goal-title">{goal.title}</span>
               </button>
-              {shown && !loading ? <span className="gn-goal-pct">{current === null ? "—" : formatPct(current)}</span> : <span />}
+              {shown && !loading ? (
+                <span
+                  className="gn-goal-pct"
+                  title={projection ? `Projected ${formatPct(projection.pct)} by ${TARGET_DATE.format(projection.t)} (linear trend)` : undefined}
+                >
+                  {current === null ? "—" : formatPct(current)}
+                  {projection && <span className="gn-projected-value"> → {formatPct(projection.pct)}</span>}
+                </span>
+              ) : (
+                <span />
+              )}
               <VisibilityToggle
                 shown={shown}
                 name={goal.title}
@@ -157,6 +178,13 @@ function GoalFilterList({
               {shown && !loading && current !== null && (
                 <div className="gn-goal-bar" aria-hidden="true">
                   <span style={{ width: `${Math.min(100, current)}%`, background: seriesColor(slot) }} />
+                  {/* Where the trend lands by the target date - a faint extension of the bar. */}
+                  {projection && projection.pct > current && current < 100 && (
+                    <span
+                      className="gn-goal-bar-projected"
+                      style={{ width: `${Math.min(100, projection.pct) - current}%`, background: seriesColor(slot) }}
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -172,6 +200,7 @@ function GoalFilterList({
                 {goalMetrics.map((metric) => {
                   const metricShown = !disabledMetrics.has(metric.id);
                   const slot = metricSlot.get(metric.id);
+                  const metricProjection = projectionByMetric.get(metric.id);
                   return (
                     <li key={metric.id} className={`gn-metric${metricShown ? "" : " is-off"}`}>
                       <span className="gn-metric-label">
@@ -194,9 +223,16 @@ function GoalFilterList({
                         className="gn-metric-value"
                         title={`${formatAmount(metric.current_value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}${
                           Number(metric.base_value) === 0 ? "" : ` (from ${formatAmount(metric.base_value)})`
+                        }${
+                          metricProjection
+                            ? `\nProjected ${formatAmount(metricProjection.value ?? 0)} by ${TARGET_DATE.format(metricProjection.t)} (linear trend)`
+                            : ""
                         }`}
                       >
                         {formatCompact(metric.current_value)}
+                        {metricProjection && (
+                          <span className="gn-projected-value"> → {formatCompact(metricProjection.value ?? 0)}</span>
+                        )}
                         <span className="gn-metric-target">
                           {" / "}
                           {formatCompact(metric.target_value)}

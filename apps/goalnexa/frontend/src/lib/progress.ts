@@ -93,3 +93,51 @@ export function computeMetricSeries(metric: Metric, checkIns: CheckIn[]): Progre
     }))
     .sort((a, b) => a.t - b.t);
 }
+
+/** A goal's `target_date` ("YYYY-MM-DD") as local midnight epoch ms, or null. */
+export function goalTargetTime(goal: Goal): number | null {
+  if (!goal.target_date) return null;
+  const [year, month, day] = goal.target_date.split("-").map(Number);
+  return new Date(year, month - 1, day).getTime();
+}
+
+/**
+ * Linear projection of one metric to `targetT`: the least-squares slope
+ * (value per ms) over all its check-ins, carried forward from its LATEST
+ * reading - so the projection starts where the metric actually is, not
+ * where the fitted line happens to cross. Null without a trend to go on
+ * (fewer than 2 check-in times) or when `targetT` isn't after the latest
+ * check-in.
+ */
+export function projectMetric(metric: Metric, checkIns: CheckIn[], targetT: number): ProgressPoint | null {
+  const series = computeMetricSeries(metric, checkIns);
+  if (series.length < 2) return null;
+  const last = series[series.length - 1];
+  if (targetT <= last.t) return null;
+
+  const meanT = mean(series.map((p) => p.t));
+  const meanV = mean(series.map((p) => p.value as number));
+  let num = 0;
+  let den = 0;
+  for (const p of series) {
+    num += (p.t - meanT) * ((p.value as number) - meanV);
+    den += (p.t - meanT) ** 2;
+  }
+  if (den === 0) return null; // every check-in at the same moment
+
+  const value = (last.value as number) + (num / den) * (targetT - last.t);
+  return { t: targetT, pct: metricPct(value, metric), value };
+}
+
+/**
+ * A goal's projected progress at `targetT`: the mean over its usable
+ * metrics (the same set `computeGoalProgress` averages) of each one's
+ * projection, a metric with no trend held at its current progress. Null
+ * when no metric has a projection at all.
+ */
+export function projectGoal(goal: Goal, metrics: Metric[], checkIns: CheckIn[], targetT: number): number | null {
+  const usable = metrics.filter((m) => m.goal === goal.id && isUsable(m));
+  const projected = usable.map((m) => projectMetric(m, checkIns, targetT));
+  if (projected.every((p) => p === null)) return null;
+  return mean(usable.map((m, i) => projected[i]?.pct ?? metricPct(m.current_value, m)));
+}

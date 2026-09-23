@@ -19,13 +19,31 @@ import {
   type OrgOption,
 } from "../lib/api/dashboard";
 import type { CheckIn } from "../lib/api/checkIns";
-import { computeGoalProgress, computeMetricSeries, type ProgressPoint } from "../lib/progress";
+import {
+  computeGoalProgress,
+  computeMetricSeries,
+  goalTargetTime,
+  projectGoal,
+  projectMetric,
+  type ProgressPoint,
+} from "../lib/progress";
 import ProgressBarChart from "./dashboard/ProgressBarChart";
 import CheckInModal from "./dashboard/CheckInModal";
 import GoalFilterList from "./dashboard/GoalFilterList";
-import ProgressLineChart, { fitDomain } from "./dashboard/ProgressLineChart";
-import { formatPct } from "./dashboard/chartUtils";
+import ProgressLineChart, { fitDomain, type ChartMarker } from "./dashboard/ProgressLineChart";
+import { formatPct, pctDomainMax } from "./dashboard/chartUtils";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
+
+const markerDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+
+/** Vertical lines on a goal's panel: now, and its target date if it has one. */
+function goalMarkers(goal: Goal, now: number): ChartMarker[] {
+  const target = goalTargetTime(goal);
+  return [
+    { t: now, label: "Now", kind: "now" },
+    ...(target === null ? [] : [{ t: target, label: `Target ${markerDate.format(target)}`, kind: "target" as const }]),
+  ];
+}
 
 export interface DashboardScreenProps {
   accessToken: string;
@@ -201,6 +219,26 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
     return slots;
   }, [metricsByGoal]);
 
+  // Linear projections to each shown goal's target date (none without
+  // one): every metric's, and the goal's over its enabled metrics (like
+  // its current %). Shared by the panels and the goal tree.
+  const projections = useMemo(() => {
+    const byGoal = new Map<string, ProgressPoint>();
+    const byMetric = new Map<string, ProgressPoint>();
+    const enabledMetrics = metrics.filter((metric) => !disabledMetrics.has(metric.id));
+    for (const p of progress) {
+      const target = goalTargetTime(p.goal);
+      if (target === null) continue;
+      for (const metric of metricsByGoal.get(p.goal.id) ?? []) {
+        const projection = projectMetric(metric, checkIns, target);
+        if (projection) byMetric.set(metric.id, projection);
+      }
+      const pct = projectGoal(p.goal, enabledMetrics, checkIns, target);
+      if (pct !== null) byGoal.set(p.goal.id, { t: target, pct });
+    }
+    return { byGoal, byMetric };
+  }, [progress, metrics, metricsByGoal, disabledMetrics, checkIns]);
+
   // Small multiples: one progress-over-time panel per shown goal, one line
   // per shown metric - a single chart could need more lines than the
   // palette has colors.
@@ -211,12 +249,14 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
         const charted = shownMetrics.filter((metric) => metricSlot.has(metric.id));
         return {
           progress: p,
+          projected: projections.byGoal.get(p.goal.id) ?? null,
           overflow: shownMetrics.length - charted.length,
           series: charted.map((metric) => ({
             id: metric.id,
             label: metric.name,
             slot: metricSlot.get(metric.id) as number,
             points: computeMetricSeries(metric, checkIns),
+            projection: projections.byMetric.get(metric.id) ?? null,
             formatDetail: (point: ProgressPoint) =>
               point.value === undefined
                 ? null
@@ -224,13 +264,20 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
           })),
         };
       }),
-    [progress, metricsByGoal, disabledMetrics, metricSlot, checkIns],
+    [progress, projections, metricsByGoal, disabledMetrics, metricSlot, checkIns],
   );
 
-  // One shared time range + % ceiling across every panel.
+  // One shared time range across every panel (each panel fits its own %
+  // ceiling - one goal at 800% would flatten another at 20%), stretched to
+  // reach now and every shown goal's target date so their markers show.
+  const now = useMemo(() => Date.now(), [metricPanels]);
   const panelDomain = useMemo(
-    () => fitDomain(metricPanels.flatMap((panel) => panel.series.flatMap((line) => line.points))) ?? undefined,
-    [metricPanels],
+    () =>
+      fitDomain(
+        metricPanels.flatMap((panel) => panel.series.flatMap((line) => line.points)),
+        [now, ...metricPanels.flatMap((panel) => goalTargetTime(panel.progress.goal) ?? [])],
+      ) ?? undefined,
+    [metricPanels, now],
   );
 
   const checkInMetric = metrics.find((metric) => metric.id === checkInFor) ?? null;
@@ -380,6 +427,8 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                 disabledMetrics={disabledMetrics}
                 onToggleMetric={toggleMetric}
                 currentByGoal={currentByGoal}
+                projectionByGoal={projections.byGoal}
+                projectionByMetric={projections.byMetric}
                 loading={loadingSeries}
                 onCheckIn={setCheckInFor}
                 onOpenGoal={(id) => setDetail({ endpoint: "/api/v1/goals", id })}
@@ -403,8 +452,8 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
         ) : (
           <div className="d-flex flex-column gap-3">
             {/* Progress over time: one card per shown goal, one line per
-                shown metric. All cards share one time range + % scale
-                (panelDomain) so they compare at a glance. */}
+                shown metric. All cards share one time range (panelDomain)
+                so they line up; each fits its own % scale. */}
             {loadingSeries ? (
               <Card>
                 <CardBody>
@@ -412,13 +461,21 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                 </CardBody>
               </Card>
             ) : (
-              metricPanels.map(({ progress: p, series, overflow }) => (
+              metricPanels.map(({ progress: p, projected, series, overflow }) => (
                 <Card key={p.goal.id}>
                   <CardHeader>
                     <CardTitle>
                       <span className="d-inline-flex align-items-center gap-2">
                         {p.goal.title}
                         {p.current !== null && <span className="gn-goal-pct">{formatPct(p.current)}</span>}
+                        {projected !== null && (
+                          <span
+                            className="gn-goal-projection"
+                            title="Linear projection: each metric's check-in trend carried to the target date"
+                          >
+                            → {formatPct(projected.pct)} by {markerDate.format(projected.t)}
+                          </span>
+                        )}
                       </span>
                     </CardTitle>
                     <span className="card-subtitle ms-auto text-secondary small d-none d-md-inline">
@@ -434,7 +491,15 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                       <ProgressLineChart
                         series={series}
                         height={220}
-                        domain={panelDomain}
+                        domain={
+                          panelDomain && {
+                            ...panelDomain,
+                            yMax: pctDomainMax(
+                              series.flatMap((line) => [...line.points, ...(line.projection ? [line.projection] : [])].map((point) => point.pct)),
+                            ),
+                          }
+                        }
+                        markers={goalMarkers(p.goal, now)}
                         alwaysLegend
                         emptyText="No check-ins yet."
                         ariaLabel={`${p.goal.title}: metric progress over time`}

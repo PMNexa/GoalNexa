@@ -73,8 +73,20 @@ metric; the tooltip shows each metric's % AND its actual reading
 ("57,000 / 100,000"), and end labels sit past the plot edge with a
 leader line (progress from base to target as a %,
 replayed from check-ins, `computeMetricSeries`). All panels share one
-time range and % ceiling (`fitDomain`) so they can be compared side by
-side. A single chart could need more lines than the palette has colors.
+time range (`fitDomain`) so they line up, but each fits its own %
+ceiling (min 100%) - a goal at 800% would otherwise flatten one at 20%. That range also stretches to now and to every shown goal's
+`target_date`; each panel draws a "Now" hairline and, if its goal has
+one, a dashed "Target <date>" line (`markers` prop). A goal with a
+target date also gets a linear PREDICTION (`lib/progress.ts`'s
+`projectMetric`/`projectGoal`): each metric's least-squares slope over
+its check-ins, carried forward from its latest reading to the target
+date, drawn as a dashed segment ending in a hollow dot (hover shows it
+as "projected"); the goal's is the mean of those, a metric with no trend
+(< 2 check-ins) held at its current %, shown as "→ 62% by Oct 31" in
+the panel header. The goal tree shows it too: "4% → 62%" in the goal's
+pill plus a faint extension of its bar, and "20K → 85K / 100K" on each
+metric (exact figures in the tooltips). None once the target date has
+passed. A single chart could need more lines than the palette has colors.
 A metric's line color is its position among its goal's metrics (by
 name), so it stays put when other metrics are hidden. A goal's 9th+
 metric isn't charted: the palette has 8 slots, colors are never cycled,

@@ -9,6 +9,8 @@ export interface LineSeries {
   points: ProgressPoint[];
   /** Extra tooltip line under the %, e.g. the actual reading ("120 / 350 KM"). */
   formatDetail?: (point: ProgressPoint) => string | null;
+  /** Where the series is headed (e.g. at the goal's target date) - drawn dashed from its last point, hollow end dot. */
+  projection?: ProgressPoint | null;
 }
 
 const DAY = 86_400_000;
@@ -34,7 +36,9 @@ function linePath(points: ProgressPoint[], x: (t: number) => number, y: (pct: nu
  * nearest check-in time and lists every series' latest reading as of then;
  * the hover dot only marks series with a check-in AT that time, since a
  * held value between two check-ins sits off the diagonal. <= 4 series also get direct end
- * labels; the legend above is always there for >= 2.
+ * labels; the legend above is always there for >= 2. A series' `projection`
+ * continues it as a dashed segment; hovering at or past its time shows the
+ * projected reading, marked as such.
  */
 export interface ProgressLineChartProps {
   series: LineSeries[];
@@ -44,10 +48,19 @@ export interface ProgressLineChartProps {
   emptyText?: string;
   /** Names what the lines are, for the SVG's accessible label. */
   ariaLabel?: string;
-  /** Fixed scales, so small multiples share one time range and % ceiling (comparable side by side). Omitted = fit this chart's own data. */
+  /** Fixed scales, e.g. so small multiples share one time range. Omitted = fit this chart's own data. */
   domain?: ChartDomain;
   /** Show the legend even for one series - when the surrounding title doesn't name the line (a panel titled by goal, lines = metrics). */
   alwaysLegend?: boolean;
+  /** Labelled vertical lines, e.g. now and the goal's target date. Ones outside the time range are skipped. */
+  markers?: ChartMarker[];
+}
+
+export interface ChartMarker {
+  t: number;
+  label: string;
+  /** "target" is dashed; "now" is a solid hairline. */
+  kind: "now" | "target";
 }
 
 export interface ChartDomain {
@@ -56,11 +69,16 @@ export interface ChartDomain {
   yMax: number;
 }
 
-/** Time range (padded to >= 1 day, so a single moment sits mid-plot) and % ceiling fitting every point given. */
-export function fitDomain(points: ProgressPoint[]): ChartDomain | null {
+/**
+ * Time range (padded to >= 1 day, so a single moment sits mid-plot) and %
+ * ceiling fitting every point given. `extraTimes` (now, target dates) widen
+ * the time range only, so their markers land on the plot.
+ */
+export function fitDomain(points: ProgressPoint[], extraTimes: number[] = []): ChartDomain | null {
   if (points.length === 0) return null;
-  let tMin = Math.min(...points.map((p) => p.t));
-  let tMax = Math.max(...points.map((p) => p.t));
+  const times = [...points.map((p) => p.t), ...extraTimes];
+  let tMin = Math.min(...times);
+  let tMax = Math.max(...times);
   if (tMax - tMin < DAY) {
     tMin -= DAY / 2;
     tMax += DAY / 2;
@@ -75,6 +93,7 @@ function ProgressLineChart({
   ariaLabel = "Progress over time",
   domain,
   alwaysLegend = false,
+  markers = [],
 }: ProgressLineChartProps) {
   const [ref, width] = useElementWidth<HTMLDivElement>(720);
   const [hoverT, setHoverT] = useState<number | null>(null);
@@ -95,7 +114,8 @@ function ProgressLineChart({
   const plotW = width - margin.left - margin.right;
   const plotH = HEIGHT - margin.top - margin.bottom;
 
-  const { tMin, tMax, yMax } = domain ?? (fitDomain(allPoints) as ChartDomain);
+  const projections = drawn.flatMap((s) => (s.projection ? [s.projection] : []));
+  const { tMin, tMax, yMax } = domain ?? (fitDomain([...allPoints, ...projections]) as ChartDomain);
   const x = (t: number) => margin.left + ((t - tMin) / (tMax - tMin)) * plotW;
   const y = (pct: number) => margin.top + plotH - (pct / yMax) * plotH;
 
@@ -110,7 +130,7 @@ function ProgressLineChart({
   const xTickCount = Math.max(2, Math.min(6, Math.floor(plotW / 110)));
   const xTicks = Array.from({ length: xTickCount }, (_, i) => tMin + ((tMax - tMin) * i) / (xTickCount - 1));
 
-  const times = [...new Set(allPoints.map((p) => p.t))].sort((a, b) => a - b);
+  const times = [...new Set([...allPoints, ...projections].map((p) => p.t))].sort((a, b) => a - b);
 
   function handleMove(event: PointerEvent<SVGRectElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -137,9 +157,12 @@ function ProgressLineChart({
     hoverT === null
       ? []
       : drawn
-          .map((s) => ({ s, point: stepPointAt(s.points, hoverT) }))
-          .filter((row): row is { s: LineSeries; point: ProgressPoint } => row.point !== null)
-          .map(({ s, point }) => ({ s, point, value: point.pct }))
+          .map((s) => {
+            const projected = !!s.projection && hoverT >= s.projection.t;
+            return { s, projected, point: projected ? (s.projection as ProgressPoint) : stepPointAt(s.points, hoverT) };
+          })
+          .filter((row): row is { s: LineSeries; projected: boolean; point: ProgressPoint } => row.point !== null)
+          .map(({ s, projected, point }) => ({ s, projected, point, value: point.pct }))
           .sort((a, b) => b.value - a.value);
   const hoverX = hoverT === null ? 0 : x(hoverT);
   const TOOLTIP_W = 260;
@@ -190,6 +213,35 @@ function ProgressLineChart({
           </text>
         ))}
 
+        {markers
+          .filter((m) => m.t >= tMin && m.t <= tMax)
+          .map((m) => {
+            const mx = x(m.t);
+            // Label hugs the line on the side with room for it.
+            const labelRight = mx < margin.left + plotW - 90;
+            return (
+              <g key={`${m.kind}-${m.t}`} pointerEvents="none">
+                <line
+                  x1={mx}
+                  x2={mx}
+                  y1={margin.top}
+                  y2={margin.top + plotH}
+                  stroke={m.kind === "target" ? "var(--gn-text-secondary)" : "var(--gn-axis)"}
+                  strokeWidth={1}
+                  strokeDasharray={m.kind === "target" ? "4 3" : undefined}
+                />
+                <text
+                  className="gn-tick gn-marker"
+                  x={mx + (labelRight ? 4 : -4)}
+                  y={margin.top + 10}
+                  textAnchor={labelRight ? "start" : "end"}
+                >
+                  {m.label}
+                </text>
+              </g>
+            );
+          })}
+
         {drawn.map((s) => (
           <g key={s.id}>
             {s.points.length > 1 && (
@@ -201,6 +253,27 @@ function ProgressLineChart({
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
+            )}
+            {s.projection && (
+              <>
+                <path
+                  d={linePath([s.points[s.points.length - 1], s.projection], x, y)}
+                  fill="none"
+                  stroke={seriesColor(s.slot)}
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  strokeLinecap="round"
+                  opacity={0.7}
+                />
+                <circle
+                  cx={x(s.projection.t)}
+                  cy={y(s.projection.pct)}
+                  r={3.5}
+                  fill="var(--gn-surface)"
+                  stroke={seriesColor(s.slot)}
+                  strokeWidth={2}
+                />
+              </>
             )}
             {(s.points.length <= 24 ? s.points : [s.points[s.points.length - 1]]).map((p, i) => (
               <circle
@@ -245,7 +318,7 @@ function ProgressLineChart({
         {hoverT !== null && (
           <g pointerEvents="none">
             <line x1={hoverX} x2={hoverX} y1={margin.top} y2={margin.top + plotH} stroke="var(--gn-axis)" strokeWidth={1} />
-            {hoverRows.filter(({ point }) => point.t === hoverT).map(({ s, value }) => (
+            {hoverRows.filter(({ point, projected }) => point.t === hoverT && !projected).map(({ s, value }) => (
               <circle
                 key={s.id}
                 cx={hoverX}
@@ -271,13 +344,16 @@ function ProgressLineChart({
       {hoverT !== null && hoverRows.length > 0 && (
         <div className="gn-tooltip" style={{ left: tooltipLeft, top: margin.top + (drawn.length >= 2 ? 28 : 0) }}>
           <div className="gn-tooltip-title">{tooltipFormat.format(hoverT)}</div>
-          {hoverRows.map(({ s, point, value }) => {
+          {hoverRows.map(({ s, point, value, projected }) => {
             const detail = s.formatDetail?.(point);
             return (
               <div key={s.id} className="gn-tooltip-item">
                 <div className="gn-tooltip-row">
                   <span className="gn-key" style={{ background: seriesColor(s.slot) }} />
-                  <span className="gn-name">{s.label}</span>
+                  <span className="gn-name">
+                    {s.label}
+                    {projected && <span className="gn-projected"> · projected</span>}
+                  </span>
                   <span className="gn-num">{formatPct(value)}</span>
                 </div>
                 {detail && <div className="gn-tooltip-detail">{detail}</div>}

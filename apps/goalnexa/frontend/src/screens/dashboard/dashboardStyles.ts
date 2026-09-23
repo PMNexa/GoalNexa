@@ -57,6 +57,15 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   fill: var(--gn-text-secondary);
   font-variant-numeric: tabular-nums;
 }
+.gn-viz .gn-marker {
+  paint-order: stroke;
+  stroke: var(--gn-surface);
+  stroke-width: 3px;
+}
+.gn-projected {
+  color: var(--gn-text-secondary);
+  font-style: italic;
+}
 .gn-viz .gn-label {
   font-size: 12px;
   fill: var(--gn-text-primary);
@@ -208,6 +217,12 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   font-weight: 500;
   color: var(--gn-text-secondary);
 }
+.gn-goal-projection {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--gn-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
 .gn-goal-pct {
   padding: 0 0.5rem;
   border-radius: 999px;
@@ -225,11 +240,22 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   border-radius: 2px;
   background: var(--gn-grid);
   overflow: hidden;
+  display: flex;
 }
 .gn-goal-bar span {
   display: block;
+  flex: none;
   height: 100%;
   border-radius: 2px;
+}
+.gn-goal-bar .gn-goal-bar-projected {
+  opacity: 0.3;
+  border-radius: 0 2px 2px 0;
+}
+.gn-projected-value {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--gn-text-secondary);
 }
 
 /* Metric leaves. The trunk is centred under the goal's 12px key (x = 6px);
@@ -312,7 +338,8 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
 }
 .gn-metric.is-off .gn-metric-name,
 .gn-metric.is-off .gn-metric-value,
-.gn-metric.is-off .gn-metric-target {
+.gn-metric.is-off .gn-metric-target,
+.gn-metric.is-off .gn-projected-value {
   color: var(--gn-text-secondary);
   opacity: 0.55;
 }
