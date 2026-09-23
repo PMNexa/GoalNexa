@@ -4,8 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./routeFiles": "./src/routeFiles.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "build": "tsc -b",

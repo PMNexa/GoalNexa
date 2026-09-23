@@ -29,4 +29,8 @@ class CheckIn(TimestampedModel):
 
     class Meta:
         db_table = "check_in"
+        # Names the resource in generic UIs (schema `label`/`label_plural`) -
+        # Django's default from the class name would be "check in".
+        verbose_name = "check-in"
+        verbose_name_plural = "check-ins"
         indexes = [models.Index(fields=["metric", "checked_in_at"], name="check_in_metric_time_idx")]

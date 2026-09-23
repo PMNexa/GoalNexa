@@ -212,27 +212,29 @@ taking only that resource's own backend base URL:
 import { createCrudRoutes } from "platform-core";
 ...
 layout("routes/app-shell.tsx", [
-  ...createCrudRoutes("/api/v1/goals", { editFile: GOALS_EDIT_ROUTE_FILE }),
+  ...createCrudRoutes("/api/v1/goals"),
   ...createCrudRoutes("/api/v1/check-ins"),
 ]),
 ```
 No file paths, no `CrudPaths` object, no per-module import at all -
 `createCrudRoutes` derives the resource name from the URL's own last
-`/`-segment, `prefixRoutes()`-nests its list/create/edit routes under it (not
+`/`-segment, `prefixRoutes()`-nests its list/create/detail/edit routes under it (not
 `route()` + children - that needs a wrapping layout element with its own
-`<Outlet/>`, which none of the three share or need), and points every
+`<Outlet/>`, which none of them share or need), and points every
 registration at its OWN `src/routes/` files (`import.meta.url`-derived,
 self-referential - never a relative string baking in the CALLER's
 directory depth) by default. Two escape hatches worth knowing:
-- **A resource whose edit page needs more than the plain schema-driven
-  form** (e.g. goalnexa's `GoalsEditScreen` adds a goal's own
-  `GoalMetricsSection` inline) gets `createCrudRoutes`'s `editFile`
+- **A resource whose edit or detail page needs more than the generic
+  schema-driven one** gets `createCrudRoutes`'s `editFile`/`detailFile`
   option - an ABSOLUTE path (same `import.meta.url` rule) to a
-  HOST-OWNED route file that replaces JUST the generic `crud-edit.tsx`
-  for that one resource; list/create stay generic. The domain module
-  exposes that absolute path via its OWN `"./routeFiles"` Node-only
-  subpath (see `goalnexa-frontend/src/routeFiles.ts`) rather than the
-  host hardcoding a relative filesystem path across package boundaries.
+  module-owned route file that replaces JUST that one generic file for
+  that one resource. The domain module would expose that absolute path
+  via its OWN Node-only subpath (goalnexa used to, `"./routeFiles"`)
+  rather than the host hardcoding a relative filesystem path across
+  package boundaries. Nothing uses it today: a record's related rows
+  (a goal's metrics, a metric's check-ins) are handled by the generic
+  detail screen - see "Relationships" below - which replaced goalnexa's
+  hand-written `GoalsEditScreen`/`MetricsEditScreen`.
 - **A resource whose whole URL structure needs to be host-decided at a
   level ABOVE the plain `createCrudRoutes(apiPath)` call** (e.g.
   `platform-org`'s `orgs`, deliberately nested at `platform-org/orgs`
@@ -246,6 +248,25 @@ directory depth) by default. Two escape hatches worth knowing:
   URL choice itself. Don't reach for this by default; a resource that's
   happy at its bare name (nearly all of them) just calls
   `createCrudRoutes` directly, no module-owned wrapper needed.
+
+**Relationships (detail screen)**: `/<resource>/:id` is platform-core's
+generic `CrudDetailScreen` - the record read-only (to-one relations as
+their related row's `display_field`, linked to its detail page wherever
+the host mounted it - read from the route manifest, which is why
+`react-router.config.ts` sets `routeDiscovery: { mode: "initial" }`),
+Edit/Delete, and one tab per to-many relation, all derived from the
+schema. A `one_to_many` relation (reverse FK) gets in-place CRUD of the
+children in modals, with the FK preset to the parent; a `many_to_many`
+one gets Link existing / New (create + link) / Unlink, backed by
+`BaseViewSet`'s generic `POST <res>/<id>/relations/<name>/link|unlink`
+actions, and a custom through model's own fields (e.g. a `role`) are
+asked for on link. List rows open the detail page; create lands on it;
+an edit's Save returns to it. Names, the row label field and whether
+search is offered all come from the schema API too (`label`,
+`label_plural`, `display_field`, `searchable`). Nothing per resource to
+write: add the relation on the model, register both sides'
+`BaseViewSet`s, done. See
+platform-core's AGENTS.md "Relationships" for the mechanics and gaps.
 
 See platform-core's own AGENTS.md for the full mechanics (the
 `id`-collision gotcha, why this is the one place in the whole platform

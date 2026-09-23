@@ -13,26 +13,14 @@
  * (a real regression, caught late: `apps/main` silently stopped
  * rendering them, so they were just dead code sitting in this barrel).
  *
- * `GoalsEditScreen`/`MetricsEditScreen` are the two exceptions - a
- * goal's own edit page also shows/creates its metrics inline
- * (`GoalMetricsSection`), a metric's own edit page its check-ins
- * (`MetricCheckInsSection`); `platform-core`'s plain schema-driven
- * `CrudEditScreen` has no way to know about either. `routes/goals-edit.tsx`/
- * `routes/metrics-edit.tsx` are what `apps/main`'s `routes.ts` actually
- * points its edit route at instead (via `createCrudRoutes`'s `editFile`
- * option - see `routeFiles.ts` and `platform-core`'s own docstring on
- * that option); everything else (check-ins' own edit, every resource's
- * list/create) stays on the fully generic file. `GoalsEditScreen`/
- * `MetricsEditScreen` are still exported here too, same as before, in
- * case another host ever wants to reuse them directly.
+ * So are their edit and detail pages: a goal's metrics and a metric's
+ * check-ins are managed from `platform-core`'s generic detail screen
+ * (one tab per to-many relation, derived from the schema). This package
+ * used to ship custom `GoalsEditScreen`/`MetricsEditScreen` (+ route
+ * files, wired in via `createCrudRoutes`'s `editFile`) just to show
+ * those inline; the detail screen replaced them.
  */
-export { default as GoalsEditScreen } from "./screens/GoalsEditScreen";
-export type { GoalsEditScreenProps } from "./screens/GoalsEditScreen";
-
 export type { Goal, GoalStatus } from "./lib/api/goals";
-
-export { default as MetricsEditScreen } from "./screens/MetricsEditScreen";
-export type { MetricsEditScreenProps } from "./screens/MetricsEditScreen";
 
 export type { Metric } from "./lib/api/metrics";
 

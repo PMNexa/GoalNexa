@@ -19,8 +19,7 @@ function formatAmount(value: string): string {
 
 /**
  * Log a check-in for one metric from the dashboard, in platform-core's
- * `Modal`. Same payload rules as `MetricCheckInsSection`'s form: a blank
- * time is left out so the server default (now) applies. The form's
+ * `Modal`. A blank time is left out so the server default (now) applies. The form's
  * fields reset each time it opens (`key` on the inner form).
  */
 function CheckInModal({ accessToken, metric, goalTitle, onSaved, onClose }: CheckInModalProps) {

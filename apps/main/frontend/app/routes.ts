@@ -1,6 +1,5 @@
 import { type RouteConfig, index, layout } from "@react-router/dev/routes";
 import { createDashboardRoutes } from "goalnexa-frontend";
-import { GOALS_EDIT_ROUTE_FILE, METRICS_EDIT_ROUTE_FILE } from "goalnexa-frontend/routeFiles";
 import { createAuthRoutes } from "platform-auth-frontend";
 import { createCrudRoutes } from "platform-core";
 import { createOrgsRoutes } from "platform-org-frontend";
@@ -17,18 +16,14 @@ export default [
   // routes/app-shell.tsx.
   //
   // Every generic CRUD resource's actual route leaf files live in
-  // platform-core itself now (crud-list.tsx/crud-new.tsx/crud-edit.tsx,
+  // platform-core itself now (crud-list/crud-new/crud-detail/crud-edit,
   // shared by every resource - see their own docstrings and
   // createCrudRoutes's) - this app still owns every actual URL, it just
   // registers a whole resource with one call, giving only its own
-  // backend base URL. `CrudListScreen`/`CrudCreateScreen`/`CrudEditScreen`
-  // are already fully generic (schema-driven), so there's no per-
-  // resource UI left to justify per-module route files anymore - EXCEPT
-  // goals/metrics' own edit route: `GoalsEditScreen`/`MetricsEditScreen`
-  // (goalnexa-frontend) add a goal's own metrics / a metric's own
-  // check-ins on top of the plain schema-driven form, which the generic
-  // `crud-edit.tsx` has no way to know about. `editFile` swaps ONLY that
-  // one file in; list/create for both stay fully generic.
+  // backend base URL. The screens are fully generic (schema-driven),
+  // including a record's relationships: the detail page (`/<resource>/:id`)
+  // manages a goal's metrics / a metric's check-ins (1-n) and links
+  // many-to-many rows, all from the schema.
   //
   // orgs is the one resource NOT registered with a bare `createCrudRoutes`
   // call here - `platform-org-frontend` provides `createOrgsRoutes`
@@ -46,8 +41,8 @@ export default [
   layout("routes/app-shell.tsx", [
     ...createDashboardRoutes("dashboard"),
     ...createOrgsRoutes("platform-org"),
-    ...createCrudRoutes("/api/v1/goals", { editFile: GOALS_EDIT_ROUTE_FILE }),
-    ...createCrudRoutes("/api/v1/metrics", { editFile: METRICS_EDIT_ROUTE_FILE }),
+    ...createCrudRoutes("/api/v1/goals"),
+    ...createCrudRoutes("/api/v1/metrics"),
     ...createCrudRoutes("/api/v1/check-ins"),
   ]),
 ] satisfies RouteConfig;

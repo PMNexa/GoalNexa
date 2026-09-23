@@ -42,8 +42,8 @@ const NAV_ITEMS = [
  * session-reading logic of their own to duplicate this in, so it moved
  * up to the one layout that actually needs it. The gated token is
  * handed down via `<Outlet context={accessToken}>` - `platform-core`'s
- * `crud-list.tsx`/`crud-new.tsx`/`crud-edit.tsx` (and goalnexa-frontend's
- * own `goals-edit.tsx`/`metrics-edit.tsx`) read it with
+ * `crud-list.tsx`/`crud-new.tsx`/`crud-detail.tsx`/`crud-edit.tsx` (and
+ * goalnexa-frontend's own `dashboard.tsx`) read it with
  * `useOutletContext<string>()`.
  *
  * "Log out" only clears main's own local session singleton - there's no

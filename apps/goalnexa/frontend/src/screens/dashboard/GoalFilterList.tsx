@@ -26,6 +26,13 @@ function formatAmount(value: string): string {
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+/** Compact for the narrow tree row (93,500,000 -> "93.5M", 200,000 -> "200K"); the exact figures stay in the row's tooltip. */
+const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+
+function formatCompact(value: string): string {
+  return COMPACT.format(Number(value));
+}
+
 /* Tabler Icons (MIT), inlined - no icon font is loaded. */
 function SvgIcon({ children }: { children: React.ReactNode }) {
   return (
@@ -165,11 +172,14 @@ function GoalFilterList({
                           {metric.name}
                         </span>
                       </span>
-                      <span className="gn-metric-value">
-                        {formatAmount(metric.current_value)}
+                      <span
+                        className="gn-metric-value"
+                        title={`${formatAmount(metric.current_value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}`}
+                      >
+                        {formatCompact(metric.current_value)}
                         <span className="gn-metric-target">
                           {" / "}
-                          {formatAmount(metric.target_value)}
+                          {formatCompact(metric.target_value)}
                           {metric.unit ? ` ${metric.unit}` : ""}
                         </span>
                       </span>

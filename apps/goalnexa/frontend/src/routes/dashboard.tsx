@@ -10,8 +10,7 @@ export function meta() {
  * Registered by `createDashboardRoutes()` (see `../dashboardRoutes.ts`).
  * Mounted inside the host's app-shell layout, which gates on a session
  * and hands the access token down via `<Outlet context={accessToken}>` -
- * same shape as platform-core's `crud-*.tsx` and this package's own
- * `goals-edit.tsx`.
+ * same shape as platform-core's `crud-*.tsx`.
  */
 export default function DashboardRoute() {
   const accessToken = useOutletContext<string>();
