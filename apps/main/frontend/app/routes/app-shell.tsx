@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link as RouterLink, Outlet, useLocation } from "react-router";
 import { AppShell } from "platform-core";
 import type { LinkComponentProps } from "platform-core";
-import { clearSession, getSession, subscribeSession } from "platform-auth-frontend";
+import { getSession, logout, subscribeSession } from "platform-auth-frontend";
 import { CheckInsIcon, DashboardIcon, GoalsIcon, HomeIcon, MetricsIcon, OrgsIcon } from "../lib/navIcons";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
 
@@ -46,13 +46,10 @@ const NAV_ITEMS = [
  * goalnexa-frontend's own `dashboard.tsx`) read it with
  * `useOutletContext<string>()`.
  *
- * "Log out" only clears main's own local session singleton - there's no
- * backend /logout endpoint yet (platform-auth's own AGENTS.md notes this
- * is deliberately out of scope so far), so the httpOnly refresh cookie is
- * still valid. A full page reload after clicking it will silently log the
- * user back in via root.tsx's boot refresh. Fine for now; revisit once a
- * real logout endpoint exists (should revoke the refresh token server-side
- * before clearing the local session).
+ * "Log out" is platform-auth's `logout()`: revokes the refresh token
+ * server-side, then clears the session (which redirects to login via
+ * `useRequireAccessToken`). Until then the session never ends on its
+ * own - platform-auth's session store keeps the access token fresh.
  */
 export default function AppShellLayout() {
   const location = useLocation();
@@ -71,7 +68,7 @@ export default function AppShellLayout() {
       currentPath={location.pathname}
       linkComponent={ShellLink}
       user={session?.user ?? null}
-      onLogout={session ? () => clearSession() : undefined}
+      onLogout={session ? () => void logout() : undefined}
     >
       <Outlet context={accessToken} />
     </AppShell>

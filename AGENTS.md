@@ -354,11 +354,11 @@ dependency inside the package" convention as the screens), the
 string literal - `/goals`, `/platform-org/orgs`, `/` for home - not a
 computed path import; see this section's own note above on why - so it
 can't live inside any one module's package anyway), and the session
-read for the header's user/logout display. "Log out" there only
-clears main's local session singleton — there's no backend `/logout`
-endpoint yet, so the refresh cookie is still valid and a full reload
-after logging out silently logs back in; fine for now, revisit once a
-real logout endpoint exists.
+read for the header's user/logout display. "Log out" there is
+platform-auth's `logout()`: revokes the refresh token server-side, then
+clears the session. Nothing else ends a session - platform-auth's
+session store refreshes the 15-minute access token before it expires,
+and the refresh token's 30-day window slides on every refresh.
 
 ### Backend half
 
