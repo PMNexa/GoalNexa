@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiRequest } from "./client";
 import type { CheckIn } from "./checkIns";
 import type { Goal } from "./goals";
 import type { Metric } from "./metrics";
@@ -28,7 +28,7 @@ async function fetchAll<T>(path: string, accessToken: string): Promise<T[]> {
   const joiner = path.includes("?") ? "&" : "?";
   const items: T[] = [];
   for (let page = 1; ; page += 1) {
-    const result = await apiFetch<Page<T>>(`${path}${joiner}page=${page}&page_size=${PAGE_SIZE}`, accessToken);
+    const result = await apiRequest<Page<T>>(`${path}${joiner}page=${page}&page_size=${PAGE_SIZE}`, accessToken);
     items.push(...result.items);
     if (result.items.length === 0 || items.length >= result.total) return items;
   }

@@ -1,6 +1,6 @@
 import { useState, type SubmitEvent } from "react";
 import { Button, FormControl, FormLabel, Modal } from "platform-core";
-import { apiFetch } from "../../lib/api/client";
+import { apiRequest } from "../../lib/api/client";
 import type { CheckIn } from "../../lib/api/checkIns";
 import type { Metric } from "../../lib/api/metrics";
 
@@ -70,14 +70,14 @@ function CheckInForm({
     setSubmitting(true);
     setError(null);
     try {
-      await apiFetch<CheckIn>("/api/v1/check-ins", accessToken, {
+      await apiRequest<CheckIn>("/api/v1/check-ins", accessToken, {
         method: "POST",
-        body: JSON.stringify({
+        data: {
           metric: metric.id,
           value: Number(value),
           note,
           ...(when ? { checked_in_at: new Date(when).toISOString() } : {}),
-        }),
+        },
       });
       onSaved();
     } catch (thrown) {
