@@ -29,7 +29,7 @@ export default function Home() {
           <p>
             Signed in as {session.user.name} ({session.user.email}).
           </p>
-          <Link to="/orgs" className="btn btn-primary">
+          <Link to="/platform-org/orgs" className="btn btn-primary">
             Organizations
           </Link>
         </>

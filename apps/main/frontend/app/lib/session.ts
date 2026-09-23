@@ -5,7 +5,8 @@ import type { Session } from "platform-auth-frontend";
  * screen actually handled login/signup (platform-auth-frontend's
  * LoginScreen/SignupScreen `onSuccess` callback returns a `Session`) -
  * main passes the token down to any OTHER screen that needs to make its
- * own authenticated calls (e.g. platform-org-frontend's OrgsScreen).
+ * own authenticated calls (e.g. `platform-core`'s `CrudListScreen`, via
+ * `routes/app-shell.tsx`'s `<Outlet context={accessToken}>`).
  *
  * Plain module-level singleton, not React state - it resets on every
  * full page load/reload, same as platform-auth-frontend's own

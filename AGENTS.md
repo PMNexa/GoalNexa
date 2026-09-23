@@ -28,11 +28,52 @@ screen components — no bundled routing, no assumptions about where it's
 mounted. `apps/main`'s own `routes.ts` owns every actual path/URL; a
 route file there imports a package's screen and wires it into that path.
 See `apps/platform-auth/frontend/src/index.ts` (exports `LoginScreen`/
-`SignupScreen` + `BASE_PATH`/`LOGIN_PATH`/`SIGNUP_PATH`) and
-`apps/main/frontend/app/routes.ts`/`routes/login.tsx`/`routes/signup.tsx`
-— main nests both under `BASE_PATH` ("auth"), giving `/auth/login` and
-`/auth/signup`; that nesting choice is the host's, the package only
-names its own bare segments.
+`SignupScreen`) and `apps/main/frontend/app/routes.ts`/`routes/login.tsx`/
+`routes/signup.tsx` — main registers both as plain literals
+(`route("auth/login", ...)`/`route("auth/signup", ...)`), giving
+`/auth/login` and `/auth/signup`.
+
+**A module does NOT export its own URL path as a constant just because
+a host happens to use it** — `BASE_PATH`/`LOGIN_PATH`/`SIGNUP_PATH`
+(platform-auth), `GOALS_PATH`/`METRICS_PATH`/`CHECK_INS_PATH` (goalnexa),
+`ORGS_PATH` (platform-org) all used to exist and got removed: `apps/main`
+is the ONLY host, it already owns every actual URL by calling
+`createCrudRoutes`/`createOrgsRoutes` itself, and a link that never
+varies gains nothing from a computed "suggested path" import over a
+plain string literal at its one or two use sites (`app-shell.tsx`'s
+`NAV_ITEMS`, `home.tsx`'s quick link) - it's one more file/import to
+trace for zero actual flexibility. The bar for a module exporting a path
+constant: does ANY consumer actually need to know it varies (e.g. it's
+parameterized, like `createOrgsRoutes(basePath)`'s own `basePath` arg -
+see below)? If not, hardcode it at the call site instead. A module's own
+INTERNAL navigation (e.g. `goals-edit.tsx`'s own "go back to list" after
+save) still reads its own `lib/goalsPaths.ts` directly via a relative
+import - that's a different case: the SAME FILE needs the SAME value in
+two places (the route's own registration and its post-save redirect), so
+a shared internal constant avoids drift there. The dead giveaway a path
+export is unnecessary: grep every consumer before adding or keeping one
+- if the only "consumer" is a template string built once at one import
+site, that's a literal wearing an import as a costume.
+
+**When a computed value looks "stuck" at an old string after a rebuild,
+don't assume dev-server/Vite caching before checking for a SEPARATE
+hardcoded literal.** Burned an hour on exactly this: after nesting orgs
+under `platform-org/`, one nav link kept showing the OLD unprefixed
+`/orgs` even after a from-scratch container rebuild (fresh volume, fresh
+`npm install`, fresh Vite dep-optimize cache) - every plausible caching
+layer got ruled out one at a time (raw `/@fs/` fetch, an in-page dynamic
+`import()`, the compiled production bundle - all showed the CORRECT
+value) before it turned out `home.tsx` had its own, completely separate
+`<Link to="/orgs">` hardcoded on the landing page, unrelated to the
+`ORGS_PATH` computation being investigated the whole time. The tells,
+in hindsight: (1) the production build's OWN output was already
+correct, which a genuine caching bug can't explain since a prod build
+starts from scratch every time; (2) network-request tracing (list every
+request the page actually makes) showed the "broken" component's module
+was never even fetched, meaning the DOM node under inspection wasn't
+being rendered by the code being read at all. Both are faster and more
+conclusive than clearing another cache layer - reach for them second,
+not fifth.
 
 Why a screen must have **no `react-router` dependency of its own**: a
 consuming app may be on a completely different `react-router` major
@@ -94,22 +135,46 @@ taking only that resource's own backend base URL:
 import { createCrudRoutes } from "platform-core/routes";
 ...
 layout("routes/app-shell.tsx", [
-  ...createCrudRoutes("/api/v1/orgs"),
-  ...createCrudRoutes("/api/v1/goals"),
+  ...createCrudRoutes("/api/v1/goals", { editFile: GOALS_EDIT_ROUTE_FILE }),
+  ...createCrudRoutes("/api/v1/check-ins"),
 ]),
 ```
 No file paths, no `CrudPaths` object, no per-module import at all -
 `createCrudRoutes` derives the resource name from the URL's own last
-`/`-segment and points every registration at its OWN `src/routes/`
-files (`import.meta.url`-derived, self-referential - never a relative
-string baking in the CALLER's directory depth). See platform-core's own
-AGENTS.md for the full mechanics (the `id`-collision gotcha, why this is
-the one place in the whole platform allowed to import
-`@react-router/dev/routes` from a CLIENT-bundled package's OWN `"."`
-entry without doing so, and the cookbook for adding a brand-new
-resource's UI end-to-end - two one-line files in the domain module,
-`createCrudRoutes(...)` in `routes.ts`, a nav item in `app-shell.tsx`,
-nothing else).
+`/`-segment, `prefix()`-nests its list/create/edit routes under it (not
+`route()` + children - that needs a wrapping layout element with its own
+`<Outlet/>`, which none of the three share or need), and points every
+registration at its OWN `src/routes/` files (`import.meta.url`-derived,
+self-referential - never a relative string baking in the CALLER's
+directory depth) by default. Two escape hatches worth knowing:
+- **A resource whose edit page needs more than the plain schema-driven
+  form** (e.g. goalnexa's `GoalsEditScreen` adds a goal's own
+  `GoalMetricsSection` inline) gets `createCrudRoutes`'s `editFile`
+  option - an ABSOLUTE path (same `import.meta.url` rule) to a
+  HOST-OWNED route file that replaces JUST the generic `crud-edit.tsx`
+  for that one resource; list/create stay generic. The domain module
+  exposes that absolute path via its OWN `"./routeFiles"` Node-only
+  subpath (see `goalnexa-frontend/src/routeFiles.ts`) rather than the
+  host hardcoding a relative filesystem path across package boundaries.
+- **A resource whose whole URL structure needs to be host-decided at a
+  level ABOVE the plain `createCrudRoutes(apiPath)` call** (e.g.
+  `platform-org`'s `orgs`, deliberately nested at `platform-org/orgs`
+  instead of the bare `orgs` every other resource gets) - the domain
+  module exposes its OWN parameterized route builder instead
+  (`createOrgsRoutes(basePath: string)`, `platform-org-frontend`'s own
+  `"./routes"` subpath), which wraps `createCrudRoutes` in its own
+  `prefix(basePath, ...)`. The HOST still decides the actual mount
+  string (`createOrgsRoutes("platform-org")` in `apps/main`'s own
+  `routes.ts`) - the module only owns BUILDING the route list, never the
+  URL choice itself. Don't reach for this by default; a resource that's
+  happy at its bare name (nearly all of them) just calls
+  `createCrudRoutes` directly, no module-owned wrapper needed.
+
+See platform-core's own AGENTS.md for the full mechanics (the
+`id`-collision gotcha, why this is the one place in the whole platform
+allowed to import `@react-router/dev/routes` from a CLIENT-bundled
+package's OWN `"."` entry without doing so, and the cookbook for adding
+a brand-new resource's UI end-to-end).
 
 Two things worth knowing regardless, if a resource ever DOES need a
 route module of its own again (custom UI a generic screen can't do -
@@ -149,20 +214,24 @@ reset conflicts with Tabler's own button/input/card styles.)
 (`{accessToken, user}`) — `apps/main` captures this into its own
 module-singleton store (`app/lib/session.ts`) and passes the token down
 to any OTHER module's screen that needs to make its own authenticated
-calls (e.g. `platform-org-frontend`'s `OrgsScreen` takes `accessToken` as
-a plain prop — it owns no auth state of its own, since it's a pure
-consumer of a session platform-auth created).
+calls (e.g. `platform-core`'s `CrudListScreen`/`CrudCreateScreen`/
+`CrudEditScreen` take `accessToken` as a plain prop, via
+`<Outlet context={accessToken}>` in `app-shell.tsx` — none of them own
+auth state of their own, since they're a pure consumer of a session
+platform-auth created).
 
 **Persisting login across a real reload**: the singleton above resets on
 every fresh page load, same as `platform-auth-frontend`'s own in-memory
 token store — what makes it survive anyway is `root.tsx`'s boot effect
 calling `platform-auth-frontend`'s exported `refreshSession()` on every
 mount, exchanging the httpOnly refresh cookie (which DOES survive a
-reload) for a new access token. A protected route (`orgs.tsx`) tracks a
-separate `isSessionInitialized()` flag and must wait for it before
-deciding "no session → redirect to login" — checking `accessToken ===
-null` alone would redirect on every fresh load, before the boot refresh
-even had a chance to run. `refreshSession()` itself dedupes concurrent
+reload) for a new access token. `app-shell.tsx`'s own
+`useRequireAccessToken` (the ONE place every route nested under the
+layout gets gated - see below) tracks a separate `isSessionInitialized()`
+flag and must wait for it before deciding "no session → redirect to
+login" — checking `accessToken === null` alone would redirect on every
+fresh load, before the boot refresh even had a chance to run.
+`refreshSession()` itself dedupes concurrent
 calls (see `platform-auth`'s own AGENTS.md) — React StrictMode
 double-invokes effects in dev, and the backend's refresh token is
 single-use/rotating, so two naive concurrent calls would race and one
@@ -176,15 +245,17 @@ worth re-checking if you touch either.
 
 **App shell (sidemenu + sticky header)**: `platform-core`'s
 `AppShell` wraps post-login screens only — `apps/main`'s `routes.ts` puts
-it behind `layout("routes/app-shell.tsx", [...])` around routes like
-`orgs.tsx`, while the public landing page (`home.tsx`) and login/signup
-stay outside it, unwrapped. `app-shell.tsx` is where main plugs in the
-pieces `AppShell` deliberately doesn't own: a `linkComponent` wrapping
-react-router's own `Link` (same "no router dependency inside the package"
-convention as the screens), the `navItems` list (spans routes from
-multiple modules — `ORGS_PATH` from `platform-org-frontend`, `/` for
-home — so it can't live inside any one module's package), and the
-session read for the header's user/logout display. "Log out" there only
+it behind `layout("routes/app-shell.tsx", [...])` around every generic
+CRUD resource's routes, while the public landing page (`home.tsx`) and
+login/signup stay outside it, unwrapped. `app-shell.tsx` is where main
+plugs in the pieces `AppShell` deliberately doesn't own: a
+`linkComponent` wrapping react-router's own `Link` (same "no router
+dependency inside the package" convention as the screens), the
+`navItems` list (spans routes from multiple modules, each a plain
+string literal - `/goals`, `/platform-org/orgs`, `/` for home - not a
+computed path import; see this section's own note above on why - so it
+can't live inside any one module's package anyway), and the session
+read for the header's user/logout display. "Log out" there only
 clears main's local session singleton — there's no backend `/logout`
 endpoint yet, so the refresh cookie is still valid and a full reload
 after logging out silently logs back in; fine for now, revisit once a
