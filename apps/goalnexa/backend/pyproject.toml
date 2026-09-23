@@ -2,6 +2,7 @@
 name = "goalnexa-backend"
 version = "0.1.0"
 description = "goalnexa's Django app (Goal/Metric/CheckIn) - importable by a host app's INSTALLED_APPS, matching platform-org's backend packaging pattern."
+license = { text = "PolyForm-Shield-1.0.0" }
 requires-python = ">=3.11"
 dependencies = [
     "django>=5.2,<6.0",

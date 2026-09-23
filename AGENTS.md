@@ -494,6 +494,22 @@ was trying to report. Grep every `settings.py` in the platform for
 | `docs/architecture/` | Target-state design docs (microservices/module system) — written before the current package-import approach; treat as historical context, not a spec to follow literally. |
 | `docs/product-discovery/` | Market/customer research, not implementation-relevant. |
 
+## License (every repo)
+
+Everything - this repo and every `platform-*` module - is **PolyForm
+Shield 1.0.0** (source-available, not OSI open source; never call it
+"open source" in docs). Each repo carries the same four things, keep
+them identical: `LICENSE` (the verbatim license text + the
+`Required Notice:` and `Licensor Line of Business:` lines - the latter
+stops "Discontinued Products" from ever freeing a competitor),
+`CONTRIBUTING.md` (with the Contributor License Agreement that keeps
+dual/commercial licensing possible), `.github/pull_request_template.md`
+(CLA checkbox), and a README "License" section. Packages declare it too:
+`"license": "PolyForm-Shield-1.0.0"` in each `package.json`,
+`license = { text = "PolyForm-Shield-1.0.0" }` in each `pyproject.toml`.
+A new module copies all of these. platform-core/org/mcp were MIT up to
+the commit named in their README; copies of those versions stay MIT.
+
 ## Adding a new module's screen + login-like backend to main
 
 Frontend:

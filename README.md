@@ -11,6 +11,8 @@ weekly review for you.
 
 <sub>Also as [MP4](docs/media/walkthrough.mp4). All data shown is demo data from [`scripts/seed_demo.py`](scripts/seed_demo.py).</sub>
 
+<sub>**Source-available** under the [PolyForm Shield License 1.0.0](LICENSE): free to use, modify and self-host for any purpose, including inside your company, except offering it as a competing product or service. [Details](#license).</sub>
+
 ---
 
 ## Why GoalNexa
@@ -222,3 +224,13 @@ the sibling `apps/*` directories (the submodules) must be checked out.
 **Adding a module** (a new resource, a new screen, a new Django app): see
 [`AGENTS.md`](AGENTS.md), the source of truth for conventions and the gotchas
 already hit. Each module has its own `AGENTS.md` too.
+
+## License
+
+GoalNexa is **source-available** under the [PolyForm Shield License 1.0.0](LICENSE).
+You may use, modify and share it for any purpose, including inside your
+company, **except** providing a product or service that competes with it or
+with the licensor's products. That means no hosting it as a paid service and
+no selling it or a modified copy of it. For uses the license doesn't allow,
+ask about a commercial license. Contributions are accepted under the
+[Contributor License Agreement](CONTRIBUTING.md#contributor-license-agreement).
