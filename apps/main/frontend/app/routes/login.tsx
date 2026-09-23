@@ -13,7 +13,7 @@ export default function Login() {
     <LoginScreen
       onSuccess={(session) => {
         setSession(session);
-        navigate("/", { replace: true });
+        navigate("/platform-org/orgs", { replace: true });
       }}
     />
   );
