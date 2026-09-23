@@ -20,7 +20,7 @@ If they're missing, the MCP server isn't connected: point the user to
   latest check-in by `checked_in_at`, and the server recomputes it.
 - A metric can go down on purpose (response time 12h → 2h: target below base).
 - Progress = `(current - base) / (target - base)`, and a goal's progress is the
-  mean of its metrics'.
+  mean of its root metrics' (`parent` null) - sub-metrics don't count toward it.
 
 ## Steps
 

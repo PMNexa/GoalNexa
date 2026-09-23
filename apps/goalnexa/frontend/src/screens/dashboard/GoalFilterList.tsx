@@ -1,6 +1,5 @@
 import type { Goal } from "../../lib/api/goals";
 import type { Metric } from "../../lib/api/metrics";
-import type { ProgressPoint } from "../../lib/progress";
 import { formatPct, seriesColor } from "./chartUtils";
 
 export interface GoalFilterListProps {
@@ -18,9 +17,6 @@ export interface GoalFilterListProps {
   onToggleMetric: (metricId: string) => void;
   /** Goal id -> current progress % (shown metrics only); `null` = no usable metrics. */
   currentByGoal: Map<string, number | null>;
-  /** Goal / metric id -> linear projection at the goal's target date (absent = none). */
-  projectionByGoal: Map<string, ProgressPoint>;
-  projectionByMetric: Map<string, ProgressPoint>;
   /** Metrics for the current selection are still loading. */
   loading: boolean;
   onCheckIn: (metricId: string) => void;
@@ -29,16 +25,14 @@ export interface GoalFilterListProps {
   onOpenMetric: (metricId: string) => void;
 }
 
-const TARGET_DATE = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-
-function formatAmount(value: string | number): string {
+function formatAmount(value: string): string {
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 /** Compact for the narrow tree row (93,500,000 -> "93.5M", 200,000 -> "200K"); the exact figures stay in the row's tooltip. */
 const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 
-function formatCompact(value: string | number): string {
+function formatCompact(value: string): string {
   return COMPACT.format(Number(value));
 }
 
@@ -99,18 +93,52 @@ function VisibilityToggle({
   );
 }
 
+interface TreeNode<T> {
+  item: T;
+  children: TreeNode<T>[];
+}
+
+/**
+ * Nest items under their `parent`, keeping the given order among
+ * siblings. An item whose parent isn't in the list (e.g. a sub-goal of a
+ * goal in another org) is a root; so is anything caught in a parent cycle
+ * (A -> B -> A isn't prevented server-side yet), rather than vanishing.
+ */
+function buildTree<T extends { id: string; parent: string | null }>(items: T[]): TreeNode<T>[] {
+  const ids = new Set(items.map((item) => item.id));
+  const byParent = new Map<string | null, T[]>();
+  for (const item of items) {
+    const key = item.parent !== null && item.parent !== item.id && ids.has(item.parent) ? item.parent : null;
+    byParent.set(key, [...(byParent.get(key) ?? []), item]);
+  }
+  const placed = new Set<string>();
+  const build = (parent: string | null): TreeNode<T>[] =>
+    (byParent.get(parent) ?? [])
+      .filter((item) => !placed.has(item.id) && placed.add(item.id))
+      .map((item) => ({ item, children: build(item.id) }));
+  const roots = build(null);
+  for (const item of items) {
+    if (!placed.has(item.id)) {
+      placed.add(item.id);
+      roots.push({ item, children: build(item.id) });
+    }
+  }
+  return roots;
+}
+
 /**
  * The dashboard's goal picker, as a tree: each goal is a node (color key,
  * title, current % pill, eye) with a thin progress bar in its series
- * color; a shown goal's metrics hang off it as leaves (tree connector,
- * line-color key + name, current / target, "+" check-in, eye). A goal with
- * a target date adds its projection: "→ 62%" in the pill and a faint bar
- * extension; its metrics read "current → projected / target" - the
- * leaves' keys are the legend for each goal's progress-over-time panel. The eye is always the last
- * control on a row. A hidden goal collapses to its muted title; a hidden
- * metric stays in place, dimmed, so it's easy to show again. A goal's or
- * metric's name is a button: the host opens its details. Styles:
- * `dashboardStyles.ts` (`.gn-goal-*`, `.gn-metric*`, `.gn-row-btn`).
+ * color. Its branches: its metrics (only while the goal is shown), then
+ * its sub-goals (always - a sub-goal is shown/hidden on its own). A
+ * metric row is line-color key + name, current / target, "+" check-in,
+ * eye, with its sub-metrics nested under it - the metric keys are the
+ * legend for each goal's progress-over-time panel. The eye is
+ * always the last control on a row. A hidden goal collapses to its muted
+ * title; a hidden metric stays in place, dimmed, so it's easy to show
+ * again. A goal's or metric's name is a button: the host opens its
+ * details. Styles: `dashboardStyles.ts` (`.gn-goal-*`, `.gn-branch*`,
+ * `.gn-metric*`, `.gn-row-btn`).
  */
 function GoalFilterList({
   goals,
@@ -123,141 +151,115 @@ function GoalFilterList({
   disabledMetrics,
   onToggleMetric,
   currentByGoal,
-  projectionByGoal,
-  projectionByMetric,
   loading,
   onCheckIn,
   onOpenGoal,
   onOpenMetric,
 }: GoalFilterListProps) {
+  function renderMetric({ item: metric, children }: TreeNode<Metric>) {
+    const metricShown = !disabledMetrics.has(metric.id);
+    const slot = metricSlot.get(metric.id);
+    return (
+      <li key={metric.id} className="gn-branch gn-metric">
+        <div className={`gn-metric-row${metricShown ? "" : " is-off"}${children.length > 0 ? " has-branches" : ""}`}>
+          <span className="gn-metric-label">
+            {/* The tree doubles as the panels' legend: the metric's line color. */}
+            <span
+              className="gn-key"
+              style={{ background: metricShown && slot !== undefined ? seriesColor(slot) : "var(--gn-grid)" }}
+            />
+            <button
+              type="button"
+              className="gn-name-btn"
+              title={metric.name}
+              aria-haspopup="dialog"
+              onClick={() => onOpenMetric(metric.id)}
+            >
+              <span className="gn-metric-name">{metric.name}</span>
+            </button>
+          </span>
+          <span
+            className="gn-metric-value"
+            title={`${formatAmount(metric.current_value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}${
+              Number(metric.base_value) === 0 ? "" : ` (from ${formatAmount(metric.base_value)})`
+            }`}
+          >
+            {formatCompact(metric.current_value)}
+            <span className="gn-metric-target">
+              {" / "}
+              {formatCompact(metric.target_value)}
+              {metric.unit ? ` ${metric.unit}` : ""}
+            </span>
+          </span>
+          <button
+            type="button"
+            className="btn btn-icon btn-sm btn-ghost-primary gn-row-btn"
+            aria-label={`Check in ${metric.name}`}
+            aria-haspopup="dialog"
+            title="Check in"
+            onClick={() => onCheckIn(metric.id)}
+          >
+            {PlusIcon}
+          </button>
+          <VisibilityToggle shown={metricShown} name={metric.name} onToggle={() => onToggleMetric(metric.id)} />
+        </div>
+        {children.length > 0 && <ul className="gn-branches">{children.map(renderMetric)}</ul>}
+      </li>
+    );
+  }
+
+  function renderGoal({ item: goal, children: subGoals }: TreeNode<Goal>, nested: boolean) {
+    const slot = selected.get(goal.id);
+    const shown = slot !== undefined;
+    const current = currentByGoal.get(goal.id) ?? null;
+    const metricTree = shown ? buildTree(metricsByGoal.get(goal.id) ?? []) : [];
+    const noMetrics = shown && !loading && metricTree.length === 0;
+    const hasBranches = metricTree.length > 0 || noMetrics || subGoals.length > 0;
+    return (
+      <li key={goal.id} className={`gn-goal-group${nested ? " gn-branch" : ""}${shown ? " is-shown" : ""}`}>
+        <div className={`gn-goal-head${hasBranches ? " has-branches" : ""}`}>
+          <span
+            className={`gn-key gn-goal-key${shown ? "" : " is-empty"}`}
+            style={shown ? { background: seriesColor(slot) } : undefined}
+          />
+          <button
+            type="button"
+            className="gn-name-btn"
+            title={goal.title}
+            aria-haspopup="dialog"
+            onClick={() => onOpenGoal(goal.id)}
+          >
+            <span className="gn-goal-title">{goal.title}</span>
+          </button>
+          {shown && !loading ? <span className="gn-goal-pct">{current === null ? "—" : formatPct(current)}</span> : <span />}
+          <VisibilityToggle
+            shown={shown}
+            name={goal.title}
+            disabled={!shown && atLimit}
+            disabledReason={`Up to ${maxGoals} goals can be shown - hide one first`}
+            onToggle={() => onToggleGoal(goal.id)}
+          />
+          {shown && !loading && current !== null && (
+            <div className="gn-goal-bar" aria-hidden="true">
+              <span style={{ width: `${Math.min(100, current)}%`, background: seriesColor(slot) }} />
+            </div>
+          )}
+        </div>
+
+        {hasBranches && (
+          <ul className="gn-branches">
+            {noMetrics && <li className="gn-branch gn-metric-empty">No metrics yet</li>}
+            {metricTree.map(renderMetric)}
+            {subGoals.map((node) => renderGoal(node, true))}
+          </ul>
+        )}
+      </li>
+    );
+  }
+
   return (
     <ul className="gn-goal-list" aria-label="Goals">
-      {goals.map((goal) => {
-        const slot = selected.get(goal.id);
-        const shown = slot !== undefined;
-        const current = currentByGoal.get(goal.id) ?? null;
-        const projection = projectionByGoal.get(goal.id);
-        const goalMetrics = shown ? (metricsByGoal.get(goal.id) ?? []) : [];
-        return (
-          <li
-            key={goal.id}
-            className={`gn-goal-group${shown ? " is-shown" : ""}${shown && !loading && current !== null ? " has-bar" : ""}`}
-          >
-            <div className="gn-goal-head">
-              <span
-                className={`gn-key gn-goal-key${shown ? "" : " is-empty"}`}
-                style={shown ? { background: seriesColor(slot) } : undefined}
-              />
-              <button
-                type="button"
-                className="gn-name-btn"
-                title={goal.title}
-                aria-haspopup="dialog"
-                onClick={() => onOpenGoal(goal.id)}
-              >
-                <span className="gn-goal-title">{goal.title}</span>
-              </button>
-              {shown && !loading ? (
-                <span
-                  className="gn-goal-pct"
-                  title={projection ? `Projected ${formatPct(projection.pct)} by ${TARGET_DATE.format(projection.t)} (linear trend)` : undefined}
-                >
-                  {current === null ? "—" : formatPct(current)}
-                  {projection && <span className="gn-projected-value"> → {formatPct(projection.pct)}</span>}
-                </span>
-              ) : (
-                <span />
-              )}
-              <VisibilityToggle
-                shown={shown}
-                name={goal.title}
-                disabled={!shown && atLimit}
-                disabledReason={`Up to ${maxGoals} goals can be shown - hide one first`}
-                onToggle={() => onToggleGoal(goal.id)}
-              />
-              {shown && !loading && current !== null && (
-                <div className="gn-goal-bar" aria-hidden="true">
-                  <span style={{ width: `${Math.min(100, current)}%`, background: seriesColor(slot) }} />
-                  {/* Where the trend lands by the target date - a faint extension of the bar. */}
-                  {projection && projection.pct > current && current < 100 && (
-                    <span
-                      className="gn-goal-bar-projected"
-                      style={{ width: `${Math.min(100, projection.pct) - current}%`, background: seriesColor(slot) }}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-
-            {shown && !loading && goalMetrics.length === 0 && (
-              <ul className="gn-metrics">
-                <li className="gn-metric gn-metric-empty">No metrics yet</li>
-              </ul>
-            )}
-
-            {goalMetrics.length > 0 && (
-              <ul className="gn-metrics">
-                {goalMetrics.map((metric) => {
-                  const metricShown = !disabledMetrics.has(metric.id);
-                  const slot = metricSlot.get(metric.id);
-                  const metricProjection = projectionByMetric.get(metric.id);
-                  return (
-                    <li key={metric.id} className={`gn-metric${metricShown ? "" : " is-off"}`}>
-                      <span className="gn-metric-label">
-                        {/* The tree doubles as the panels' legend: the metric's line color. */}
-                        <span
-                          className="gn-key"
-                          style={{ background: metricShown && slot !== undefined ? seriesColor(slot) : "var(--gn-grid)" }}
-                        />
-                        <button
-                          type="button"
-                          className="gn-name-btn"
-                          title={metric.name}
-                          aria-haspopup="dialog"
-                          onClick={() => onOpenMetric(metric.id)}
-                        >
-                          <span className="gn-metric-name">{metric.name}</span>
-                        </button>
-                      </span>
-                      <span
-                        className="gn-metric-value"
-                        title={`${formatAmount(metric.current_value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}${
-                          Number(metric.base_value) === 0 ? "" : ` (from ${formatAmount(metric.base_value)})`
-                        }${
-                          metricProjection
-                            ? `\nProjected ${formatAmount(metricProjection.value ?? 0)} by ${TARGET_DATE.format(metricProjection.t)} (linear trend)`
-                            : ""
-                        }`}
-                      >
-                        {formatCompact(metric.current_value)}
-                        {metricProjection && (
-                          <span className="gn-projected-value"> → {formatCompact(metricProjection.value ?? 0)}</span>
-                        )}
-                        <span className="gn-metric-target">
-                          {" / "}
-                          {formatCompact(metric.target_value)}
-                          {metric.unit ? ` ${metric.unit}` : ""}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        className="btn btn-icon btn-sm btn-ghost-primary gn-row-btn"
-                        aria-label={`Check in ${metric.name}`}
-                        aria-haspopup="dialog"
-                        title="Check in"
-                        onClick={() => onCheckIn(metric.id)}
-                      >
-                        {PlusIcon}
-                      </button>
-                      <VisibilityToggle shown={metricShown} name={metric.name} onToggle={() => onToggleMetric(metric.id)} />
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </li>
-        );
-      })}
+      {buildTree(goals).map((node) => renderGoal(node, false))}
     </ul>
   );
 }

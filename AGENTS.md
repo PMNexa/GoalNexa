@@ -83,17 +83,17 @@ its check-ins, carried forward from its latest reading to the target
 date, drawn as a dashed segment ending in a hollow dot (hover shows it
 as "projected"); the goal's is the mean of those, a metric with no trend
 (< 2 check-ins) held at its current %, shown as "→ 62% by Oct 31" in
-the panel header. The goal tree shows it too: "4% → 62%" in the goal's
-pill plus a faint extension of its bar, and "20K → 85K / 100K" on each
-metric (exact figures in the tooltips). None once the target date has
-passed. A single chart could need more lines than the palette has colors.
+the panel header - not in the goal tree (tried, too busy). None once
+the target date has passed. A single chart could need more lines than the palette has colors.
 A metric's line color is its position among its goal's metrics (by
 name), so it stays put when other metrics are hidden. A goal's 9th+
 metric isn't charted: the palette has 8 slots, colors are never cycled,
 and the panel notes how many were left out. The goal tree shows each
 metric's color key, so it doubles as the panels' legend. A goal's progress = the mean of its
-metrics' `(value - base_value) / (target_value - base_value)` (so a
-metric meant to go down works too); the math is in `lib/progress.ts`.
+ROOT metrics' `(value - base_value) / (target_value - base_value)` (so a
+metric meant to go down works too); sub-metrics break a root down and
+don't count (`rootMetrics`; the goalnexa skills say the same). The math
+is in `lib/progress.ts`.
 A new metric's `current_value` starts at its `base_value` unless one is
 sent (`MetricViewSet.perform_create`). The
 charts are plain SVG, no chart library. The cap of 8 goals matches the
@@ -106,8 +106,11 @@ opens a check-in form in platform-core's `Modal`
 without resetting the filters. The goal picker is
 `screens/dashboard/GoalFilterList.tsx`, a tree with no checkboxes. A
 goal node is color key, title (up to 2 lines), % pill and eye, with a
-thin progress bar in the goal's color. A shown goal's metrics hang off
-it as leaves, joined by tree lines drawn in CSS from the key: name
+thin progress bar in the goal's color. A goal's branches are its metrics
+(while it's shown), then its sub-goals (always - each is shown/hidden on
+its own); a metric's sub-metrics nest under it (`parent` on both;
+`buildTree`). Tree lines are drawn in CSS from each key (`.gn-branch`).
+A metric row is: name
 (truncates, with a tooltip), current / target, "+" check-in, eye. The
 eye (show/hide, `aria-pressed`) is always the last control on a row. A
 hidden goal collapses to its muted title; a hidden metric stays in

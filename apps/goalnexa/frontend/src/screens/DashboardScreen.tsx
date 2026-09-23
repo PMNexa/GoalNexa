@@ -25,6 +25,7 @@ import {
   goalTargetTime,
   projectGoal,
   projectMetric,
+  rootMetrics,
   type ProgressPoint,
 } from "../lib/progress";
 import ProgressBarChart from "./dashboard/ProgressBarChart";
@@ -191,11 +192,17 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, selectedKey, seriesVersion]);
 
+  // What a goal's % averages: its root metrics (sub-metrics break a root
+  // down, they don't count), minus hidden ones.
+  const countedMetrics = useMemo(
+    () => rootMetrics(metrics).filter((metric) => !disabledMetrics.has(metric.id)),
+    [metrics, disabledMetrics],
+  );
+
   const progress = useMemo(() => {
     const selectedGoals = (goals ?? []).filter((goal) => selected.has(goal.id));
-    const enabledMetrics = metrics.filter((metric) => !disabledMetrics.has(metric.id));
-    return computeGoalProgress(selectedGoals, enabledMetrics, checkIns);
-  }, [goals, selected, metrics, checkIns, disabledMetrics]);
+    return computeGoalProgress(selectedGoals, countedMetrics, checkIns);
+  }, [goals, selected, countedMetrics, checkIns]);
 
   const metricsByGoal = useMemo(() => {
     const byGoal = new Map<string, Metric[]>();
@@ -221,11 +228,10 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
 
   // Linear projections to each shown goal's target date (none without
   // one): every metric's, and the goal's over its enabled metrics (like
-  // its current %). Shared by the panels and the goal tree.
+  // its current %).
   const projections = useMemo(() => {
     const byGoal = new Map<string, ProgressPoint>();
     const byMetric = new Map<string, ProgressPoint>();
-    const enabledMetrics = metrics.filter((metric) => !disabledMetrics.has(metric.id));
     for (const p of progress) {
       const target = goalTargetTime(p.goal);
       if (target === null) continue;
@@ -233,11 +239,11 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
         const projection = projectMetric(metric, checkIns, target);
         if (projection) byMetric.set(metric.id, projection);
       }
-      const pct = projectGoal(p.goal, enabledMetrics, checkIns, target);
+      const pct = projectGoal(p.goal, countedMetrics, checkIns, target);
       if (pct !== null) byGoal.set(p.goal.id, { t: target, pct });
     }
     return { byGoal, byMetric };
-  }, [progress, metrics, metricsByGoal, disabledMetrics, checkIns]);
+  }, [progress, countedMetrics, metricsByGoal, checkIns]);
 
   // Small multiples: one progress-over-time panel per shown goal, one line
   // per shown metric - a single chart could need more lines than the
@@ -427,8 +433,6 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                 disabledMetrics={disabledMetrics}
                 onToggleMetric={toggleMetric}
                 currentByGoal={currentByGoal}
-                projectionByGoal={projections.byGoal}
-                projectionByMetric={projections.byMetric}
                 loading={loadingSeries}
                 onCheckIn={setCheckInFor}
                 onOpenGoal={(id) => setDetail({ endpoint: "/api/v1/goals", id })}

@@ -3,7 +3,8 @@ import type { Metric } from "./api/metrics";
 import type { CheckIn } from "./api/checkIns";
 
 /**
- * A goal's progress = the mean of its metrics' progress, each metric's
+ * A goal's progress = the mean of its ROOT metrics' progress (see
+ * `rootMetrics` - sub-metrics break a root down, they don't count), each metric's
  * being how far its value has moved from `base_value` toward
  * `target_value`, as a percentage: `(value - base) / (target - base)`
  * (can exceed 100; never below 0). The same formula covers a metric that
@@ -42,6 +43,18 @@ function mean(values: number[]): number {
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
+/**
+ * The metrics a goal's progress counts: those with no parent, or whose
+ * parent isn't one of the same goal's metrics (the same roots the goal
+ * tree shows). Pass ALL metrics - filter out hidden ones afterwards, or a
+ * hidden root's sub-metrics would be promoted to roots.
+ */
+export function rootMetrics(metrics: Metric[]): Metric[] {
+  const goalById = new Map(metrics.map((m) => [m.id, m.goal]));
+  return metrics.filter((m) => m.parent === null || m.parent === m.id || goalById.get(m.parent) !== m.goal);
+}
+
+/** `metrics` = the ones to average (callers pass `rootMetrics(...)`, minus any hidden). */
 export function computeGoalProgress(goals: Goal[], metrics: Metric[], checkIns: CheckIn[]): GoalProgress[] {
   const metricById = new Map(metrics.map((m) => [m.id, m]));
   const sortedCheckIns = [...checkIns].sort((a, b) => Date.parse(a.checked_in_at) - Date.parse(b.checked_in_at));
@@ -131,7 +144,7 @@ export function projectMetric(metric: Metric, checkIns: CheckIn[], targetT: numb
 
 /**
  * A goal's projected progress at `targetT`: the mean over its usable
- * metrics (the same set `computeGoalProgress` averages) of each one's
+ * metrics among `metrics` (the same set `computeGoalProgress` averages) of each one's
  * projection, a metric with no trend held at its current progress. Null
  * when no metric has a projection at all.
  */

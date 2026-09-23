@@ -160,28 +160,43 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   margin: -0.25rem;
 }
 
-/* The goal list is a tree: goal nodes, their metrics as leaves. Every
-   row ends with its controls, the eye (show/hide) always last. */
+/* The goal list is a tree: goal nodes, with their metrics then their
+   sub-goals as branches, and a metric's sub-metrics under it. Every row
+   ends with its controls, the eye (show/hide) always last. */
 .gn-goal-list,
-.gn-metrics {
+.gn-branches {
   list-style: none;
 }
-.gn-goal-group {
+.gn-goal-list > .gn-goal-group {
   padding-block: 0.625rem;
 }
-.gn-goal-group:first-child {
+.gn-goal-list > .gn-goal-group:first-child {
   padding-top: 0.25rem;
 }
-.gn-goal-group + .gn-goal-group {
+.gn-goal-list > .gn-goal-group + .gn-goal-group {
   border-top: 1px solid var(--tblr-border-color, #e6e7e9);
+}
+.gn-branch.gn-goal-group {
+  padding-block: 0.25rem;
 }
 
 /* Goal node: [key] [title] [% pill] [eye], progress bar under the title. */
+/* Top-aligned, so the key sits at a fixed height (centred on the 1.75rem
+   first row, 0.875rem down) whether the title takes 1 line or 2 - the
+   tree connectors are drawn against that height. */
 .gn-goal-head {
+  position: relative;
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr) auto auto;
-  align-items: center;
+  align-items: start;
   column-gap: 0.5rem;
+}
+.gn-goal-head > .gn-goal-key {
+  margin-top: calc(0.875rem - 1.5px);
+}
+.gn-goal-head > .gn-name-btn,
+.gn-goal-head > .gn-goal-pct {
+  margin-top: 0.25rem;
 }
 .gn-goal-key.is-empty {
   background: var(--gn-grid);
@@ -213,7 +228,7 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
 .gn-name-btn:hover > span {
   text-decoration: underline;
 }
-.gn-goal-group:not(.is-shown) .gn-goal-title {
+.gn-goal-group:not(.is-shown) > .gn-goal-head .gn-goal-title {
   font-weight: 500;
   color: var(--gn-text-secondary);
 }
@@ -240,32 +255,79 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   border-radius: 2px;
   background: var(--gn-grid);
   overflow: hidden;
-  display: flex;
 }
 .gn-goal-bar span {
   display: block;
-  flex: none;
   height: 100%;
   border-radius: 2px;
 }
-.gn-goal-bar .gn-goal-bar-projected {
-  opacity: 0.3;
-  border-radius: 0 2px 2px 0;
-}
-.gn-projected-value {
-  font-weight: 400;
-  font-style: italic;
-  color: var(--gn-text-secondary);
-}
 
-/* Metric leaves. The trunk is centred under the goal's 12px key (x = 6px);
-   each leaf gets an elbow, the last one a corner (└). */
-.gn-metrics {
+/* Tree connectors. A branch list sits indented 1.25rem; its trunk runs
+   under the parent's key (x = 6px for a goal's 12px key), each branch
+   gets an elbow at its own key's height (--gn-elbow-y), the last one a
+   corner. A parent with branches draws the stub from its key down to its
+   branch list (the head's / row's ::after). */
+.gn-branches {
   margin: 0.25rem 0 0;
   padding: 0 0 0 1.25rem;
 }
-.gn-metric {
+.gn-branch {
   --gn-trunk-x: calc(6px - 1.25rem);
+  --gn-elbow-y: 0.9375rem;
+  position: relative;
+}
+.gn-branch.gn-goal-group {
+  --gn-elbow-y: calc(0.25rem + 0.875rem);
+}
+/* A sub-metric list hangs under a metric row's 10px key (row padding 0.375rem). */
+.gn-metric .gn-branches {
+  margin: 0;
+}
+.gn-metric .gn-branch {
+  --gn-trunk-x: calc(0.375rem + 5px - 1.25rem);
+}
+.gn-branch::before,
+.gn-branch::after,
+.gn-goal-head.has-branches::after,
+.gn-metric-row.has-branches::after {
+  content: "";
+  position: absolute;
+  border-color: var(--gn-axis);
+  border-style: solid;
+  border-width: 0;
+  pointer-events: none;
+}
+.gn-branch::before {
+  left: var(--gn-trunk-x);
+  top: 0;
+  bottom: 0;
+  border-left-width: 1px;
+}
+.gn-branch:last-child::before {
+  bottom: auto;
+  height: var(--gn-elbow-y);
+}
+.gn-branch::after {
+  left: var(--gn-trunk-x);
+  top: var(--gn-elbow-y);
+  width: calc(-1 * var(--gn-trunk-x) - 2px);
+  border-top-width: 1px;
+}
+.gn-goal-head.has-branches::after {
+  left: 6px;
+  top: calc(0.875rem + 4px);
+  bottom: -0.25rem;
+  border-left-width: 1px;
+}
+.gn-metric-row.has-branches::after {
+  left: calc(0.375rem + 5px);
+  top: calc(0.9375rem + 4px);
+  bottom: 0;
+  border-left-width: 1px;
+}
+
+/* Metric row: [key name] [current / target] [+] [eye]. */
+.gn-metric-row {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto auto;
@@ -276,37 +338,7 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   border-radius: 4px;
   font-size: 0.8125rem;
 }
-.gn-metric::before,
-.gn-metric::after {
-  content: "";
-  position: absolute;
-  left: var(--gn-trunk-x);
-  border-color: var(--gn-axis);
-  border-style: solid;
-  border-width: 0;
-  pointer-events: none;
-}
-.gn-metric::before {
-  top: 0;
-  bottom: 0;
-  border-left-width: 1px;
-}
-/* Reach up to the goal's key: past the bar row when there is one. */
-.gn-metrics > .gn-metric:first-child::before {
-  top: -0.875rem;
-}
-.gn-goal-group.has-bar .gn-metrics > .gn-metric:first-child::before {
-  top: -1.5rem;
-}
-.gn-metrics > .gn-metric:last-child::before {
-  bottom: 50%;
-}
-.gn-metric::after {
-  top: 50%;
-  width: calc(-1 * var(--gn-trunk-x) - 2px);
-  border-top-width: 1px;
-}
-.gn-metric:hover {
+.gn-metric-row:hover {
   background: var(--tblr-bg-surface-secondary, #f6f8fb);
 }
 .gn-metric-label {
@@ -336,19 +368,19 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   font-weight: 400;
   color: var(--gn-text-secondary);
 }
-.gn-metric.is-off .gn-metric-name,
-.gn-metric.is-off .gn-metric-value,
-.gn-metric.is-off .gn-metric-target,
-.gn-metric.is-off .gn-projected-value {
+.gn-metric-row.is-off .gn-metric-name,
+.gn-metric-row.is-off .gn-metric-value,
+.gn-metric-row.is-off .gn-metric-target {
   color: var(--gn-text-secondary);
   opacity: 0.55;
 }
 .gn-metric-empty {
   display: flex;
+  align-items: center;
+  min-height: 1.875rem;
+  padding-inline-start: 0.375rem;
+  font-size: 0.8125rem;
   color: var(--gn-text-secondary);
-}
-.gn-metric-empty:hover {
-  background: none;
 }
 
 /* Row controls: compact icon buttons; a hidden (eye-off) toggle is muted. */

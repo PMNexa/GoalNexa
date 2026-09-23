@@ -25,7 +25,8 @@ Leave out `archived` (and, unless asked, `completed`) goals. Add
 - Metric progress = `(current_value - base_value) / (target_value - base_value)`.
   It works for metrics meant to go down too. Clamp to 0–100% for display, but
   mention a metric that's past its target.
-- Goal progress = the mean of its metrics' progress.
+- Goal progress = the mean of its ROOT metrics' progress (`parent` is null).
+  Sub-metrics break a root metric down; they don't count toward the goal.
 - **Pace** (for goals with a `target_date`): find the goal's start, which is the
   earliest check-in of any of its metrics (`check_ins_list`,
   `filter: {"metric": "<id>"}`, `sort: "checked_in_at"`, `page_size: 1`). Then
