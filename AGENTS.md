@@ -28,10 +28,87 @@ screen components — no bundled routing, no assumptions about where it's
 mounted. `apps/main`'s own `routes.ts` owns every actual path/URL; a
 route file there imports a package's screen and wires it into that path.
 See `apps/platform-auth/frontend/src/index.ts` (exports `LoginScreen`/
-`SignupScreen`) and `apps/main/frontend/app/routes.ts`/`routes/login.tsx`/
-`routes/signup.tsx` — main registers both as plain literals
-(`route("auth/login", ...)`/`route("auth/signup", ...)`), giving
-`/auth/login` and `/auth/signup`.
+`SignupScreen`).
+
+**A module provides ONE centralized route builder, exported from its
+main `"."` entry; main mounts it once.** `createAuthRoutes(basePath)`
+(platform-auth), `createOrgsRoutes(basePath)` (platform-org) and
+`createCrudRoutes(apiPath)` (platform-core) all follow this shape - no
+`"./routes"` subpaths anymore. Main registers auth with one line,
+`...createAuthRoutes("auth")`, giving `/auth/login` and `/auth/signup`:
+main picks the mount, the module owns every page under it, including
+what happens on success (platform-auth stores the session in its OWN
+store and redirects to `?next=`, or `/`) - so main has no auth route
+file at all. Main steers the destination by putting `?next=` on its
+links (`home.tsx`'s login link, `useRequireAccessToken`'s redirect).
+
+**Route builders ride in the CLIENT bundle** (a module's `"."` entry is
+imported by client code too, e.g. `root.tsx`'s `initSession`,
+`app-shell.tsx`'s `AppShell`), so they must be browser-safe: plain
+route-config objects (no `@react-router/dev/routes` - Node-only tooling,
+~16KB if bundled), no `node:*` imports, nothing computed at module load.
+File paths come from `platform-core`'s `routeFilePath(import.meta.url,
+rel)` (string ops, only run when a builder is called - which only
+happens in Node, from main's `routes.ts`); never `new URL(rel,
+import.meta.url)`, which Vite rewrites into an asset reference. They
+tree-shake out of the client build since no client code calls them.
+**The same `"."` entry is also loaded by react-router's route-config
+loader** (main's `routes.ts` imports the builders from it), which runs a
+minimal Vite with no CSS support - a `.css` import anywhere under a
+module's `"."` entry fails typegen/dev/build with "Route config in
+routes.ts is invalid ... Cannot read properties of undefined (reading
+'get')". Ship component styles as a TS string rendered through React
+19's `<style href="..." precedence="default">` instead (see
+goalnexa-frontend's `screens/dashboard/dashboardStyles.ts`).
+
+**Dashboard** (`/dashboard`, goalnexa-frontend's `DashboardScreen`,
+mounted with `...createDashboardRoutes("dashboard")` inside the
+app-shell layout): pick one org (or personal goals), pick up to 8 of its
+goals, and see progress over time plus current progress (bars, one per
+goal). Progress over time is PER METRIC, as small multiples: one card
+per shown goal (titled with the goal + its %), one step line per shown
+metric; the tooltip shows each metric's % AND its actual reading
+("57,000 / 100,000"), and end labels sit past the plot edge with a
+leader line (`value / target` as a %,
+replayed from check-ins, `computeMetricSeries`). All panels share one
+time range and % ceiling (`fitDomain`) so they can be compared side by
+side. A single chart could need more lines than the palette has colors.
+A metric's line color is its position among its goal's metrics (by
+name), so it stays put when other metrics are hidden. A goal's 9th+
+metric isn't charted: the palette has 8 slots, colors are never cycled,
+and the panel notes how many were left out. The goal tree shows each
+metric's color key, so it doubles as the panels' legend. A goal's progress = the mean of its
+metrics' `value / target_value`; the math is in `lib/progress.ts`. The
+charts are plain SVG, no chart library. The cap of 8 goals matches the
+8 validated categorical color slots. A goal keeps its color slot for as
+long as it's selected. Each selected goal lists its metrics in the filter
+panel. Unticking a metric leaves it out of that goal's progress (it's an
+opt-out, so the default matches the rest of the app), and "Check in"
+opens a check-in form in platform-core's `Modal`
+(`screens/dashboard/CheckInModal.tsx`); saving refreshes the charts
+without resetting the filters. The goal picker is
+`screens/dashboard/GoalFilterList.tsx`, a tree with no checkboxes. A
+goal node is color key, title (up to 2 lines), % pill and eye, with a
+thin progress bar in the goal's color. A shown goal's metrics hang off
+it as leaves, joined by tree lines drawn in CSS from the key: name
+(truncates, with a tooltip), current / target, "+" check-in, eye. The
+eye (show/hide, `aria-pressed`) is always the last control on a row. A
+hidden goal collapses to its muted title; a hidden metric stays in
+place, dimmed. The color tokens live on the `.gn-dashboard` root, not just on
+`.gn-viz`, because the filter card's color keys sit outside the charts.
+
+**Check-in time is `CheckIn.checked_in_at`**, not `created_at`. It's
+user-set and defaults to now when left blank (the form omits the key and
+the model default applies). `Metric.current_value` = the value of the
+LATEST check-in by `checked_in_at`, recomputed on every check-in
+create/update/delete (`goalnexa/views/check_ins.py`'s
+`sync_current_value`), because a backdated check-in isn't necessarily
+the latest. The generic CRUD form renders date/datetime schema fields as
+native pickers (platform-core `CrudFormFields`: the form keeps API
+values, converted to and from the picker's local time). The schema also
+carries `nullable` and `help_text`: an emptied non-nullable field is
+omitted from the request (server default), an emptied nullable one is
+sent as `null`.
 
 **A module does NOT export its own URL path as a constant just because
 a host happens to use it** — `BASE_PATH`/`LOGIN_PATH`/`SIGNUP_PATH`
@@ -127,12 +204,12 @@ knowing before re-trying either):
    to it anymore.
 
 **How a resource actually gets registered today** - `platform-core`'s
-`createCrudRoutes` (its own `"./routes"` `exports` subpath - `import {
-createCrudRoutes } from "platform-core/routes"`), one call per resource,
+`createCrudRoutes` (from its main entry - `import { createCrudRoutes }
+from "platform-core"`), one call per resource,
 taking only that resource's own backend base URL:
 ```ts
 // apps/main/frontend/app/routes.ts
-import { createCrudRoutes } from "platform-core/routes";
+import { createCrudRoutes } from "platform-core";
 ...
 layout("routes/app-shell.tsx", [
   ...createCrudRoutes("/api/v1/goals", { editFile: GOALS_EDIT_ROUTE_FILE }),
@@ -141,7 +218,7 @@ layout("routes/app-shell.tsx", [
 ```
 No file paths, no `CrudPaths` object, no per-module import at all -
 `createCrudRoutes` derives the resource name from the URL's own last
-`/`-segment, `prefix()`-nests its list/create/edit routes under it (not
+`/`-segment, `prefixRoutes()`-nests its list/create/edit routes under it (not
 `route()` + children - that needs a wrapping layout element with its own
 `<Outlet/>`, which none of the three share or need), and points every
 registration at its OWN `src/routes/` files (`import.meta.url`-derived,
@@ -161,9 +238,9 @@ directory depth) by default. Two escape hatches worth knowing:
   `platform-org`'s `orgs`, deliberately nested at `platform-org/orgs`
   instead of the bare `orgs` every other resource gets) - the domain
   module exposes its OWN parameterized route builder instead
-  (`createOrgsRoutes(basePath: string)`, `platform-org-frontend`'s own
-  `"./routes"` subpath), which wraps `createCrudRoutes` in its own
-  `prefix(basePath, ...)`. The HOST still decides the actual mount
+  (`createOrgsRoutes(basePath: string)`, from `platform-org-frontend`'s
+  main entry), which wraps `createCrudRoutes` in platform-core's
+  `prefixRoutes(basePath, ...)`. The HOST still decides the actual mount
   string (`createOrgsRoutes("platform-org")` in `apps/main`'s own
   `routes.ts`) - the module only owns BUILDING the route list, never the
   URL choice itself. Don't reach for this by default; a resource that's
@@ -209,10 +286,11 @@ shell. Don't load a design system from inside a screen package; that's
 the host's job. (Tailwind was removed from `apps/main` — its preflight
 reset conflicts with Tabler's own button/input/card styles.)
 
-**Sharing auth state across modules' screens**: `platform-auth-frontend`'s
-`LoginScreen`/`SignupScreen` `onSuccess` callback returns a `Session`
-(`{accessToken, user}`) — `apps/main` captures this into its own
-module-singleton store (`app/lib/session.ts`) and passes the token down
+**Sharing auth state across modules' screens**: `platform-auth-frontend`
+owns the session store (`src/session.ts` - `getSession`/
+`subscribeSession`/`isSessionInitialized`/`clearSession`/`initSession`,
+all exported from its `"."` entry; its login/signup routes write it).
+`apps/main` reads it and passes the token down
 to any OTHER module's screen that needs to make its own authenticated
 calls (e.g. `platform-core`'s `CrudListScreen`/`CrudCreateScreen`/
 `CrudEditScreen` take `accessToken` as a plain prop, via
@@ -223,8 +301,8 @@ platform-auth created).
 **Persisting login across a real reload**: the singleton above resets on
 every fresh page load, same as `platform-auth-frontend`'s own in-memory
 token store — what makes it survive anyway is `root.tsx`'s boot effect
-calling `platform-auth-frontend`'s exported `refreshSession()` on every
-mount, exchanging the httpOnly refresh cookie (which DOES survive a
+calling `platform-auth-frontend`'s exported `initSession()` on every
+mount (wraps `refreshSession()` + marks the store initialized), exchanging the httpOnly refresh cookie (which DOES survive a
 reload) for a new access token. `app-shell.tsx`'s own
 `useRequireAccessToken` (the ONE place every route nested under the
 layout gets gated - see below) tracks a separate `isSessionInitialized()`

@@ -34,9 +34,12 @@ export interface MetricCheckInsSectionProps {
 interface NewCheckInForm {
   value: string;
   note: string;
+  /** `datetime-local` value; blank = now (the key is left out, server default applies). */
+  checkedInAt: string;
 }
 
-const EMPTY_FORM: NewCheckInForm = { value: "", note: "" };
+const EMPTY_FORM: NewCheckInForm = { value: "", note: "", checkedInAt: "" };
+const WHEN_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 /**
  * Nested check-ins list + a lightweight inline "add check-in" form for a
@@ -73,7 +76,12 @@ function MetricCheckInsSection({ accessToken, metricId, onCheckIn }: MetricCheck
     try {
       await apiFetch<CheckIn>("/api/v1/check-ins", accessToken, {
         method: "POST",
-        body: JSON.stringify({ ...form, metric: metricId, value: Number(form.value) }),
+        body: JSON.stringify({
+          metric: metricId,
+          value: Number(form.value),
+          note: form.note,
+          ...(form.checkedInAt ? { checked_in_at: new Date(form.checkedInAt).toISOString() } : {}),
+        }),
       });
       setForm(EMPTY_FORM);
       load();
@@ -101,6 +109,7 @@ function MetricCheckInsSection({ accessToken, metricId, onCheckIn }: MetricCheck
           <Table responsive mobileBreakpoint="sm">
             <TableHead>
               <TableRow>
+                <TableHeaderCell>When</TableHeaderCell>
                 <TableHeaderCell>Value</TableHeaderCell>
                 <TableHeaderCell>Note</TableHeaderCell>
               </TableRow>
@@ -108,6 +117,7 @@ function MetricCheckInsSection({ accessToken, metricId, onCheckIn }: MetricCheck
             <TableBody>
               {checkIns.map((checkIn) => (
                 <TableRow key={checkIn.id}>
+                  <TableCell label="When">{WHEN_FORMAT.format(new Date(checkIn.checked_in_at))}</TableCell>
                   <TableCell label="Value">{checkIn.value}</TableCell>
                   <TableCell label="Note">{checkIn.note}</TableCell>
                 </TableRow>
@@ -134,6 +144,17 @@ function MetricCheckInsSection({ accessToken, metricId, onCheckIn }: MetricCheck
               id="new-checkin-note"
               value={form.note}
               onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
+            />
+          </div>
+          <div>
+            <FormLabel htmlFor="new-checkin-when">
+              When <span className="text-secondary fw-normal">(blank = now)</span>
+            </FormLabel>
+            <FormControl
+              id="new-checkin-when"
+              type="datetime-local"
+              value={form.checkedInAt}
+              onChange={(event) => setForm((prev) => ({ ...prev, checkedInAt: event.target.value }))}
             />
           </div>
           <Button type="submit" variant="primary" disabled={submitting}>

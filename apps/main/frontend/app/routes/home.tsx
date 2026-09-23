@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { getSession, isSessionInitialized, subscribeSession } from "../lib/session";
+import { getSession, isSessionInitialized, subscribeSession } from "platform-auth-frontend";
 import type { Route } from "./+types/home";
 
 export function meta({}: Route.MetaArgs) {
@@ -10,8 +10,8 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   const [session, setSessionState] = useState(() => getSession());
   // Avoids a flash of "log in / sign up" before root.tsx's boot-time
-  // refreshSession() has had a chance to restore an existing session on
-  // a fresh page load - see lib/session.ts's own docstring.
+  // initSession() has had a chance to restore an existing session on
+  // a fresh page load - see platform-auth-frontend's session.ts.
   const [initialized, setInitialized] = useState(isSessionInitialized());
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function Home() {
         </>
       ) : (
         <div className="d-flex gap-2">
-          <Link to="/auth/login" className="btn btn-primary">
+          <Link to="/auth/login?next=/platform-org/orgs" className="btn btn-primary">
             Log in
           </Link>
           <Link to="/auth/signup" className="btn btn-outline-primary">

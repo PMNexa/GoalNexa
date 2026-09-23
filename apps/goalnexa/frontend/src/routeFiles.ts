@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
  * `package.json` `exports` subpath (`"goalnexa-frontend/routeFiles"`),
  * not part of the main `"."` entry - this imports `node:path`/`node:url`
  * and is meant for `apps/main`'s Node-only `routes.ts`, never the
- * client bundle (same split `platform-core/routes` follows).
+ * client bundle.
  */
 const routesDir = join(dirname(fileURLToPath(import.meta.url)), "routes");
 

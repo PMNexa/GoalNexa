@@ -1,16 +1,17 @@
-import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
+import { type RouteConfig, index, layout } from "@react-router/dev/routes";
+import { createDashboardRoutes } from "goalnexa-frontend";
 import { GOALS_EDIT_ROUTE_FILE, METRICS_EDIT_ROUTE_FILE } from "goalnexa-frontend/routeFiles";
-import { createCrudRoutes } from "platform-core/routes";
-import { createOrgsRoutes } from "platform-org-frontend/routes";
+import { createAuthRoutes } from "platform-auth-frontend";
+import { createCrudRoutes } from "platform-core";
+import { createOrgsRoutes } from "platform-org-frontend";
 
 export default [
   index("routes/home.tsx"),
-  // Plain literals, not `platform-auth-frontend`'s own path constants
-  // (it doesn't export any anymore) - this app owns every actual URL
-  // for every module it wires up; see this file's own comment further
-  // down on why orgs/goals/metrics/check-ins follow the same rule.
-  route("auth/login", "routes/login.tsx"),
-  route("auth/signup", "routes/signup.tsx"),
+  // platform-auth registered ONCE: this app picks the mount ("auth"),
+  // platform-auth-frontend supplies every page under it (/auth/login,
+  // /auth/signup) - storing the session and redirecting to `?next=`
+  // (or /) on success are its own job, no route file here.
+  ...createAuthRoutes("auth"),
   // AppShell (sidemenu + sticky header) wraps post-login screens only -
   // the public landing page (home) and login/signup stay bare. See
   // routes/app-shell.tsx.
@@ -31,7 +32,7 @@ export default [
   //
   // orgs is the one resource NOT registered with a bare `createCrudRoutes`
   // call here - `platform-org-frontend` provides `createOrgsRoutes`
-  // (its own `"./routes"` subpath) as a parameterized route builder, but
+  // (from its main entry) as a parameterized route builder, but
   // THIS app decides the mount prefix ("platform-org", passed in below),
   // same as it decides every other resource's URL - so its real URLs
   // are `platform-org/orgs`, `platform-org/orgs/new`,
@@ -43,6 +44,7 @@ export default [
   // other use sites is no less "single source of truth" than a shared
   // constant would be, for a link that doesn't change.
   layout("routes/app-shell.tsx", [
+    ...createDashboardRoutes("dashboard"),
     ...createOrgsRoutes("platform-org"),
     ...createCrudRoutes("/api/v1/goals", { editFile: GOALS_EDIT_ROUTE_FILE }),
     ...createCrudRoutes("/api/v1/metrics", { editFile: METRICS_EDIT_ROUTE_FILE }),

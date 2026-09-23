@@ -37,3 +37,9 @@ export type { MetricsEditScreenProps } from "./screens/MetricsEditScreen";
 export type { Metric } from "./lib/api/metrics";
 
 export type { CheckIn } from "./lib/api/checkIns";
+
+// Dashboard: org + goals filters, progress-over-time / current-progress
+// charts. `createDashboardRoutes(basePath)` is what a host mounts.
+export { default as DashboardScreen } from "./screens/DashboardScreen";
+export type { DashboardScreenProps } from "./screens/DashboardScreen";
+export { createDashboardRoutes } from "./dashboardRoutes";
