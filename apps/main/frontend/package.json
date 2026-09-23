@@ -16,6 +16,7 @@
     "platform-auth-frontend": "file:../../platform-auth/frontend",
     "platform-org-frontend": "file:../../platform-org/frontend",
     "platform-core": "file:../../platform-core/frontend",
+    "platform-mcp-frontend": "file:../../platform-mcp/frontend",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router": "^8.4.0"

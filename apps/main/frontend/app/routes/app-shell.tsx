@@ -3,7 +3,7 @@ import { Link as RouterLink, Outlet, useLocation } from "react-router";
 import { AppShell } from "platform-core";
 import type { LinkComponentProps } from "platform-core";
 import { getSession, logout, subscribeSession } from "platform-auth-frontend";
-import { CheckInsIcon, DashboardIcon, GoalsIcon, MetricsIcon, OrgsIcon } from "../lib/navIcons";
+import { CheckInsIcon, DashboardIcon, GoalsIcon, McpIcon, MetricsIcon, OrgsIcon } from "../lib/navIcons";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
 
 function ShellLink({ to, className, children, ...rest }: LinkComponentProps) {
@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { label: "Metrics", to: "/metrics", icon: MetricsIcon },
   { label: "Check-ins", to: "/check-ins", icon: CheckInsIcon },
   { label: "Organizations", to: "/platform-org/orgs", icon: OrgsIcon },
+  { label: "MCP access", to: "/mcp", icon: McpIcon },
 ];
 
 /**
@@ -42,7 +43,7 @@ const NAV_ITEMS = [
  * up to the one layout that actually needs it. The gated token is
  * handed down via `<Outlet context={accessToken}>` - `platform-core`'s
  * `crud-list.tsx`/`crud-new.tsx`/`crud-detail.tsx`/`crud-edit.tsx` (and
- * goalnexa-frontend's own `dashboard.tsx`) read it with
+ * goalnexa-frontend's `dashboard.tsx`, platform-mcp-frontend's `mcp.tsx`) read it with
  * `useOutletContext<string>()`.
  *
  * "Log out" is platform-auth's `logout()`: revokes the refresh token

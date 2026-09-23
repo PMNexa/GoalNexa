@@ -56,6 +56,9 @@ INSTALLED_APPS = [
     # table of its own either, same "module with no User table" pattern
     # as platform_org above.
     'goalnexa',
+    # MCP server over every BaseViewSet above + personal access tokens
+    # for MCP clients. Mounted at api/v1/mcp (config/urls.py).
+    'platform_mcp',
 ]
 
 MIDDLEWARE = [
@@ -157,8 +160,12 @@ REFRESH_COOKIE_SECURE = os.environ.get("DJANGO_DEBUG", "true").lower() != "true"
 # this to e.g. "/platform-auth"), this stays empty.
 URL_PREFIX = ""
 
-# core_api.mcp.McpView's serverInfo name.
+# --- platform_mcp app config (all optional) ---
+# The MCP server's serverInfo name.
 MCP_SERVER_NAME = "goalnexa"
+# What every personal access token starts with - makes a leaked one
+# recognizable (e.g. to secret scanners) and tells it apart from a JWT.
+MCP_TOKEN_PREFIX = "gnx_"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["platform_auth.authentication.ActorAuthentication"],

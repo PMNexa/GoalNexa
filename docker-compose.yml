@@ -27,7 +27,7 @@ services:
       sh -c "
       python -m venv .venv &&
       . .venv/bin/activate &&
-      pip install --no-cache-dir -q -r requirements.txt -e /apps/platform-core/backend -e /apps/platform-auth/backend -e /apps/platform-org/backend -e /apps/goalnexa/backend &&
+      pip install --no-cache-dir -q -r requirements.txt -e /apps/platform-core/backend -e /apps/platform-auth/backend -e /apps/platform-org/backend -e /apps/goalnexa/backend -e /apps/platform-mcp/backend &&
       python manage.py migrate &&
       python manage.py runserver 0.0.0.0:8000
       "

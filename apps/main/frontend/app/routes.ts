@@ -2,6 +2,7 @@ import { type RouteConfig, index, layout } from "@react-router/dev/routes";
 import { createDashboardRoutes } from "goalnexa-frontend";
 import { createAuthRoutes } from "platform-auth-frontend";
 import { createCrudRoutes } from "platform-core";
+import { createMcpRoutes } from "platform-mcp-frontend";
 import { createOrgsRoutes } from "platform-org-frontend";
 
 export default [
@@ -44,5 +45,8 @@ export default [
     ...createCrudRoutes("/api/v1/goals"),
     ...createCrudRoutes("/api/v1/metrics"),
     ...createCrudRoutes("/api/v1/check-ins"),
+    // Personal access tokens + how to connect an AI client to the MCP
+    // server (platform-mcp) - one page, /mcp.
+    ...createMcpRoutes("mcp"),
   ]),
 ] satisfies RouteConfig;

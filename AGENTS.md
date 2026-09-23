@@ -435,13 +435,19 @@ implementation. This makes `platform-core` a real backend dependency of
 any module with generic CRUD entities, not just something "kept for
 reference" — see its repo-layout row below.
 
-**MCP server**: `POST /api/v1/mcp` (platform-core's `McpView`, mounted
-in `apps/main`'s `config/urls.py`, `IsAuthenticated`) gives an AI client
-tools for every `BaseViewSet` resource - orgs, goals, metrics,
-check-ins - with nothing per resource to write. Each tool call is an
-internal sub-request to the same REST API with the caller's own
-`Authorization: Bearer <access token>`, so the same auth, scoping and
-validation apply. See platform-core's AGENTS.md "MCP server".
+**MCP server**: `POST /api/v1/mcp` (`platform_mcp`, from
+`apps/platform-mcp`, mounted with `include('platform_mcp.urls')` in
+`apps/main`'s `config/urls.py`) gives an AI client tools for every
+`BaseViewSet` resource - orgs, goals, metrics, check-ins - with nothing
+per resource to write. Each tool call is an internal sub-request to the
+same REST API as the caller, so the same scoping and validation apply.
+Clients authenticate with a **personal access token** (`gnx_...`,
+created on the `/mcp` "MCP access" page, platform-mcp-frontend's
+`createMcpRoutes`), which works at the MCP endpoint only - not the rest
+of the API, not the token API itself. A login's access token works
+there too. Client setup (Claude Code, Claude Desktop, Codex, Cursor, VS
+Code, Gemini CLI, Windsurf): `apps/platform-mcp/README.md`, and the
+same steps on the page. Mechanics: platform-mcp's AGENTS.md.
 
 **Every process (including `apps/main` itself) needs its OWN
 `REST_FRAMEWORK["EXCEPTION_HANDLER"]` pointed at
@@ -463,6 +469,7 @@ was trying to report. Grep every `settings.py` in the platform for
 | `apps/platform-auth/` | git submodule. Django+DRF backend (standalone, own Postgres, own `pyproject.toml` packaging its Django app for reuse) + a frontend package (own `package.json`/`exports`). Both halves are also consumed by `apps/main` — see above. Own repo, own AGENTS.md. |
 | `apps/platform-org/` | git submodule. Multi-tenant `Organization`/`OrgMembership`, same packaged-both-halves pattern as `platform-auth`. No User table of its own — see the "module with no User table" note above. No roles/permissions yet (deliberate follow-up, likely a `platform-rbac` module). Own repo, own AGENTS.md. |
 | `apps/platform-core/` | git submodule. Django+DRF kernel (no models) — `core_api`: error contract, pagination, filters, uuid7 utils, and `BaseSerializer`/`BaseViewSet` (dynamic fields + relation sideloading, inspired by dynamic-rest — see "Generic CRUD entities" below). **A real backend dependency of `platform-auth` and `platform-org`** (both used to vendor their own copy of the small stuff; that stopped scaling once `BaseSerializer`/`BaseViewSet` existed) — editable-installed into `apps/main`'s venv alongside them. Its `frontend/` doubles as two things: its own (still-unused) Module Federation shell, not part of the default `docker-compose.yml`, and — as the `platform-core` npm package (`src/index.ts` exporting `AppShell`) — the former `platform-ui` module's sidemenu/sticky-header shell, folded in here since it had no backend of its own to justify a separate repo. See the "App shell" note above. Own repo, own AGENTS.md. |
+| `apps/platform-mcp/` | git submodule. MCP server over every `BaseViewSet` + personal access tokens, and the `platform-mcp-frontend` package with the "MCP access" page. Split out of platform-core. Same packaged-both-halves pattern; own README (client setup guide) and AGENTS.md. |
 | `modules.yaml` | Written for the platform-core/platform-auth Module Federation phase (module registry with `url_prefix`/`remote_entry`). Not read by anything in the current `docker-compose.yml` — `apps/main`'s own imports (file:/pip editable) replace what this was for. |
 | `nginx/default.conf` | Actively used — the single-port gateway in front of `apps/main`'s backend+frontend (rewritten for this when reused; a previous version was written for the platform-core/platform-auth setup instead). |
 | `docs/architecture/` | Target-state design docs (microservices/module system) — written before the current package-import approach; treat as historical context, not a spec to follow literally. |

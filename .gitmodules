@@ -1,9 +1,12 @@
 [submodule "platform-core"]
 	path = apps/platform-core
-	url = https://github.com/EugeneNguyen/platform-core.git
+	url = https://github.com/PMNexa/platform-core.git
 [submodule "platform-auth"]
 	path = apps/platform-auth
-	url = https://github.com/EugeneNguyen/platform-auth.git
+	url = https://github.com/PMNexa/platform-auth.git
 [submodule "platform-org"]
 	path = apps/platform-org
-	url = https://github.com/EugeneNguyen/platform-org.git
+	url = https://github.com/PMNexa/platform-org.git
+[submodule "apps/platform-mcp"]
+	path = apps/platform-mcp
+	url = https://github.com/PMNexa/platform-mcp.git
