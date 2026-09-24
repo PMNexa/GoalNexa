@@ -47,6 +47,19 @@ counted in a `DatabaseCache` so every worker shares one count
 (1 = nginx; 2 behind Funnel/Cloudflare/a load balancer - the dev compose
 defaults to 2 for Funnel). Too low and everyone shares one limit.
 
+**The hosted deployment** (DigitalOcean) is Docker Swarm:
+`docker-stack.yml` (the same services as the prod compose, from registry
+images tagged with the commit, a managed Postgres - no `db` service -
+rolling start-first updates that roll back on a failed healthcheck,
+nginx as a global host-port service so the client IP survives). Only
+`scripts/deploy.sh` deploys it - Swarm ignores `depends_on`, so the
+script runs migrate with the new image first, then `stack deploy`, then
+fails if a service rolled back. A migration must therefore work with the
+previous release's code too. Releasing = merging a PR into the `deploy`
+branch: `.github/workflows/deploy.yml` builds, pushes and runs the
+script (setup and rollback in its header). Adding a node = `docker swarm
+join` + more replicas; the stack needs no change.
+
 **The rule, frontend and backend both: a module provides its
 router/screen or its Django app, packaged; `main` imports it.** Nothing
 is copied. See `apps/platform-auth/` for the reference implementation of
