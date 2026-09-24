@@ -1,0 +1,8 @@
+# TLS in front of nginx on the Swarm (docker-stack.yml's `caddy`): gets
+# and renews a Let's Encrypt certificate for DOMAIN on its own (ports 80
+# and 443 must reach the node, and DOMAIN's A record point at it).
+# Caddy sets X-Forwarded-For to the client's IP - ignoring whatever the
+# client sent - and X-Forwarded-Proto: https; nginx passes both on.
+{$DOMAIN} {
+	reverse_proxy nginx:80
+}

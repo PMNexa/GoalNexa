@@ -50,8 +50,9 @@ defaults to 2 for Funnel). Too low and everyone shares one limit.
 **The hosted deployment** (DigitalOcean) is Docker Swarm:
 `docker-stack.yml` - the same services as the prod compose, from registry
 images, a managed Postgres (no `db` service), rolling start-first updates
-that roll back on a failed healthcheck, and nginx as a global host-port
-service so the client IP survives. Both images share ONE registry
+that roll back on a failed healthcheck, and Caddy (`caddy/Caddyfile`,
+Let's Encrypt) on the manager's host ports 80/443 in front of nginx, so
+the client IP survives. Both images share ONE registry
 repository, `goalnexa`, tagged `backend-<commit>`/`frontend-<commit>`:
 DigitalOcean's free registry allows one repository and 500 MB, so CI
 deletes every release but the running one (read from the Swarm) before

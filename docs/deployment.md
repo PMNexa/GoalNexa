@@ -2,14 +2,14 @@
 
 How production runs: one or more Droplets in a Docker Swarm
 (`docker-stack.yml`), a managed Postgres, images in DigitalOcean's
-container registry, Cloudflare in front. Merging a PR into the `deploy`
+container registry, Caddy terminating HTTPS. Merging a PR into the `deploy`
 branch builds and rolls out the new version
 (`.github/workflows/deploy.yml` → `scripts/deploy.sh`).
 
 ```
-Cloudflare (DNS + TLS)
-   │  port 80, Cloudflare IPs only
-Droplet(s) ── Swarm: nginx (one per node) → main-backend ×2, main-frontend ×2
+DNS A record → manager Droplet, ports 80/443
+Droplet(s) ── Swarm: caddy (HTTPS, Let's Encrypt) → nginx ×2
+                     → main-backend ×2, main-frontend ×2
    │  VPC private network
 Managed Postgres ── data + auth rate-limit cache
 Container Registry ← GitHub Actions pushes images tagged with the commit
@@ -100,6 +100,7 @@ In the repo root (gitignored). Generate each secret with
 ```ini
 DJANGO_SECRET_KEY=<random 1>
 JWT_SECRET=<random 2>
+DOMAIN=<app.yourdomain.com>
 DJANGO_ALLOWED_HOSTS=<app.yourdomain.com>
 DJANGO_CSRF_TRUSTED_ORIGINS=https://<app.yourdomain.com>
 DJANGO_HSTS_SECONDS=0
@@ -109,12 +110,12 @@ DEPLOYMENT_MODE=self_hosted
 WEB_CONCURRENCY=3
 BACKEND_REPLICAS=2
 FRONTEND_REPLICAS=2
-HTTP_PORT=80
 ```
 
 Keep a copy in a password manager. Changing `JWT_SECRET` logs everyone
 out. `TRUSTED_PROXY_COUNT` = proxies appending to `X-Forwarded-For`:
-Cloudflare + nginx = 2, Cloudflare + a DO load balancer + nginx = 3.
+caddy + nginx = 2; one more for Cloudflare or a DO load balancer in
+front.
 
 To deploy from your own machine instead of CI, add
 `REGISTRY=registry.digitalocean.com/<registry-name>` and
@@ -162,24 +163,20 @@ gh api -X PUT repos/PMNexa/GoalNexa/branches/deploy/protection --input - <<'EOF'
 EOF
 ```
 
-## 8. Cloudflare and firewall
+## 8. DNS and firewall
 
-1. Cloudflare DNS: **A** record `app` → `<public-ip>`, **Proxied**.
-2. SSL/TLS mode: **Flexible** to start.
-3. DigitalOcean **Networking → Firewalls**, attached to the Droplet
+1. At your DNS provider: **A** record `<app.yourdomain.com>` →
+   `<public-ip>`. Caddy asks Let's Encrypt for the certificate on the
+   first deploy, so the record must resolve by then (check with
+   `dig +short <app.yourdomain.com>`).
+2. DigitalOcean **Networking → Firewalls**, attached to the Droplet
    (use this, not `ufw` - Docker's published ports bypass `ufw`):
    - **SSH (22)**: from anywhere, key-only login (CI connects from
-     changing GitHub runner IPs), or from your IP + GitHub's runner
-     ranges.
-   - **HTTP (80)**: only Cloudflare's ranges
-     (https://www.cloudflare.com/ips/).
-
-> **Security:** port 80 must accept Cloudflare only. Anyone reaching the
-> Droplet directly can forge `X-Forwarded-For` and get past the login
-> rate limits. "Flexible" also means Cloudflare → Droplet traffic,
-> passwords included, is unencrypted: fine for a first test, then move to
-> **Full (strict)** with a Cloudflare Origin Certificate (needs nginx on
-> 443).
+     changing GitHub runner IPs).
+   - **HTTP (80)** and **HTTPS (443, TCP and UDP)**: from anywhere.
+     Port 80 is needed for the certificate challenge and redirects to
+     HTTPS.
+   - Nothing else. The database is reached over the VPC.
 
 ## 9. First deploy
 
@@ -235,10 +232,14 @@ re-run the latest tag as above.
 2. Allow 2377/tcp, 7946/tcp+udp, 4789/udp between the nodes (VPC only).
 3. On the manager: `docker swarm join-token worker`; run the printed
    command on the new node.
-4. A DigitalOcean Load Balancer in front of both nodes (nginx runs on
-   each); `TRUSTED_PROXY_COUNT=3` in `PROD_ENV` if Cloudflare stays in
-   front.
-5. Raise `BACKEND_REPLICAS`/`FRONTEND_REPLICAS` and redeploy.
+4. Raise `BACKEND_REPLICAS`/`FRONTEND_REPLICAS` and redeploy. Swarm
+   spreads the replicas; Caddy on the manager reaches them over the
+   overlay network, so no load balancer is needed yet.
+5. When the manager itself is the limit (or must not be a single point
+   of failure), move HTTPS to a DO Load Balancer or Cloudflare in front
+   of every node, drop the `caddy` service, publish nginx's port 80
+   (`mode: host`, `deploy.mode: global`) and set `TRUSTED_PROXY_COUNT`
+   to 2 (+1 per extra proxy).
 
 For high availability use 3 manager nodes (always an odd number). When
 workers × nodes approach the database's connection limit (~22 on the

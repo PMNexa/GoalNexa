@@ -57,6 +57,7 @@ else
 fi
 export IMAGE_TAG
 export NGINX_CONF_VERSION="$(git hash-object nginx/default.conf | cut -c1-12)"
+export CADDY_CONF_VERSION="$(git hash-object caddy/Caddyfile | cut -c1-12)"
 
 echo "==> Migrating ($IMAGE_TAG)"
 # `-e NAME` passes the value from this shell (sourced from ENV_FILE).
