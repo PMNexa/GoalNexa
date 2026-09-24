@@ -532,6 +532,12 @@ files - so the seams it needs live here, doing nothing by default:
   are a contract with the fork - change them deliberately.
 Anything a self-hoster could use too (tenant isolation, email
 verification, ...) belongs here, not in the fork.
+**Tenant isolation** is pinned by `apps/main/backend/tests/`
+(`python manage.py test tests`, in the main-backend container): two
+signed-up strangers probe each other's orgs/goals/metrics/check-ins
+through list, filters, search, sideloading, retrieve/update/delete,
+parent/goal/metric/org references, RBAC and MCP. Extend it with every
+new resource or reference field.
 
 **Demo data / README media**: `scripts/seed_demo.py` (REST API only,
 `--reset` to start over) seeds the account behind `docs/media/`. Re-shoot
