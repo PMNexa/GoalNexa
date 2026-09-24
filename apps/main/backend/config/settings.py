@@ -102,12 +102,10 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DJANGO_DB_PATH picks another database file - e.g. the empty one
-# docker-compose.onboarding.yml runs to try first-run onboarding.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.environ.get("DJANGO_DB_PATH") or BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -162,9 +160,7 @@ CORS_ALLOW_CREDENTIALS = True
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-only-insecure-jwt-secret")
 JWT_ACCESS_TTL_MINUTES = float(os.environ.get("JWT_ACCESS_TTL_MINUTES", "15"))
 JWT_REFRESH_TTL_DAYS = int(os.environ.get("JWT_REFRESH_TTL_DAYS", "30"))
-# Cookies ignore the port, so a second instance on the same host (the
-# onboarding env) needs its own name or it overwrites this one's session.
-REFRESH_COOKIE_NAME = os.environ.get("REFRESH_COOKIE_NAME", "refresh_token")
+REFRESH_COOKIE_NAME = "refresh_token"
 REFRESH_COOKIE_SECURE = os.environ.get("DJANGO_DEBUG", "true").lower() != "true"
 # main is the top-level app, not mounted under a gateway path prefix
 # itself - unlike platform-auth's own standalone deployment (which sets

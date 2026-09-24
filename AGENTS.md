@@ -56,9 +56,7 @@ file at all. Main steers the destination by putting `?next=` on its
 links (`useRequireAccessToken`'s redirect). A fresh install has no users: login/signup redirect to `/auth/setup`
 (first-run onboarding, platform-auth's), which creates the first
 account as Admin - roles and permissions are already seeded by
-`migrate`. To try that flow without touching real data,
-`docker compose -f docker-compose.onboarding.yml up -d` runs a second
-stack on :55608 with an empty database (`down -v` wipes it). There is no landing page:
+`migrate`. There is no landing page:
 `/` (`routes/index.tsx`) redirects to `/dashboard`, so login's default
 `/` target lands there too.
 
