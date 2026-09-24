@@ -67,9 +67,12 @@ jobs:
       - name: Lint and build goalnexa-frontend
         working-directory: apps/goalnexa/frontend
         run: npm run lint && npm run build
+      # Same as docker-compose.yml: main's lockfile was made on macOS and
+      # lacks Linux's native rolldown binding (npm/cli#4828), so install
+      # fresh rather than `npm ci`.
       - name: Install main
         working-directory: apps/main/frontend
-        run: npm ci
+        run: rm -f package-lock.json && npm install
       - name: Typecheck main
         working-directory: apps/main/frontend
         run: npm run typecheck
