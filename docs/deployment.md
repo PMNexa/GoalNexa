@@ -43,36 +43,19 @@ Keep it for step 7.
 1. **Create Droplet**: Ubuntu 24.04, 2 GB / 1 vCPU, your region, default
    VPC, your SSH key, **Monitoring** on.
 2. Note its public IP and private (VPC) IP.
-3. As root:
-
-```bash
-# Docker
-curl -fsSL https://get.docker.com | sh
-
-# 2 GB swap
-fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
-
-# deploy user (CI logs in as this)
-adduser --disabled-password --gecos "" deploy
-usermod -aG docker deploy
-install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-
-# Swarm, advertised on the PRIVATE IP
-docker swarm init --advertise-addr <private-ip>
-```
-
-## 4. SSH key for CI
-
-On your machine:
+3. Make the CI deploy key and run the setup script as root (Docker,
+   2 GB swap, a `deploy` user in the docker group with that key, Swarm
+   init on the private IP - `scripts/droplet-setup.sh`, safe to re-run):
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/goalnexa_deploy -N "" -C goalnexa-ci
-ssh root@<public-ip> "cat >> /home/deploy/.ssh/authorized_keys && chown deploy:deploy /home/deploy/.ssh/authorized_keys && chmod 600 /home/deploy/.ssh/authorized_keys" < ~/.ssh/goalnexa_deploy.pub
+ssh root@<public-ip> "bash -s -- '$(cat ~/.ssh/goalnexa_deploy.pub)' <private-ip>" < scripts/droplet-setup.sh
+```
 
-# accept the host key once, then check: should list the Swarm node
-ssh deploy@<public-ip> true
-docker -H ssh://deploy@<public-ip> node ls
+## 4. Check the deploy login
+
+```bash
+ssh -i ~/.ssh/goalnexa_deploy deploy@<public-ip> docker node ls   # lists the Swarm node
 ```
 
 ## 5. Managed Postgres
