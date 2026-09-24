@@ -1,6 +1,6 @@
 import { type RouteConfig, index, layout } from "@react-router/dev/routes";
 import { createDashboardRoutes } from "goalnexa-frontend";
-import { createAuthRoutes } from "platform-auth-frontend";
+import { createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
 import { createCrudRoutes } from "platform-core";
 import { createMcpRoutes } from "platform-mcp-frontend";
 import { createOrgsRoutes } from "platform-org-frontend";
@@ -48,5 +48,8 @@ export default [
     // Personal access tokens + how to connect an AI client to the MCP
     // server (platform-mcp) - one page, /mcp.
     ...createMcpRoutes("mcp"),
+    // Role-based access control (platform-auth): users, roles, role
+    // assignments, permissions under /platform-auth/.
+    ...createRbacRoutes("platform-auth"),
   ]),
 ] satisfies RouteConfig;

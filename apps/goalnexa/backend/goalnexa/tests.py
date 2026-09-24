@@ -2,12 +2,17 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from goalnexa.models import CheckIn, Goal, Metric
 from goalnexa.views import CheckInViewSet, MetricViewSet
+
+
+# These test goalnexa's own view logic, not access control - so no host
+# access policy (apps/main runs RBAC, which a bare actor has no roles in).
+without_access_policy = override_settings(CORE_API_ACCESS_POLICY=None)
 
 
 class Actor:
@@ -19,6 +24,7 @@ class Actor:
         self.id = uuid.uuid4()
 
 
+@without_access_policy
 class CheckInTimeTests(TestCase):
     def setUp(self):
         self.actor = Actor()
@@ -69,6 +75,7 @@ class CheckInTimeTests(TestCase):
         self.assertEqual(self.current_value(), Decimal("50"))
 
 
+@without_access_policy
 class MetricBaseValueTests(TestCase):
     def setUp(self):
         self.actor = Actor()

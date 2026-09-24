@@ -26,6 +26,9 @@ urlpatterns = [
     # nginx's /api/ location must forward this prefix through unstripped
     # (see nginx/default.conf) to match.
     path('api/v1/auth/', include('platform_auth.urls')),
+    # platform-auth's RBAC resources (users, roles, role-assignments,
+    # permissions) - at api/v1/ like every other BaseViewSet resource.
+    path('api/v1/', include('platform_auth.rbac_urls')),
     # Same "api/v1/" prefix platform_org's own standalone config/urls.py
     # uses (its own urls.py adds "orgs" under this), matching the
     # frontend package's already-hardcoded fetch path ("/api/v1/orgs").

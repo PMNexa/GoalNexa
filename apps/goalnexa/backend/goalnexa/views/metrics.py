@@ -23,6 +23,7 @@ class MetricViewSet(BaseViewSet):
     serializer_class = MetricSerializer
     search_fields = ["name"]
     permission_classes = [IsAuthenticated]
+    scope_field = "goal__org_id"  # its goal's org - see GoalViewSet
 
     def get_queryset(self):
         return super().get_queryset().filter(goal__owner_id=self.request.user.id).order_by("-created_at")

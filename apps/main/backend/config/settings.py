@@ -21,12 +21,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)67cre^5ky0s3*4s=emlyc+c48w61z)pl@&r=y)9avf)tu**@@'
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-dev-only")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 
-ALLOWED_HOSTS = []
+# Comma-separated; docker-compose.yml sets it. Empty = Django's DEBUG
+# default (localhost only), which rejects e.g. a Tailscale hostname.
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
+
+# nginx passes on X-Forwarded-Proto from the HTTPS front (Tailscale
+# serve/Funnel), so absolute URLs Django builds (e.g. the MCP skills
+# index) say https:// and CSRF origin checks match.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Application definition
@@ -166,6 +173,29 @@ MCP_SERVER_NAME = "goalnexa"
 # What every personal access token starts with - makes a leaked one
 # recognizable (e.g. to secret scanners) and tells it apart from a JWT.
 MCP_TOKEN_PREFIX = "gnx_"
+
+# RBAC (platform_auth.rbac) on every BaseViewSet resource, via
+# platform-core's access-policy hook - see platform-auth's AGENTS.md.
+CORE_API_ACCESS_POLICY = "platform_auth.rbac.policy.RBACPolicy"
+# A role can be held app-wide or within one organization.
+RBAC_SCOPE_ENDPOINT = "/api/v1/orgs"
+RBAC_SCOPE_LABEL = "Organization"
+# Created on migrate when missing. Member (every new user, app-wide) gets
+# the everyday resources; managing users/roles is Admin's.
+RBAC_DEFAULT_ROLES = [
+    {"name": "Admin", "description": "Full access, including users and roles.", "grants_all": True},
+    {
+        "name": "Member",
+        "description": "Everyday use: goals, metrics, check-ins, organizations.",
+        "is_default": True,
+        "permissions": ["goals.*", "metrics.*", "check-ins.*", "orgs.*"],
+    },
+    {
+        "name": "Viewer",
+        "description": "Read-only - e.g. held within one organization.",
+        "permissions": ["goals.view", "metrics.view", "check-ins.view", "orgs.view"],
+    },
+]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["platform_auth.authentication.ActorAuthentication"],

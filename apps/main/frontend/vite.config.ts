@@ -3,6 +3,16 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [reactRouter()],
+  server: {
+    // Vite's dev server only answers localhost/IP Host headers - nginx
+    // forwards the browser's own Host, so a Tailscale name
+    // (`<machine>.<tailnet>.ts.net`) needs listing. Comma-separated,
+    // set in docker-compose.yml; a leading "." matches subdomains.
+    allowedHosts: (process.env.FRONTEND_ALLOWED_HOSTS ?? "")
+      .split(",")
+      .map((host) => host.trim())
+      .filter(Boolean),
+  },
   resolve: {
     tsconfigPaths: true,
     // Local `file:` package deps (e.g. platform-auth-frontend) ship their

@@ -35,6 +35,7 @@ class CheckInViewSet(BaseViewSet):
     queryset = CheckIn.objects.all()
     serializer_class = CheckInSerializer
     permission_classes = [IsAuthenticated]
+    scope_field = "metric__goal__org_id"  # its goal's org - see GoalViewSet
 
     def get_queryset(self):
         return (

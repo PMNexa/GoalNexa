@@ -15,6 +15,19 @@ file is the source of truth for what's actually running).
 `nginx/default.conf`): `/api/*` and `/admin/*` → backend, everything else
 → frontend.
 
+**Config lives in `.env`** (gitignored; `.env.sample` lists every key).
+`FRONTEND_MODE=production` makes `main-frontend` run `react-router
+build` + `react-router-serve` instead of the Vite dev server - no hot
+reload then, so set it to `dev` (and `docker compose up -d
+main-frontend`) for UI work. **Public access** is the optional
+`tailscale` service (`docker compose --profile tailscale up -d`,
+`TS_AUTHKEY` in `.env`): Funnel serves `https://<TS_HOSTNAME>.<tailnet>.ts.net`
+to anyone (`tailscale/serve.json`'s `AllowFunnel`). Since that's public,
+`.env` must carry real `DJANGO_SECRET_KEY`/`JWT_SECRET` and
+`DJANGO_DEBUG=false`; nginx forwards `X-Forwarded-Proto` so Django
+builds `https://` URLs. After recreating `main-frontend`, restart nginx
+too - it resolves the upstream IP once at startup.
+
 **The rule, frontend and backend both: a module provides its
 router/screen or its Django app, packaged; `main` imports it.** Nothing
 is copied. See `apps/platform-auth/` for the reference implementation of
@@ -330,6 +343,20 @@ shell. Don't load a design system from inside a screen package; that's
 the host's job. (Tailwind was removed from `apps/main` — its preflight
 reset conflicts with Tabler's own button/input/card styles.)
 
+**Sidebar entries come from the module that owns the pages**: a module
+with its own route builder also exports its sidebar entries from `"."`,
+taking the SAME `basePath` - `createOrgsNavItems("platform-org")` next to
+`createOrgsRoutes("platform-org")`, `createRbacNavItems("platform-auth")`
+(the "Access control" group), `createMcpNavItems("mcp")` - so the link can't drift from where
+the routes are mounted, and the module brings its own label and icon.
+Main's `app-shell.tsx` just spreads them into `NAV_ITEMS` (plain literals
+remain for resources main mounts with a bare `createCrudRoutes`, e.g.
+`/goals`). An entry may carry `permission` (core's `NavItem`); main runs
+the list through platform-auth's `filterNavByPermissions` (drops links
+the user lacks, and groups left empty). Keep a nav builder browser-safe
+like a route builder: JSX created when it's CALLED, nothing at module
+load, no `.css` import.
+
 **Sharing auth state across modules' screens**: `platform-auth-frontend`
 owns the session store (`src/session.ts` - `getSession`/
 `subscribeSession`/`isSessionInitialized`/`clearSession`/`initSession`,
@@ -373,10 +400,8 @@ login/signup stay outside it, unwrapped. `app-shell.tsx` is where main
 plugs in the pieces `AppShell` deliberately doesn't own: a
 `linkComponent` wrapping react-router's own `Link` (same "no router
 dependency inside the package" convention as the screens), the
-`navItems` list (spans routes from multiple modules, each a plain
-string literal - `/goals`, `/platform-org/orgs` - not a
-computed path import; see this section's own note above on why - so it
-can't live inside any one module's package anyway), and the session
+`navItems` list (spans routes from multiple modules, so it's assembled
+here), and the session
 read for the header's user/logout display. "Log out" there is
 platform-auth's `logout()`: revokes the refresh token server-side, then
 clears the session. Nothing else ends a session - platform-auth's
@@ -500,8 +525,8 @@ was trying to report. Grep every `settings.py` in the platform for
 | Path | What |
 |---|---|
 | `apps/main/` | The host app. `backend/` — Django+DRF, imports `platform_auth` as a pip package (see above); otherwise still empty (no models/apps of its own yet). `frontend/` — `create-react-router` scaffold; owns all routing, imports module packages for screens, loads Tabler. Plain directory, not a submodule. |
-| `apps/platform-auth/` | git submodule. Django+DRF backend (standalone, own Postgres, own `pyproject.toml` packaging its Django app for reuse) + a frontend package (own `package.json`/`exports`). Both halves are also consumed by `apps/main` — see above. Own repo, own AGENTS.md. |
-| `apps/platform-org/` | git submodule. Multi-tenant `Organization`/`OrgMembership`, same packaged-both-halves pattern as `platform-auth`. No User table of its own — see the "module with no User table" note above. No roles/permissions yet (deliberate follow-up, likely a `platform-rbac` module). Own repo, own AGENTS.md. |
+| `apps/platform-auth/` | git submodule. Django+DRF backend (standalone, own Postgres, own `pyproject.toml` packaging its Django app for reuse) + a frontend package (own `package.json`/`exports`). Both halves are also consumed by `apps/main` — see above. Also owns RBAC (roles app-wide or per org, enforced on every `BaseViewSet` through platform-core's access-policy hook; `CORE_API_ACCESS_POLICY`/`RBAC_*` in main's settings, screens under `/platform-auth/`). Own repo, own AGENTS.md. |
+| `apps/platform-org/` | git submodule. Multi-tenant `Organization`/`OrgMembership`, same packaged-both-halves pattern as `platform-auth`. No User table of its own — see the "module with no User table" note above. An org is also an RBAC scope (roles per org - see platform-auth). Own repo, own AGENTS.md. |
 | `apps/platform-core/` | git submodule. Django+DRF kernel (no models) — `core_api`: error contract, pagination, filters, uuid7 utils, and `BaseSerializer`/`BaseViewSet` (dynamic fields + relation sideloading, inspired by dynamic-rest — see "Generic CRUD entities" below). **A real backend dependency of `platform-auth` and `platform-org`** (both used to vendor their own copy of the small stuff; that stopped scaling once `BaseSerializer`/`BaseViewSet` existed) — editable-installed into `apps/main`'s venv alongside them. Its `frontend/` doubles as two things: its own (still-unused) Module Federation shell, not part of the default `docker-compose.yml`, and — as the `platform-core` npm package (`src/index.ts` exporting `AppShell`) — the former `platform-ui` module's sidemenu/sticky-header shell, folded in here since it had no backend of its own to justify a separate repo. See the "App shell" note above. Own repo, own AGENTS.md. |
 | `apps/platform-mcp/` | git submodule. MCP server over every `BaseViewSet` + personal access tokens, and the `platform-mcp-frontend` package with the "MCP access" page. Split out of platform-core. Same packaged-both-halves pattern; own README (client setup guide) and AGENTS.md. |
 | `modules.yaml` | Written for the platform-core/platform-auth Module Federation phase (module registry with `url_prefix`/`remote_entry`). Not read by anything in the current `docker-compose.yml` — `apps/main`'s own imports (file:/pip editable) replace what this was for. |

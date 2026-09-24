@@ -7,8 +7,11 @@ services:
     image: python:3.12-slim
     working_dir: /apps/main/backend
     environment:
-      DJANGO_DEBUG: "true"
-      DJANGO_SECRET_KEY: dev-secret-change-me
+      # From .env (see .env.sample) - set real values before exposing the
+      # app publicly (Tailscale Funnel); the fallbacks are dev-only.
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-change-me}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-jwt-secret}
       DJANGO_ALLOWED_HOSTS: "*"
       # Without this, Python buffers stdout and `docker compose logs`
       # shows NOTHING even while the server is running fine - confirmed
@@ -49,6 +52,16 @@ services:
   main-frontend:
     image: node:22
     working_dir: /apps/main/frontend
+    environment:
+      # Extra Host names the Vite dev server accepts (see vite.config.ts) -
+      # ".ts.net" covers the Tailscale MagicDNS name. Add a bare machine
+      # name here to use the short form (http://<machine>:55607).
+      FRONTEND_ALLOWED_HOSTS: ".ts.net"
+      # "production" (from .env) = `react-router build` then serve the
+      # built app (no HMR, minified, no /@fs source); anything else = the
+      # Vite dev server with hot reload.
+      FRONTEND_MODE: ${FRONTEND_MODE:-dev}
+      PORT: "3000"
     depends_on:
       - main-backend
     # Mounts the whole apps/ tree, not just apps/main/frontend: main's
@@ -68,7 +81,11 @@ services:
       rm -f package-lock.json &&
       npm install &&
       (node -e \"require('rollup')\" || npm install --force) &&
-      npm run dev -- --host 0.0.0.0 --port 3000
+      if [ \"$$FRONTEND_MODE\" = production ]; then
+        npm run build && NODE_ENV=production npm run start;
+      else
+        npm run dev -- --host 0.0.0.0 --port 3000;
+      fi
       "
 
   nginx:
@@ -83,6 +100,32 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
+  # Optional: puts the app on your Tailscale tailnet as its own device,
+  # https://<TS_HOSTNAME>.<tailnet>.ts.net -> nginx - and on the PUBLIC
+  # internet too, via Funnel (tailscale/serve.json's AllowFunnel). Opt-in, since it
+  # needs an auth key: put TS_AUTHKEY=tskey-auth-... in .env (gitignored),
+  # then `docker compose --profile tailscale up -d`. Userspace networking,
+  # so no /dev/net/tun or extra privileges. `tailscale serve` keeps the
+  # browser's Host header, which the ".ts.net" allowlist (main-frontend's
+  # FRONTEND_ALLOWED_HOSTS, Django's DJANGO_ALLOWED_HOSTS) accepts.
+  tailscale:
+    image: tailscale/tailscale:latest
+    profiles: ["tailscale"]
+    hostname: ${TS_HOSTNAME:-goalnexa}
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_HOSTNAME: ${TS_HOSTNAME:-goalnexa}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_SERVE_CONFIG: /config/serve.json
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - ./tailscale/serve.json:/config/serve.json:ro
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
 volumes:
+  tailscale-state:
   main-frontend-node-modules:
   main-backend-venv:

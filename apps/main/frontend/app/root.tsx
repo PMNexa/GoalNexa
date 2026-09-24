@@ -7,7 +7,7 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
-import { initSession } from "platform-auth-frontend";
+import { AuthScreenProvider, initSession } from "platform-auth-frontend";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -68,7 +68,13 @@ export default function App() {
     void initSession();
   }, []);
 
-  return <Outlet />;
+  // The login/signup pages are platform-auth's own route modules - this
+  // is how they get this app's name as their heading.
+  return (
+    <AuthScreenProvider title="GoalNexa">
+      <Outlet />
+    </AuthScreenProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

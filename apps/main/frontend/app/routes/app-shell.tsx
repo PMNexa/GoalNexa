@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link as RouterLink, Outlet, useLocation } from "react-router";
 import { AppShell } from "platform-core";
-import type { LinkComponentProps } from "platform-core";
-import { getSession, logout, subscribeSession } from "platform-auth-frontend";
-import { CheckInsIcon, DashboardIcon, GoalsIcon, McpIcon, MetricsIcon, OrgsIcon } from "../lib/navIcons";
+import type { LinkComponentProps, NavEntry } from "platform-core";
+import { createRbacNavItems, filterNavByPermissions, getSession, logout, subscribeSession, useMyPermissions } from "platform-auth-frontend";
+import { createMcpNavItems } from "platform-mcp-frontend";
+import { createOrgsNavItems } from "platform-org-frontend";
+import { DashboardIcon, GoalsIcon } from "../lib/navIcons";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
 
 function ShellLink({ to, className, children, ...rest }: LinkComponentProps) {
@@ -14,18 +16,28 @@ function ShellLink({ to, className, children, ...rest }: LinkComponentProps) {
   );
 }
 
-// Plain literals, not computed path constants imported from
-// goalnexa-frontend/platform-org-frontend (neither exports any anymore)
-// - this app owns every actual URL for every module it wires up, and a
-// link that never changes gains nothing from a shared constant over a
-// literal at its one use site. See root AGENTS.md's routing section.
-const NAV_ITEMS = [
+// Modules with their own route builder bring their own entries
+// (`createOrgsNavItems`, `createRbacNavItems`, `createMcpNavItems`), given
+// the SAME base path routes.ts mounts them at. Plain literals remain for
+// resources mounted with a bare `createCrudRoutes` (goals, metrics,
+// check-ins). A `permission` link shows only when the user has it
+// (`filterNavByPermissions`) - the API enforces it either way; this just
+// hides pages that would 403. Groups (`children`) collapse; AppShell
+// remembers which are closed. See root AGENTS.md.
+const NAV_ITEMS: NavEntry[] = [
   { label: "Dashboard", to: "/dashboard", icon: DashboardIcon },
-  { label: "Goals", to: "/goals", icon: GoalsIcon },
-  { label: "Metrics", to: "/metrics", icon: MetricsIcon },
-  { label: "Check-ins", to: "/check-ins", icon: CheckInsIcon },
-  { label: "Organizations", to: "/platform-org/orgs", icon: OrgsIcon },
-  { label: "MCP access", to: "/mcp", icon: McpIcon },
+  {
+    label: "Goal tracking",
+    icon: GoalsIcon,
+    children: [
+      { label: "Goals", to: "/goals" },
+      { label: "Metrics", to: "/metrics" },
+      { label: "Check-ins", to: "/check-ins" },
+    ],
+  },
+  ...createOrgsNavItems("platform-org"),
+  ...createRbacNavItems("platform-auth"),
+  ...createMcpNavItems("mcp"),
 ];
 
 /**
@@ -55,6 +67,8 @@ export default function AppShellLayout() {
   const location = useLocation();
   const [session, setSessionState] = useState(() => getSession());
   const accessToken = useRequireAccessToken();
+  const permissions = useMyPermissions();
+  const navItems = filterNavByPermissions(NAV_ITEMS, permissions);
 
   useEffect(() => {
     return subscribeSession(() => setSessionState(getSession()));
@@ -64,7 +78,7 @@ export default function AppShellLayout() {
 
   return (
     <AppShell
-      navItems={NAV_ITEMS}
+      navItems={navItems}
       currentPath={location.pathname}
       linkComponent={ShellLink}
       user={session?.user ?? null}

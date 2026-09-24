@@ -25,6 +25,10 @@ class GoalViewSet(BaseViewSet):
     # Explicit, not relying on the process's DEFAULT_PERMISSION_CLASSES -
     # see OrganizationViewSet's own comment on why.
     permission_classes = [IsAuthenticated]
+    # Access scope (core_api/access.py): a goal belongs to its org - a
+    # role held within that org applies to it; a personal goal (no org)
+    # needs an app-wide role.
+    scope_field = "org_id"
 
     def get_queryset(self):
         return super().get_queryset().filter(owner_id=self.request.user.id).order_by("-created_at")
