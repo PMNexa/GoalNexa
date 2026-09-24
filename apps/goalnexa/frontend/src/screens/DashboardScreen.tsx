@@ -34,6 +34,7 @@ import GoalFilterList from "./dashboard/GoalFilterList";
 import ProgressLineChart, { fitDomain, type ChartMarker } from "./dashboard/ProgressLineChart";
 import { formatPct, pctDomainMax } from "./dashboard/chartUtils";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
+import OnboardingWizard from "./onboarding/OnboardingWizard";
 
 const markerDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
@@ -65,6 +66,8 @@ const MAX_GOALS = 8;
 const PERSONAL = "__personal__";
 /** The picked org is remembered per browser; a storage failure just means it isn't. */
 const ORG_STORAGE_KEY = "goalnexa:dashboard-org";
+/** Set once a user without an org skips the onboarding wizard - not asked again in this browser. */
+const ONBOARDING_SKIPPED_KEY = "goalnexa:onboarding-skipped";
 
 function readStoredOrg(): string | null {
   try {
@@ -79,6 +82,22 @@ function storeOrg(key: string) {
     window.localStorage.setItem(ORG_STORAGE_KEY, key);
   } catch {
     // Not remembered - nothing else depends on it.
+  }
+}
+
+function onboardingSkipped(): boolean {
+  try {
+    return window.localStorage.getItem(ONBOARDING_SKIPPED_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function skipOnboarding() {
+  try {
+    window.localStorage.setItem(ONBOARDING_SKIPPED_KEY, "1");
+  } catch {
+    // Asked again next time - harmless.
   }
 }
 
@@ -105,7 +124,8 @@ function freeSlot(slots: Map<string, number>): number {
  * inline - the charts refresh in place. A goal's or metric's name opens
  * platform-core's `CrudDetailScreen` in a right-hand drawer. Progress
  * math lives in `lib/progress.ts`; charts are plain SVG
- * (`dashboard/`), no chart library. Self-contained like every screen in
+ * (`dashboard/`), no chart library. A user with no organization gets the
+ * onboarding wizard (`onboarding/`) instead, until they finish or skip it. Self-contained like every screen in
  * this package - `accessToken` in, no router dependency.
  */
 function DashboardScreen({ accessToken, linkComponent, resourcePath }: DashboardScreenProps) {
@@ -128,6 +148,9 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
   const loadedKeyRef = useRef<string | null>(null);
   const [detail, setDetail] = useState<DetailTarget | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [onboarding, setOnboarding] = useState(false);
+  // Bumped after onboarding creates an org - reloads the org list.
+  const [orgsVersion, setOrgsVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,6 +158,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
       .then((items) => {
         if (cancelled) return;
         setOrgs(items);
+        setOnboarding(items.length === 0 && !onboardingSkipped());
         // The last pick, if it's still one of this user's orgs.
         const stored = readStoredOrg();
         const valid = stored === PERSONAL || items.some((org) => org.id === stored);
@@ -144,7 +168,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
     return () => {
       cancelled = true;
     };
-  }, [accessToken]);
+  }, [accessToken, orgsVersion]);
 
   useEffect(() => {
     if (orgKey === null) return;
@@ -333,6 +357,24 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
 
   const slotOf = (goalId: string) => selected.get(goalId) ?? 1;
   const atLimit = selected.size >= MAX_GOALS;
+
+  if (onboarding) {
+    return (
+      <OnboardingWizard
+        accessToken={accessToken}
+        onComplete={(orgId) => {
+          // The org list reload picks the stored org, so the new one opens.
+          storeOrg(orgId);
+          setOnboarding(false);
+          setOrgsVersion((v) => v + 1);
+        }}
+        onSkip={() => {
+          skipOnboarding();
+          setOnboarding(false);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="row g-3 gn-dashboard">

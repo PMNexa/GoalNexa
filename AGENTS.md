@@ -53,7 +53,12 @@ main picks the mount, the module owns every page under it, including
 what happens on success (platform-auth stores the session in its OWN
 store and redirects to `?next=`, or `/`) - so main has no auth route
 file at all. Main steers the destination by putting `?next=` on its
-links (`useRequireAccessToken`'s redirect). There is no landing page:
+links (`useRequireAccessToken`'s redirect). A fresh install has no users: login/signup redirect to `/auth/setup`
+(first-run onboarding, platform-auth's), which creates the first
+account as Admin - roles and permissions are already seeded by
+`migrate`. To try that flow without touching real data,
+`docker compose -f docker-compose.onboarding.yml up -d` runs a second
+stack on :55608 with an empty database (`down -v` wipes it). There is no landing page:
 `/` (`routes/index.tsx`) redirects to `/dashboard`, so login's default
 `/` target lands there too.
 
@@ -132,6 +137,14 @@ a right-hand `Drawer` (closing it refreshes the charts). The picked org
 is remembered in localStorage (`goalnexa:dashboard-org`). There is no
 table view - charts only. The color tokens live on the `.gn-dashboard` root, not just on
 `.gn-viz`, because the filter card's color keys sit outside the charts.
+A user with no organization gets the onboarding wizard instead
+(`screens/onboarding/OnboardingWizard.tsx`): org name → goals (optional
+target date) → metrics per goal (start → target, must differ) → review,
+then it creates everything over the REST API (`lib/api/onboarding.ts`)
+and opens the dashboard on the new org. Nothing is written before the
+last step; a failed create retries without duplicating what went
+through. "Skip for now" sets `goalnexa:onboarding-skipped` in
+localStorage (not asked again in that browser).
 
 **Check-in time is `CheckIn.checked_in_at`**, not `created_at`. It's
 user-set and defaults to now when left blank (the form omits the key and

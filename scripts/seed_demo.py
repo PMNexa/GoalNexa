@@ -7,7 +7,8 @@ screenshots and walkthrough.
     python3 scripts/seed_demo.py                      # http://localhost:55607
     python3 scripts/seed_demo.py --url https://goals.example.com --reset
 
-Signs the demo user up (or logs in if it exists). `--reset` first
+Signs the demo user up (or logs in if it exists) - on a fresh instance
+through first-run setup, which makes it the admin. `--reset` first
 deletes that user's check-ins, metrics, goals and organizations. Only
 the standard library is used.
 """
@@ -67,7 +68,8 @@ def main():
     try:
         token = call("POST", "/auth/login", {"email": args.email, "password": args.password})["access_token"]
     except SystemExit:
-        token = call("POST", "/auth/signup", {"email": args.email, "name": args.name, "password": args.password})["access_token"]
+        signup = "/auth/setup" if call("GET", "/auth/setup")["required"] else "/auth/signup"
+        token = call("POST", signup, {"email": args.email, "name": args.name, "password": args.password})["access_token"]
 
     if args.reset:
         for resource in ("check-ins", "metrics", "goals", "orgs"):
