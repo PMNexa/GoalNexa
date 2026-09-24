@@ -31,7 +31,8 @@ import {
 import ProgressBarChart from "./dashboard/ProgressBarChart";
 import CheckInModal from "./dashboard/CheckInModal";
 import GoalFilterList from "./dashboard/GoalFilterList";
-import ProgressLineChart, { fitDomain, type ChartMarker } from "./dashboard/ProgressLineChart";
+import ProgressLineChart, { type ChartMarker } from "./dashboard/ProgressLineChart";
+import { fitDomain } from "./dashboard/chartUtils";
 import { formatPct, pctDomainMax } from "./dashboard/chartUtils";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
 import OnboardingWizard from "./onboarding/OnboardingWizard";

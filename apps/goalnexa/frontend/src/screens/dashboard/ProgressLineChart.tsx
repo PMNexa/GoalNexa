@@ -1,6 +1,6 @@
 import { useState, type PointerEvent } from "react";
 import type { ProgressPoint } from "../../lib/progress";
-import { formatPct, pctDomainMax, pctTicks, seriesColor, truncate, useElementWidth } from "./chartUtils";
+import { DAY, fitDomain, formatPct, pctTicks, seriesColor, truncate, useElementWidth, type ChartDomain } from "./chartUtils";
 
 export interface LineSeries {
   id: string;
@@ -13,7 +13,6 @@ export interface LineSeries {
   projection?: ProgressPoint | null;
 }
 
-const DAY = 86_400_000;
 
 /** The point in effect at `t` - the latest one at or before it (values hold between check-ins). */
 function stepPointAt(points: ProgressPoint[], t: number): ProgressPoint | null {
@@ -61,29 +60,6 @@ export interface ChartMarker {
   label: string;
   /** "target" is dashed; "now" is a solid hairline. */
   kind: "now" | "target";
-}
-
-export interface ChartDomain {
-  tMin: number;
-  tMax: number;
-  yMax: number;
-}
-
-/**
- * Time range (padded to >= 1 day, so a single moment sits mid-plot) and %
- * ceiling fitting every point given. `extraTimes` (now, target dates) widen
- * the time range only, so their markers land on the plot.
- */
-export function fitDomain(points: ProgressPoint[], extraTimes: number[] = []): ChartDomain | null {
-  if (points.length === 0) return null;
-  const times = [...points.map((p) => p.t), ...extraTimes];
-  let tMin = Math.min(...times);
-  let tMax = Math.max(...times);
-  if (tMax - tMin < DAY) {
-    tMin -= DAY / 2;
-    tMax += DAY / 2;
-  }
-  return { tMin, tMax, yMax: pctDomainMax(points.map((p) => p.pct)) };
 }
 
 function ProgressLineChart({

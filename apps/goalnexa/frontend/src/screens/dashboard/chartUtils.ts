@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ProgressPoint } from "../../lib/progress";
 
 /** A goal's fixed color slot (1-8) - assigned at selection time and kept while selected, so a filter change never repaints the survivors. */
 export function seriesColor(slot: number): string {
@@ -41,4 +42,29 @@ export function pctTicks(max: number, lengthPx: number, minGapPx = 36): number[]
 /** Shorten a label to fit roughly `maxChars` (SVG text can't ellipsize itself). */
 export function truncate(text: string, maxChars: number): string {
   return text.length <= maxChars ? text : `${text.slice(0, Math.max(1, maxChars - 1))}…`;
+}
+
+export const DAY = 86_400_000;
+
+export interface ChartDomain {
+  tMin: number;
+  tMax: number;
+  yMax: number;
+}
+
+/**
+ * Time range (padded to >= 1 day, so a single moment sits mid-plot) and %
+ * ceiling fitting every point given. `extraTimes` (now, target dates) widen
+ * the time range only, so their markers land on the plot.
+ */
+export function fitDomain(points: ProgressPoint[], extraTimes: number[] = []): ChartDomain | null {
+  if (points.length === 0) return null;
+  const times = [...points.map((p) => p.t), ...extraTimes];
+  let tMin = Math.min(...times);
+  let tMax = Math.max(...times);
+  if (tMax - tMin < DAY) {
+    tMin -= DAY / 2;
+    tMax += DAY / 2;
+  }
+  return { tMin, tMax, yMax: pctDomainMax(points.map((p) => p.pct)) };
 }

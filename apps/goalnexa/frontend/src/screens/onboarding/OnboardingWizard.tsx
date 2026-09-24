@@ -23,6 +23,9 @@ let nextKey = 1;
 const newMetric = (): MetricDraft => ({ key: nextKey++, name: "", unit: "", base: "0", target: "" });
 const newGoal = (): GoalDraft => ({ key: nextKey++, title: "", targetDate: "", metrics: [newMetric()] });
 
+type Created = { org: string | null; goals: Map<number, string>; metrics: Set<number> };
+const emptyCreated = (): Created => ({ org: null, goals: new Map(), metrics: new Set() });
+
 /** Why a metric can't be saved yet, or `null`. Progress divides by `target - base`, so they must differ. */
 function metricProblem(metric: MetricDraft): string | null {
   if (!metric.name.trim()) return "Every metric needs a name.";
@@ -77,12 +80,11 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
   const [problem, setProblem] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // What a previous, partly failed create already made (draft key -> id).
-  const created = useRef<{ org: string | null; goals: Map<number, string>; metrics: Set<number> }>({
-    org: null,
-    goals: new Map(),
-    metrics: new Set(),
-  });
-  const started = created.current.org !== null;
+  // The create loop writes the ref as it goes; render reads `kept`, a
+  // copy taken when a create fails.
+  const created = useRef<Created>(emptyCreated());
+  const [kept, setKept] = useState<Created>(emptyCreated);
+  const started = kept.org !== null;
 
   function updateGoal(key: number, patch: Partial<GoalDraft>) {
     setGoals((prev) => prev.map((goal) => (goal.key === key ? { ...goal, ...patch } : goal)));
@@ -124,6 +126,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
       }
       onComplete(done.org);
     } catch (thrown) {
+      setKept({ org: done.org, goals: new Map(done.goals), metrics: new Set(done.metrics) });
       setProblem(`${thrown instanceof Error ? thrown.message : String(thrown)} - fix it and try again; what was already created is kept.`);
       setSubmitting(false);
     }
@@ -189,7 +192,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
                           autoFocus={i === 0}
                           placeholder={i === 0 ? "e.g. Grow monthly revenue" : "Another goal"}
                           value={goal.title}
-                          disabled={created.current.goals.has(goal.key)}
+                          disabled={kept.goals.has(goal.key)}
                           onChange={(event) => updateGoal(goal.key, { title: event.target.value })}
                         />
                       </div>
@@ -201,7 +204,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
                           id={`onboarding-goal-date-${goal.key}`}
                           type="date"
                           value={goal.targetDate}
-                          disabled={created.current.goals.has(goal.key)}
+                          disabled={kept.goals.has(goal.key)}
                           onChange={(event) => updateGoal(goal.key, { targetDate: event.target.value })}
                         />
                       </div>
@@ -211,7 +214,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
                           outline
                           variant="secondary"
                           aria-label={`Remove goal ${goal.title || i + 1}`}
-                          disabled={goals.length === 1 || created.current.goals.has(goal.key)}
+                          disabled={goals.length === 1 || kept.goals.has(goal.key)}
                           onClick={() => setGoals((prev) => prev.filter((g) => g.key !== goal.key))}
                         >
                           <Icon name="trash" />
@@ -242,7 +245,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
                         <div className="col-auto" style={{ width: "2.5rem" }} />
                       </div>
                       {goal.metrics.map((metric) => {
-                        const locked = created.current.metrics.has(metric.key);
+                        const locked = kept.metrics.has(metric.key);
                         const id = `onboarding-metric-${metric.key}`;
                         return (
                           <div key={metric.key} className="row g-2 align-items-center mb-2">
