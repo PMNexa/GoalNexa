@@ -20,15 +20,23 @@ everything.
 
 ## 1. Container registry
 
-1. DigitalOcean → **Container Registry → Create**, name `goalnexa`.
-2. Pick **Basic ($5/mo), not Starter** - Starter allows 1 repository and
-   there are 2 (`goalnexa-backend`, `goalnexa-frontend`).
-3. The registry is `registry.digitalocean.com/goalnexa`.
+1. DigitalOcean → **Container Registry → Create**. The name is global
+   across DigitalOcean - `goalnexa` if free, else e.g. `goalnexa-<you>`.
+2. **Starter (free)** is enough: 1 repository, 500 MB. Both images go in
+   one repository, `goalnexa`, as `backend-<commit>` and
+   `frontend-<commit>`. Before each build the workflow deletes every
+   release except the one running (the rollback target) and runs garbage
+   collection, so about two releases are stored at a time. Moving to
+   Basic ($5, 5 GB) later needs no change; set the repo variable
+   `KEEP_RELEASES` (e.g. `5`) to keep more rollback targets.
+3. The registry is `registry.digitalocean.com/<registry-name>` - that's
+   `REGISTRY` below.
 
 ## 2. API token for CI
 
 **API → Generate New Token**, name `goalnexa-ci`, custom scopes:
-**registry: read + update** (and create, if offered). Keep it for step 7.
+**registry: create, read, update, delete** (delete is for the cleanup).
+Keep it for step 7.
 
 ## 3. Droplet
 
@@ -109,14 +117,14 @@ out. `TRUSTED_PROXY_COUNT` = proxies appending to `X-Forwarded-For`:
 Cloudflare + nginx = 2, Cloudflare + a DO load balancer + nginx = 3.
 
 To deploy from your own machine instead of CI, add
-`REGISTRY=registry.digitalocean.com/goalnexa` and
+`REGISTRY=registry.digitalocean.com/<registry-name>` and
 `DEPLOY_HOST=deploy@<public-ip>`, run `doctl registry login`, then
 `scripts/deploy.sh`.
 
 ## 7. GitHub variables, environment and secrets
 
 ```bash
-gh variable set REGISTRY --body registry.digitalocean.com/goalnexa
+gh variable set REGISTRY --body registry.digitalocean.com/<registry-name>
 gh variable set DEPLOY_HOST --body deploy@<public-ip>
 
 # environment only the deploy branch may use
@@ -218,7 +226,7 @@ gh workflow run deploy.yml --ref deploy -f tag=<12-char sha>
 re-run the latest tag as above.
 
 **Clean up old images** now and then:
-`doctl registry garbage-collection start goalnexa`.
+`doctl registry garbage-collection start` (CI does this on every build).
 
 **Scale out**:
 

@@ -48,18 +48,20 @@ counted in a `DatabaseCache` so every worker shares one count
 defaults to 2 for Funnel). Too low and everyone shares one limit.
 
 **The hosted deployment** (DigitalOcean) is Docker Swarm:
-`docker-stack.yml` (the same services as the prod compose, from registry
-images tagged with the commit, a managed Postgres - no `db` service -
-rolling start-first updates that roll back on a failed healthcheck,
-nginx as a global host-port service so the client IP survives). Only
-`scripts/deploy.sh` deploys it - Swarm ignores `depends_on`, so the
-script runs migrate with the new image first, then `stack deploy`, then
-fails if a service rolled back. A migration must therefore work with the
-previous release's code too. Releasing = merging a PR into the `deploy`
-branch: `.github/workflows/deploy.yml` builds, pushes and runs the
-script. Setup, release, rollback and scaling:
-`docs/deployment.md`. Adding a node = `docker swarm
-join` + more replicas; the stack needs no change.
+`docker-stack.yml` - the same services as the prod compose, from registry
+images, a managed Postgres (no `db` service), rolling start-first updates
+that roll back on a failed healthcheck, and nginx as a global host-port
+service so the client IP survives. Both images share ONE registry
+repository, `goalnexa`, tagged `backend-<commit>`/`frontend-<commit>`:
+DigitalOcean's free registry allows one repository and 500 MB, so CI
+deletes every release but the running one (read from the Swarm) before
+each build. Only `scripts/deploy.sh` deploys - Swarm ignores
+`depends_on`, so the script migrates with the new image first, then
+`stack deploy`, then fails if a service rolled back. A migration must
+therefore work with the previous release's code too. Releasing = merging
+a PR into the `deploy` branch (`.github/workflows/deploy.yml`). Setup,
+release, rollback and scaling: `docs/deployment.md`. Adding a node =
+`docker swarm join` + more replicas; the stack needs no change.
 
 **The rule, frontend and backend both: a module provides its
 router/screen or its Django app, packaged; `main` imports it.** Nothing

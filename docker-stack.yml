@@ -5,6 +5,10 @@
 # never `docker stack deploy` by hand: the script runs migrations first
 # (Swarm has no depends_on) and fills in IMAGE_TAG/NGINX_CONF_VERSION.
 #
+# Both images live in ONE registry repository, `goalnexa`, told apart by
+# tag (backend-<commit>, frontend-<commit>) - DigitalOcean's free registry
+# allows a single repository.
+#
 # No database service: DATABASE_URL points at a managed Postgres (a volume
 # pins a DB to one node, which would make it the cluster's single point of
 # failure). The auth rate-limit cache lives in that same database, so every
@@ -41,7 +45,7 @@ x-rolling: &rolling
 
 services:
   main-backend:
-    image: ${REGISTRY:?set REGISTRY}/goalnexa-backend:${IMAGE_TAG:?set IMAGE_TAG}
+    image: ${REGISTRY:?set REGISTRY}/goalnexa:backend-${IMAGE_TAG:?set IMAGE_TAG}
     logging: *logging
     environment:
       DJANGO_DEBUG: "false"
@@ -74,7 +78,7 @@ services:
       replicas: ${BACKEND_REPLICAS:-2}
 
   main-frontend:
-    image: ${REGISTRY}/goalnexa-frontend:${IMAGE_TAG}
+    image: ${REGISTRY}/goalnexa:frontend-${IMAGE_TAG}
     logging: *logging
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.status < 500 ? 0 : 1), () => process.exit(1))"]
