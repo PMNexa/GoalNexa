@@ -1,0 +1,78 @@
+# The whole app as apps/main runs it: every module at the submodule
+# commits this repo pins, on every push to main and every PR. Each
+# platform-* repo has its own CI for its standalone suite; this one checks
+# they work together (tenant isolation, RBAC, MCP) and that main builds.
+#
+# Only runs in the public repo: the private hosted fork merges this file
+# in too, and there it would spend private-repo minutes on code already
+# tested here.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    if: github.repository == 'PMNexa/GoalNexa'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/main/backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: >
+          pip install -r requirements.txt
+          -e ../../platform-core/backend -e ../../platform-auth/backend
+          -e ../../platform-org/backend -e ../../goalnexa/backend
+          -e ../../platform-mcp/backend
+      - name: Migrations are up to date
+        run: python manage.py makemigrations --check --dry-run
+      - name: Test
+        run: python manage.py test tests platform_auth platform_org goalnexa platform_mcp
+        env:
+          DJANGO_ALLOWED_HOSTS: localhost,testserver
+
+  frontend:
+    if: github.repository == 'PMNexa/GoalNexa'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # main depends on every module's frontend as a file: package, whose
+      # own imports resolve from that package's node_modules.
+      - name: Install module packages
+        run: |
+          for module in platform-core platform-auth platform-org platform-mcp goalnexa; do
+            (cd "apps/$module/frontend" && npm ci)
+          done
+      - name: Lint and build goalnexa-frontend
+        working-directory: apps/goalnexa/frontend
+        run: npm run lint && npm run build
+      - name: Install main
+        working-directory: apps/main/frontend
+        run: npm ci
+      - name: Typecheck main
+        working-directory: apps/main/frontend
+        run: npm run typecheck
+      - name: Build main
+        working-directory: apps/main/frontend
+        run: npm run build

@@ -539,6 +539,15 @@ through list, filters, search, sideloading, retrieve/update/delete,
 parent/goal/metric/org references, RBAC and MCP. Extend it with every
 new resource or reference field.
 
+**CI** (GitHub Actions, free on public repos): `.github/workflows/ci.yml`
+here runs the whole stack at the pinned submodule commits - main's
+backend suites + migration check, every module frontend's install,
+goalnexa-frontend lint/build, main typecheck/build. Each `platform-*`
+repo has its own `ci.yml` for its standalone suite, checked out next to
+platform-core's main. Tests that send `Host: localhost` need
+`DJANGO_ALLOWED_HOSTS=localhost,testserver` outside compose. The job is
+skipped outside `PMNexa/GoalNexa`, so the hosted fork doesn't re-run it.
+
 **Demo data / README media**: `scripts/seed_demo.py` (REST API only,
 `--reset` to start over) seeds the account behind `docs/media/`. Re-shoot
 after UI changes that the README shows.
