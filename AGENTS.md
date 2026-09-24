@@ -57,7 +57,8 @@ script runs migrate with the new image first, then `stack deploy`, then
 fails if a service rolled back. A migration must therefore work with the
 previous release's code too. Releasing = merging a PR into the `deploy`
 branch: `.github/workflows/deploy.yml` builds, pushes and runs the
-script (setup and rollback in its header). Adding a node = `docker swarm
+script. Setup, release, rollback and scaling:
+`docs/deployment.md`. Adding a node = `docker swarm
 join` + more replicas; the stack needs no change.
 
 **The rule, frontend and backend both: a module provides its
