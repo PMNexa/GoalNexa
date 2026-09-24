@@ -28,10 +28,10 @@ jobs:
       run:
         working-directory: apps/main/backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install
@@ -51,10 +51,10 @@ jobs:
     if: github.repository == 'PMNexa/GoalNexa'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
       # main depends on every module's frontend as a file: package, whose
@@ -85,7 +85,7 @@ jobs:
     if: github.repository == 'PMNexa/GoalNexa'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: Build backend image

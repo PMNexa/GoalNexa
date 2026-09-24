@@ -300,15 +300,16 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
   // One shared time range across every panel (each panel fits its own %
   // ceiling - one goal at 800% would flatten another at 20%), stretched to
   // reach now and every shown goal's target date so their markers show.
-  const now = useMemo(() => Date.now(), [metricPanels]);
-  const panelDomain = useMemo(
-    () =>
+  // "Now" is re-read whenever the panels change (e.g. after a check-in).
+  const { now, panelDomain } = useMemo(() => {
+    const now = Date.now();
+    const panelDomain =
       fitDomain(
         metricPanels.flatMap((panel) => panel.series.flatMap((line) => line.points)),
         [now, ...metricPanels.flatMap((panel) => goalTargetTime(panel.progress.goal) ?? [])],
-      ) ?? undefined,
-    [metricPanels, now],
-  );
+      ) ?? undefined;
+    return { now, panelDomain };
+  }, [metricPanels]);
 
   const checkInMetric = metrics.find((metric) => metric.id === checkInFor) ?? null;
   const currentByGoal = useMemo(() => new Map(progress.map((p) => [p.goal.id, p.current])), [progress]);
