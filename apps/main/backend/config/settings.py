@@ -14,6 +14,8 @@ import importlib
 import os
 from pathlib import Path
 
+import dj_database_url
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -35,6 +37,16 @@ ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").s
 # serve/Funnel), so absolute URLs Django builds (e.g. the MCP skills
 # index) say https:// and CSRF origin checks match.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Full origins (scheme + host), comma-separated - needed for Django's
+# own CSRF-protected forms (e.g. /admin/ login) behind HTTPS on a
+# domain other than localhost. The API itself uses bearer tokens.
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+# Strict-Transport-Security max-age. 0 (default) sends no header; set it
+# only once the app is served over HTTPS for good - browsers remember it.
+SECURE_HSTS_SECONDS = int((os.environ.get("DJANGO_HSTS_SECONDS") or "0"))
 
 # "self_hosted" (default) or "saas". A hosted install lets strangers sign
 # up, so it turns off first-run setup (the first account would otherwise
@@ -87,6 +99,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Serves collected static files (the admin's) from gunicorn - no
+    # separate file server in front of the backend.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -119,10 +134,26 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASE_URL (e.g. postgres://user:pass@host:5432/goalnexa) - unset =
+# the local SQLite file, fine for a single-user self-host. Postgres for
+# anything with real traffic or more than one backend process.
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    'default': dj_database_url.parse(
+        os.environ.get("DATABASE_URL") or f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=int((os.environ.get("DATABASE_CONN_MAX_AGE") or "60")),
+        conn_health_checks=True,
+    )
+}
+
+
+# Shared by every gunicorn worker (and replica) - the auth rate limits
+# count here, and a per-process cache would give each worker its own
+# count. The table comes from `manage.py createcachetable`, which the
+# compose files run with migrate.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_cache",
     }
 }
 
@@ -162,6 +193,15 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+# `manage.py collectstatic` target (the backend image runs it at build).
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    # Compressed, not Manifest: a manifest storage raises on any file
+    # missing from the manifest, which breaks tests/dev that never ran
+    # collectstatic.
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -223,6 +263,18 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [],
     "EXCEPTION_HANDLER": "core_api.exceptions.platform_exception_handler",
     "UNAUTHENTICATED_USER": None,
+    # platform_auth's login/signup/setup limits (platform_auth/throttling.py).
+    "DEFAULT_THROTTLE_RATES": {
+        "auth_login": (os.environ.get("AUTH_LOGIN_RATE") or "10/min"),
+        "auth_login_email": (os.environ.get("AUTH_LOGIN_EMAIL_RATE") or "20/hour"),
+        "auth_signup": (os.environ.get("AUTH_SIGNUP_RATE") or "10/hour"),
+    },
+    # Proxies in front of Django that append to X-Forwarded-For - the
+    # client IP the limits count by is that many entries from the end.
+    # 1 = nginx alone; 2 = nginx behind one more (Cloudflare, a load
+    # balancer). Too low and every client shares the proxy's IP (one
+    # limit for everyone); too high and a client can fake its IP.
+    "NUM_PROXIES": int((os.environ.get("TRUSTED_PROXY_COUNT") or "1")),
 }
 
 # Last, so an extension sees (and may change) every setting above.

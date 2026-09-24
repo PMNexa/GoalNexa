@@ -79,3 +79,16 @@ jobs:
       - name: Build main
         working-directory: apps/main/frontend
         run: npm run build
+
+  # The production images (docker-compose.prod.yml) still build.
+  images:
+    if: github.repository == 'PMNexa/GoalNexa'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build backend image
+        run: docker build -f apps/main/backend/Dockerfile -t goalnexa-backend .
+      - name: Build frontend image
+        run: docker build -f apps/main/frontend/Dockerfile -t goalnexa-frontend .

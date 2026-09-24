@@ -18,6 +18,13 @@ services:
       # build adds, and the pip requirements that install them.
       DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-self_hosted}
       GOALNEXA_EXTENSIONS: ${GOALNEXA_EXTENSIONS:-}
+      # Auth rate limits (see .env.sample). 2 proxies: Tailscale Funnel
+      # puts the real client IP in X-Forwarded-For, nginx appends
+      # Funnel's; a direct hit on the port has only nginx's entry.
+      AUTH_LOGIN_RATE: ${AUTH_LOGIN_RATE:-10/min}
+      AUTH_LOGIN_EMAIL_RATE: ${AUTH_LOGIN_EMAIL_RATE:-20/hour}
+      AUTH_SIGNUP_RATE: ${AUTH_SIGNUP_RATE:-10/hour}
+      TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-2}
       # Without this, Python buffers stdout and `docker compose logs`
       # shows NOTHING even while the server is running fine - confirmed
       # directly during development (had to exec in and check /proc to
@@ -37,6 +44,8 @@ services:
       . .venv/bin/activate &&
       pip install --no-cache-dir -q -r requirements.txt -e /apps/platform-core/backend -e /apps/platform-auth/backend -e /apps/platform-org/backend -e /apps/goalnexa/backend -e /apps/platform-mcp/backend ${BACKEND_EXTRA_PIP:-} &&
       python manage.py migrate &&
+      python manage.py createcachetable &&
+      python manage.py collectstatic --noinput -v 0 &&
       python manage.py runserver 0.0.0.0:8000
       "
     # First boot can take minutes (compiling argon2-cffi/psycopg from

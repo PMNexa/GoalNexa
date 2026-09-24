@@ -28,6 +28,25 @@ to anyone (`tailscale/serve.json`'s `AllowFunnel`). Since that's public,
 builds `https://` URLs. After recreating `main-frontend`, restart nginx
 too - it resolves the upstream IP once at startup.
 
+**Production** is `docker-compose.prod.yml`: images built from
+`apps/main/{backend,frontend}/Dockerfile` (repo-root build context, like
+every module's Dockerfile; modules pip-installed non-editable, gunicorn
++ WhiteNoise, `react-router-serve`), Postgres, a one-off `migrate`
+service that runs before the backend (never in the backend's own
+command - replicas would race), and the same `nginx/default.conf`. The
+database is `DATABASE_URL` (unset = SQLite, what the dev compose uses);
+the prod compose requires `DJANGO_ALLOWED_HOSTS` and real secrets. The
+server bundle inlines every module package (`ssr.noExternal`), so the
+frontend image carries only main's own `node_modules`. `/static/` is
+the admin's CSS/JS, served by the backend (dev runs `collectstatic`
+too, since `.env` usually has `DJANGO_DEBUG=false`). Login/signup/setup
+are rate limited (platform-auth's throttles; `AUTH_*_RATE` in `.env`),
+counted in a `DatabaseCache` so every worker shares one count
+(`createcachetable` runs with `migrate`), per client IP from
+`X-Forwarded-For`: `TRUSTED_PROXY_COUNT` = proxies in front of Django
+(1 = nginx; 2 behind Funnel/Cloudflare/a load balancer - the dev compose
+defaults to 2 for Funnel). Too low and everyone shares one limit.
+
 **The rule, frontend and backend both: a module provides its
 router/screen or its Django app, packaged; `main` imports it.** Nothing
 is copied. See `apps/platform-auth/` for the reference implementation of

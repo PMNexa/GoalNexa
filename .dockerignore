@@ -7,3 +7,11 @@
 **/.pytest_cache
 **/.ruff_cache
 docs
+# Never bake secrets or local state into an image.
+.env
+**/.env
+**/db.sqlite3
+**/staticfiles
+**/build
+**/.react-router
+**/*.tsbuildinfo
