@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import importlib
 import os
 from pathlib import Path
 
@@ -34,6 +35,21 @@ ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").s
 # serve/Funnel), so absolute URLs Django builds (e.g. the MCP skills
 # index) say https:// and CSRF origin checks match.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# "self_hosted" (default) or "saas". A hosted install lets strangers sign
+# up, so it turns off first-run setup (the first account would otherwise
+# become app-wide Admin) - see AUTH_FIRST_RUN_SETUP below.
+DEPLOYMENT_MODE = os.environ.get("DEPLOYMENT_MODE", "self_hosted")
+if DEPLOYMENT_MODE not in ("self_hosted", "saas"):
+    raise ValueError(f"DEPLOYMENT_MODE must be 'self_hosted' or 'saas', not {DEPLOYMENT_MODE!r}")
+
+# Extra Django apps a downstream build adds (e.g. hosted billing) -
+# comma-separated importable module names, pip-installed into this venv
+# (docker-compose.yml's BACKEND_EXTRA_PIP). Each one is added to
+# INSTALLED_APPS, its `urls` (if any) is mounted at api/v1/
+# (config/urls.py), and its `host_settings.configure(settings)` (if any)
+# runs at the end of this file to add/override settings. Empty here.
+GOALNEXA_EXTENSIONS = [m.strip() for m in os.environ.get("GOALNEXA_EXTENSIONS", "").split(",") if m.strip()]
 
 
 # Application definition
@@ -66,6 +82,7 @@ INSTALLED_APPS = [
     # MCP server over every BaseViewSet above + personal access tokens
     # for MCP clients. Mounted at api/v1/mcp (config/urls.py).
     'platform_mcp',
+    *GOALNEXA_EXTENSIONS,
 ]
 
 MIDDLEWARE = [
@@ -166,6 +183,10 @@ REFRESH_COOKIE_SECURE = os.environ.get("DJANGO_DEBUG", "true").lower() != "true"
 # itself - unlike platform-auth's own standalone deployment (which sets
 # this to e.g. "/platform-auth"), this stays empty.
 URL_PREFIX = ""
+# First-run setup (the first account becomes app-wide Admin). Off when
+# hosted: signup works from the first account on, and the operator's
+# own admin comes from `manage.py grant_role <email> Admin`.
+AUTH_FIRST_RUN_SETUP = DEPLOYMENT_MODE != "saas"
 
 # --- platform_mcp app config (all optional) ---
 # The MCP server's serverInfo name.
@@ -203,3 +224,13 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "core_api.exceptions.platform_exception_handler",
     "UNAUTHENTICATED_USER": None,
 }
+
+# Last, so an extension sees (and may change) every setting above.
+for _extension in GOALNEXA_EXTENSIONS:
+    try:
+        _host_settings = importlib.import_module(f"{_extension}.host_settings")
+    except ModuleNotFoundError as exc:
+        if exc.name != f"{_extension}.host_settings":
+            raise
+        continue
+    _host_settings.configure(globals())

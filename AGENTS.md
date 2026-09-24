@@ -515,6 +515,24 @@ broke the skills' absolute URLs and react-router's action CSRF origin
 check (a form submitted before hydration came back as a bare
 "Bad Request").
 
+**Hosted (SaaS) edition hooks**: a hosted edition is a private
+downstream fork (`goalnexa-cloud`) that merges this repo and only ADDS
+files - so the seams it needs live here, doing nothing by default:
+- `DEPLOYMENT_MODE` (`self_hosted` | `saas`, `.env`): `saas` sets
+  platform-auth's `AUTH_FIRST_RUN_SETUP = False` - no `/auth/setup`,
+  signup open from the first account (which would otherwise become
+  app-wide Admin); the operator's admin is `manage.py grant_role`.
+- `GOALNEXA_EXTENSIONS` (comma-separated Django app modules, installed
+  via `BACKEND_EXTRA_PIP`): added to `INSTALLED_APPS`, each one's `urls`
+  mounted at `api/v1/`, each one's `host_settings.configure(settings)`
+  run at the end of `settings.py`.
+- `apps/main/frontend/app/extensions/index.ts`: `createExtensionRoutes()`
+  (mounted in the app-shell layout) and `createExtensionNavItems()`,
+  both empty here; the fork replaces that directory. Its two signatures
+  are a contract with the fork - change them deliberately.
+Anything a self-hoster could use too (tenant isolation, email
+verification, ...) belongs here, not in the fork.
+
 **Demo data / README media**: `scripts/seed_demo.py` (REST API only,
 `--reset` to start over) seeds the account behind `docs/media/`. Re-shoot
 after UI changes that the README shows.

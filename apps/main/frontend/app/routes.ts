@@ -4,6 +4,7 @@ import { createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
 import { createCrudRoutes } from "platform-core";
 import { createMcpRoutes } from "platform-mcp-frontend";
 import { createOrgsRoutes } from "platform-org-frontend";
+import { createExtensionRoutes } from "./extensions";
 
 export default [
   // `/` only redirects to /dashboard - there is no landing page.
@@ -51,5 +52,8 @@ export default [
     // Role-based access control (platform-auth): users, roles, role
     // assignments, permissions under /platform-auth/.
     ...createRbacRoutes("platform-auth"),
+    // A downstream build's own pages (e.g. hosted billing) - none in the
+    // self-hosted build. See app/extensions/index.ts.
+    ...createExtensionRoutes(),
   ]),
 ] satisfies RouteConfig;

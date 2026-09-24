@@ -5,6 +5,7 @@ import type { LinkComponentProps, NavEntry } from "platform-core";
 import { createRbacNavItems, filterNavByPermissions, getSession, logout, subscribeSession, useMyPermissions } from "platform-auth-frontend";
 import { createMcpNavItems } from "platform-mcp-frontend";
 import { createOrgsNavItems } from "platform-org-frontend";
+import { createExtensionNavItems } from "../extensions";
 import { DashboardIcon, GoalsIcon } from "../lib/navIcons";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
 
@@ -38,6 +39,7 @@ const NAV_ITEMS: NavEntry[] = [
   ...createOrgsNavItems("platform-org"),
   ...createRbacNavItems("platform-auth"),
   ...createMcpNavItems("mcp"),
+  ...createExtensionNavItems(),
 ];
 
 /**

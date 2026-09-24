@@ -14,6 +14,9 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from importlib.util import find_spec
+
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
 
@@ -44,4 +47,12 @@ urlpatterns = [
     # scoping applies - plus api/v1/mcp/tokens (personal access tokens,
     # which the MCP endpoint accepts besides a login's access token).
     path('api/v1/', include('platform_mcp.urls')),
+]
+
+# A downstream build's extra apps (settings.GOALNEXA_EXTENSIONS) - each
+# one's own urls.py, if it has one, at api/v1/ like every module above.
+urlpatterns += [
+    path('api/v1/', include(f'{app}.urls'))
+    for app in settings.GOALNEXA_EXTENSIONS
+    if find_spec(f'{app}.urls')
 ]
