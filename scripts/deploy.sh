@@ -4,7 +4,8 @@
 # manager over SSH (`docker -H ssh://...`), nothing is copied to it.
 #
 #   scripts/deploy.sh          build + push images tagged with HEAD's
-#                              commit, then deploy them
+#                              commit (goalnexa:backend-<commit>,
+#                              goalnexa:frontend-<commit>), then deploy
 #   scripts/deploy.sh <tag>    deploy images already in the registry
 #                              (CI after its own build, or a rollback to
 #                              an earlier commit)
@@ -50,12 +51,13 @@ else
   for image in backend frontend; do
     docker buildx build --platform linux/amd64 \
       -f "apps/main/$image/Dockerfile" \
-      -t "$REGISTRY/goalnexa-$image:$IMAGE_TAG" \
+      -t "$REGISTRY/goalnexa:$image-$IMAGE_TAG" \
       --push .
   done
 fi
 export IMAGE_TAG
 export NGINX_CONF_VERSION="$(git hash-object nginx/default.conf | cut -c1-12)"
+export CADDY_CONF_VERSION="$(git hash-object caddy/Caddyfile | cut -c1-12)"
 
 echo "==> Migrating ($IMAGE_TAG)"
 # `-e NAME` passes the value from this shell (sourced from ENV_FILE).
@@ -63,7 +65,7 @@ remote run --rm \
   -e DJANGO_DEBUG=false -e DJANGO_SECRET_KEY -e JWT_SECRET \
   -e DJANGO_ALLOWED_HOSTS -e DATABASE_URL -e DEPLOYMENT_MODE \
   -e GOALNEXA_EXTENSIONS \
-  "$REGISTRY/goalnexa-backend:$IMAGE_TAG" \
+  "$REGISTRY/goalnexa:backend-$IMAGE_TAG" \
   sh -c "python manage.py migrate --noinput && python manage.py createcachetable"
 
 echo "==> Deploying stack $STACK_NAME ($IMAGE_TAG)"
@@ -74,10 +76,11 @@ remote stack deploy --with-registry-auth --prune --detach=false \
 # command above - so check each app service really runs the new image,
 # and CI goes red if one doesn't.
 failed=0
-for service in main-backend main-frontend; do
+for part in backend frontend; do
+  service="main-$part"
   image="$(remote service inspect --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' "${STACK_NAME}_$service")"
   case "$image" in
-    *":$IMAGE_TAG"|*":$IMAGE_TAG@"*) ;;
+    *":$part-$IMAGE_TAG"|*":$part-$IMAGE_TAG@"*) ;;
     *)
       echo "!! ${STACK_NAME}_$service runs $image, not $IMAGE_TAG (rolled back?)" >&2
       failed=1
