@@ -54,9 +54,10 @@ that roll back on a failed healthcheck, and Caddy (`caddy/Caddyfile`,
 Let's Encrypt) on the manager's host ports 80/443 in front of nginx, so
 the client IP survives. Both images share ONE registry
 repository, `goalnexa`, tagged `backend-<commit>`/`frontend-<commit>`:
-DigitalOcean's free registry allows one repository and 500 MB, so CI
-deletes every release but the running one (read from the Swarm) before
-each build. Only `scripts/deploy.sh` deploys - Swarm ignores
+DigitalOcean's free registry allows one repository and 500 MB, so after
+each rollout CI deletes every release but the running one (read from the
+Swarm) and the previous one, and starts garbage collection without
+waiting (~10 min; the next deploy waits if it's still running). Only `scripts/deploy.sh` deploys - Swarm ignores
 `depends_on`, so the script migrates with the new image first, then
 `stack deploy`, then fails if a service rolled back. A migration must
 therefore work with the previous release's code too. Releasing = merging
