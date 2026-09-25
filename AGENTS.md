@@ -575,6 +575,25 @@ files - so the seams it needs live here, doing nothing by default:
   are a contract with the fork - change them deliberately.
 Anything a self-hoster could use too (tenant isolation, email
 verification, ...) belongs here, not in the fork.
+**Org membership** (platform-org): an org's members have a role IN that
+org - owner / admin / member (`OrgMembership.role`, separate from
+platform-auth's RBAC, which still decides resource verbs app-wide). The
+creator is owner; owners/admins invite by email (`org-invitations`), the
+invitee accepts from the link or from the "Invitations" page, and must
+be signed in with that email. The link, `/platform-org/invitations/<token>`
+(`createOrgsPublicRoutes`, mounted OUTSIDE the app shell - it works
+signed out), sends an email with no account yet to signup (email
+prefilled; `PLATFORM_ORG_ACCOUNT_EXISTS`/`PLATFORM_ORG_SIGNUP_PAGE` in
+main's settings) and everyone else to `/platform-org/invitations/<token>/accept`
+behind the login gate; `?next=` brings them back either way. No email is
+sent - the org page shows the link to copy. An org always keeps an
+owner. **An org's goals are shared with its members** (goalnexa's
+`access.py`: personal goals stay the owner's; org goals are visible to
+whoever may list that org at `/api/v1/orgs`, via platform-core's
+`visible_rows`), so leaving an org ends access to its goals, even ones
+you created. Main supplies platform-org's user directory
+(`PLATFORM_ORG_USER_DIRECTORY` -> `config/user_directory.py`) for member
+names/emails. Tests: `apps/main/backend/tests/test_org_membership.py`.
 **Tenant isolation** is pinned by `apps/main/backend/tests/`
 (`python manage.py test tests`, in the main-backend container): two
 signed-up strangers probe each other's orgs/goals/metrics/check-ins

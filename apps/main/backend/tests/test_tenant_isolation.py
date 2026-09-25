@@ -47,6 +47,8 @@ class TenantIsolationTests(TestCase):
         self.goal = self.create(self.alice, "goals", title="Alice's goal", org_id=self.org["id"])
         self.metric = self.create(self.alice, "metrics", goal=self.goal["id"], name="Revenue", target_value=100)
         self.check_in = self.create(self.alice, "check-ins", metric=self.metric["id"], value=40)
+        self.invitation = self.create(self.alice, "org-invitations", org=self.org["id"], email="dave@example.com")
+        self.membership = self.alice.get(f"{API}/org-members").json()["items"][0]
 
         self.bob_goal = self.create(self.bob, "goals", title="Bob's goal")
         self.bob_metric = self.create(self.bob, "metrics", goal=self.bob_goal["id"], name="Km", target_value=10)
@@ -62,6 +64,8 @@ class TenantIsolationTests(TestCase):
             "goals": self.goal["id"],
             "metrics": self.metric["id"],
             "check-ins": self.check_in["id"],
+            "org-members": self.membership["id"],
+            "org-invitations": self.invitation["id"],
         }
 
     # --- reading ---------------------------------------------------------
@@ -79,6 +83,8 @@ class TenantIsolationTests(TestCase):
             "metrics": [f"filter{{goal}}={self.goal['id']}", "q=Revenue"],
             "check-ins": [f"filter{{metric}}={self.metric['id']}"],
             "orgs": [f"filter{{id}}={self.org['id']}", "q=Alice"],
+            "org-members": [f"filter{{org}}={self.org['id']}", f"filter{{user_id}}={self.alice.user_id}"],
+            "org-invitations": [f"filter{{org}}={self.org['id']}", "q=dave"],
         }
         for resource, queries in probes.items():
             for query in queries:
@@ -105,7 +111,8 @@ class TenantIsolationTests(TestCase):
     def test_update_and_delete_other_tenants_row_is_404(self):
         for resource, row_id in self.alices_rows().items():
             with self.subTest(resource):
-                self.assertEqual(self.bob.patch(f"{API}/{resource}/{row_id}", {}, format="json").status_code, 404)
+                # 405: the resource takes no PATCH at all (invitations).
+                self.assertIn(self.bob.patch(f"{API}/{resource}/{row_id}", {}, format="json").status_code, (404, 405))
                 self.assertEqual(self.bob.delete(f"{API}/{resource}/{row_id}").status_code, 404)
                 self.assertEqual(self.alice.get(f"{API}/{resource}/{row_id}").status_code, 200)
 
@@ -191,8 +198,11 @@ class TenantIsolationTests(TestCase):
             ("goals_get", self.goal["id"]),
             ("metrics_get", self.metric["id"]),
             ("check_ins_get", self.check_in["id"]),
+            ("org_members_get", self.membership["id"]),
+            ("org_invitations_get", self.invitation["id"]),
         ]:
             with self.subTest(tool):
+                self.assertFalse(self.mcp(self.alice, tool, id=row_id)[0])  # the tool exists
                 self.assertTrue(self.mcp(self.bob, tool, id=row_id)[0])
                 self.assertTrue(self.mcp(self.bob, tool.replace("_get", "_delete"), id=row_id)[0])
         error, text = self.mcp(self.bob, "goals_list")

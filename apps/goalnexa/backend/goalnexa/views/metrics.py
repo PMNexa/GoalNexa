@@ -14,6 +14,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from core_api.viewsets import BaseViewSet
+from goalnexa.access import visible_goals
 from goalnexa.models import Goal, Metric
 from goalnexa.serializers import MetricSerializer
 
@@ -26,13 +27,13 @@ class MetricViewSet(BaseViewSet):
     scope_field = "goal__org_id"  # its goal's org - see GoalViewSet
 
     def get_queryset(self):
-        return super().get_queryset().filter(goal__owner_id=self.request.user.id).order_by("-created_at")
+        return super().get_queryset().filter(visible_goals(self.request, "goal__")).order_by("-created_at")
 
     def _resolve_goal(self):
         goal_id = self.request.data.get("goal")
         if not goal_id:
             raise ValidationError({"goal": ["This field is required."]})
-        return get_object_or_404(Goal, id=goal_id, owner_id=self.request.user.id)
+        return get_object_or_404(Goal.objects.filter(visible_goals(self.request)), id=goal_id)
 
     def _resolve_parent(self, exclude_id=None):
         """Optional, unlike `_resolve_goal` - see `GoalViewSet._resolve_parent`'s
@@ -45,7 +46,7 @@ class MetricViewSet(BaseViewSet):
             return None
         if exclude_id is not None and str(parent_id) == str(exclude_id):
             raise ValidationError({"parent": ["A metric can't be its own parent."]})
-        return get_object_or_404(Metric, id=parent_id, goal__owner_id=self.request.user.id)
+        return get_object_or_404(Metric.objects.filter(visible_goals(self.request, "goal__")), id=parent_id)
 
     def perform_create(self, serializer):
         # A new metric starts at its base, unless the caller gave a current

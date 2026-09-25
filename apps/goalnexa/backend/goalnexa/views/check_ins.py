@@ -16,6 +16,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from core_api.viewsets import BaseViewSet
+from goalnexa.access import visible_goals
 from goalnexa.models import CheckIn, Metric
 from goalnexa.serializers import CheckInSerializer
 
@@ -41,7 +42,7 @@ class CheckInViewSet(BaseViewSet):
         return (
             super()
             .get_queryset()
-            .filter(metric__goal__owner_id=self.request.user.id)
+            .filter(visible_goals(self.request, "metric__goal__"))
             .order_by("-checked_in_at", "-created_at")
         )
 
@@ -49,7 +50,7 @@ class CheckInViewSet(BaseViewSet):
         metric_id = self.request.data.get("metric")
         if not metric_id:
             raise ValidationError({"metric": ["This field is required."]})
-        return get_object_or_404(Metric, id=metric_id, goal__owner_id=self.request.user.id)
+        return get_object_or_404(Metric.objects.filter(visible_goals(self.request, "goal__")), id=metric_id)
 
     def perform_create(self, serializer):
         check_in = serializer.save(metric=self._resolve_metric())

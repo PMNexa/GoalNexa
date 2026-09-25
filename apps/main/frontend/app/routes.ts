@@ -3,7 +3,7 @@ import { createDashboardRoutes } from "goalnexa-frontend";
 import { createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
 import { createCrudRoutes } from "platform-core";
 import { createMcpRoutes } from "platform-mcp-frontend";
-import { createOrgsRoutes } from "platform-org-frontend";
+import { createOrgsPublicRoutes, createOrgsRoutes } from "platform-org-frontend";
 import { createExtensionRoutes } from "./extensions";
 
 export default [
@@ -14,6 +14,9 @@ export default [
   // /auth/signup) - storing the session and redirecting to `?next=`
   // (or /, i.e. the dashboard) on success are its own job, no route file here.
   ...createAuthRoutes("auth"),
+  // Where an invitation link lands (/platform-org/invitations/:token) - signed
+  // out too, so outside the app shell; same mount as createOrgsRoutes.
+  ...createOrgsPublicRoutes("platform-org"),
   // AppShell (sidemenu + sticky header) wraps post-login screens only -
   // login/signup stay bare. See
   // routes/app-shell.tsx.

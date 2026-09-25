@@ -19,12 +19,11 @@ class Goal(TimestampedModel):
     not looked up or validated against a users table here.
 
     `org_id` is the same kind of bare id, for platform-org's Organization -
-    null for a personal goal, set for a team one. No cross-module
-    membership check happens on it yet (no Python import of platform_org's
-    models - see root AGENTS.md's "no cross-module DB access" rule), so a
-    team goal today is only visible to whoever created it, same as a
-    personal one; scoping goals to every org member is a deliberate
-    follow-up once a module can call out to platform-org's own API for it.
+    null for a personal goal (only its owner sees it), set for a team one,
+    which every member of that org sees and works on too (`access.py`,
+    asking platform-org's own viewset which orgs the caller is in - no
+    Python import of its models). Setting it is checked the same way
+    (`BaseViewSet._check_cross_module_ids`): only an org you belong to.
     """
 
     id = models.UUIDField(primary_key=True, default=generate_uuid7, editable=False)
