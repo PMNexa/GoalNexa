@@ -54,9 +54,10 @@ that roll back on a failed healthcheck, and Caddy (`caddy/Caddyfile`,
 Let's Encrypt) on the manager's host ports 80/443 in front of nginx, so
 the client IP survives. Both images share ONE registry
 repository, `goalnexa`, tagged `backend-<commit>`/`frontend-<commit>`:
-DigitalOcean's free registry allows one repository and 500 MB, so CI
-deletes every release but the running one (read from the Swarm) before
-each build. Only `scripts/deploy.sh` deploys - Swarm ignores
+DigitalOcean's free registry allows one repository and 500 MB, so after
+each rollout CI deletes every release but the running one (read from the
+Swarm) and the previous one, and starts garbage collection without
+waiting (~10 min; the next deploy waits if it's still running). Only `scripts/deploy.sh` deploys - Swarm ignores
 `depends_on`, so the script migrates with the new image first, then
 `stack deploy`, then fails if a service rolled back. A migration must
 therefore work with the previous release's code too. Releasing = merging
@@ -528,13 +529,19 @@ reference" — see its repo-layout row below.
 `BaseViewSet` resource - orgs, goals, metrics, check-ins - with nothing
 per resource to write. Each tool call is an internal sub-request to the
 same REST API as the caller, so the same scoping and validation apply.
-Clients authenticate with a **personal access token** (`gnx_...`,
-created on the `/mcp` "MCP access" page, platform-mcp-frontend's
-`createMcpRoutes`), which works at the MCP endpoint only - not the rest
-of the API, not the token API itself. A login's access token works
-there too. Client setup (Claude Code, Claude Desktop, Codex, Cursor, VS
-Code, Gemini CLI, Windsurf): `apps/platform-mcp/README.md`, and the
-same steps on the page. Mechanics: platform-mcp's AGENTS.md.
+Clients authenticate with OAuth - Claude's custom connectors: the
+401's `WWW-Authenticate` leads to `/.well-known/oauth-*` (served at the
+ROOT by `platform_mcp.wellknown_urls`, which nginx routes to the
+backend), and the consent page is `/mcp/authorize` (platform-mcp-
+frontend's `createMcpRoutes`, inside the app shell so login comes first)
+- or with a **personal access token** (`gnx_...`, created on the `/mcp`
+"MCP access" page). Both work at the MCP endpoint only - not the rest
+of the API, not the token/grant APIs themselves. A login's access token
+works there too. Client setup (Claude connector, Claude Code, Claude
+Desktop config, Codex, Cursor, VS Code, Gemini CLI, Windsurf):
+`apps/platform-mcp/README.md`, and the same steps on the page. A
+connector reaches the server from Anthropic's cloud, so it needs the
+public HTTPS deployment, not a localhost one. Mechanics: platform-mcp's AGENTS.md.
 
 **Agent skills**: goalnexa ships `goalnexa-check-in`/`-review`/`-plan`
 as `apps/goalnexa/backend/goalnexa/mcp_skills/<name>/SKILL.md`
@@ -568,6 +575,25 @@ files - so the seams it needs live here, doing nothing by default:
   are a contract with the fork - change them deliberately.
 Anything a self-hoster could use too (tenant isolation, email
 verification, ...) belongs here, not in the fork.
+**Org membership** (platform-org): an org's members have a role IN that
+org - owner / admin / member (`OrgMembership.role`, separate from
+platform-auth's RBAC, which still decides resource verbs app-wide). The
+creator is owner; owners/admins invite by email (`org-invitations`), the
+invitee accepts from the link or from the "Invitations" page, and must
+be signed in with that email. The link, `/platform-org/invitations/<token>`
+(`createOrgsPublicRoutes`, mounted OUTSIDE the app shell - it works
+signed out), sends an email with no account yet to signup (email
+prefilled; `PLATFORM_ORG_ACCOUNT_EXISTS`/`PLATFORM_ORG_SIGNUP_PAGE` in
+main's settings) and everyone else to `/platform-org/invitations/<token>/accept`
+behind the login gate; `?next=` brings them back either way. No email is
+sent - the org page shows the link to copy. An org always keeps an
+owner. **An org's goals are shared with its members** (goalnexa's
+`access.py`: personal goals stay the owner's; org goals are visible to
+whoever may list that org at `/api/v1/orgs`, via platform-core's
+`visible_rows`), so leaving an org ends access to its goals, even ones
+you created. Main supplies platform-org's user directory
+(`PLATFORM_ORG_USER_DIRECTORY` -> `config/user_directory.py`) for member
+names/emails. Tests: `apps/main/backend/tests/test_org_membership.py`.
 **Tenant isolation** is pinned by `apps/main/backend/tests/`
 (`python manage.py test tests`, in the main-backend container): two
 signed-up strangers probe each other's orgs/goals/metrics/check-ins
@@ -608,7 +634,7 @@ was trying to report. Grep every `settings.py` in the platform for
 | `apps/platform-auth/` | git submodule. Django+DRF backend (standalone, own Postgres, own `pyproject.toml` packaging its Django app for reuse) + a frontend package (own `package.json`/`exports`). Both halves are also consumed by `apps/main` — see above. Also owns RBAC (roles app-wide or per org, enforced on every `BaseViewSet` through platform-core's access-policy hook; `CORE_API_ACCESS_POLICY`/`RBAC_*` in main's settings, screens under `/platform-auth/`). Own repo, own AGENTS.md. |
 | `apps/platform-org/` | git submodule. Multi-tenant `Organization`/`OrgMembership`, same packaged-both-halves pattern as `platform-auth`. No User table of its own — see the "module with no User table" note above. An org is also an RBAC scope (roles per org - see platform-auth). Own repo, own AGENTS.md. |
 | `apps/platform-core/` | git submodule. Django+DRF kernel (no models) — `core_api`: error contract, pagination, filters, uuid7 utils, and `BaseSerializer`/`BaseViewSet` (dynamic fields + relation sideloading, inspired by dynamic-rest — see "Generic CRUD entities" below). **A real backend dependency of `platform-auth` and `platform-org`** (both used to vendor their own copy of the small stuff; that stopped scaling once `BaseSerializer`/`BaseViewSet` existed) — editable-installed into `apps/main`'s venv alongside them. Its `frontend/` doubles as two things: its own (still-unused) Module Federation shell, not part of the default `docker-compose.yml`, and — as the `platform-core` npm package (`src/index.ts` exporting `AppShell`) — the former `platform-ui` module's sidemenu/sticky-header shell, folded in here since it had no backend of its own to justify a separate repo. See the "App shell" note above. Own repo, own AGENTS.md. |
-| `apps/platform-mcp/` | git submodule. MCP server over every `BaseViewSet` + personal access tokens, and the `platform-mcp-frontend` package with the "MCP access" page. Split out of platform-core. Same packaged-both-halves pattern; own README (client setup guide) and AGENTS.md. |
+| `apps/platform-mcp/` | git submodule. MCP server over every `BaseViewSet` + OAuth sign-in and personal access tokens, and the `platform-mcp-frontend` package with the "MCP access" page. Split out of platform-core. Same packaged-both-halves pattern; own README (client setup guide) and AGENTS.md. |
 | `modules.yaml` | Written for the platform-core/platform-auth Module Federation phase (module registry with `url_prefix`/`remote_entry`). Not read by anything in the current `docker-compose.yml` — `apps/main`'s own imports (file:/pip editable) replace what this was for. |
 | `nginx/default.conf` | Actively used — the single-port gateway in front of `apps/main`'s backend+frontend (rewritten for this when reused; a previous version was written for the platform-core/platform-auth setup instead). |
 | `docs/architecture/` | Target-state design docs (microservices/module system) — written before the current package-import approach; treat as historical context, not a spec to follow literally. |

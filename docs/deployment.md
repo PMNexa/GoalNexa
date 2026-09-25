@@ -24,10 +24,12 @@ everything.
    across DigitalOcean - `goalnexa` if free, else e.g. `goalnexa-<you>`.
 2. **Starter (free)** is enough: 1 repository, 500 MB. Both images go in
    one repository, `goalnexa`, as `backend-<commit>` and
-   `frontend-<commit>`. Before each build the workflow deletes every
-   release except the one running (the rollback target) and runs garbage
-   collection, so about two releases are stored at a time. Moving to
-   Basic ($5, 5 GB) later needs no change; set the repo variable
+   `frontend-<commit>`. After each rollout the workflow deletes every
+   release except the one running and the previous one (the rollback
+   target), then starts garbage collection, which takes about 10 minutes
+   and makes the registry read-only meanwhile - a deploy started during
+   it waits. So two releases are stored between deploys. Moving to Basic
+   ($5, 5 GB) later needs no change; set the repo variable
    `KEEP_RELEASES` (e.g. `5`) to keep more rollback targets.
 3. The registry is `registry.digitalocean.com/<registry-name>` - that's
    `REGISTRY` below.

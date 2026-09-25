@@ -11,6 +11,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from core_api.viewsets import BaseViewSet
+from goalnexa.access import visible_goals
 from goalnexa.models import Goal
 from goalnexa.serializers import GoalSerializer
 
@@ -31,7 +32,8 @@ class GoalViewSet(BaseViewSet):
     scope_field = "org_id"
 
     def get_queryset(self):
-        return super().get_queryset().filter(owner_id=self.request.user.id).order_by("-created_at")
+        # Own goals plus the goals of every org the caller is a member of.
+        return super().get_queryset().filter(visible_goals(self.request)).order_by("-created_at")
 
     def _resolve_parent(self, exclude_id=None):
         """`parent` is optional (unlike `MetricViewSet._resolve_goal`,
@@ -48,7 +50,7 @@ class GoalViewSet(BaseViewSet):
             return None
         if exclude_id is not None and str(parent_id) == str(exclude_id):
             raise ValidationError({"parent": ["A goal can't be its own parent."]})
-        return get_object_or_404(Goal, id=parent_id, owner_id=self.request.user.id)
+        return get_object_or_404(Goal.objects.filter(visible_goals(self.request)), id=parent_id)
 
     def perform_create(self, serializer):
         serializer.save(owner_id=self.request.user.id, parent=self._resolve_parent())

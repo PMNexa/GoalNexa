@@ -249,14 +249,24 @@ RBAC_DEFAULT_ROLES = [
         "name": "Member",
         "description": "Everyday use: goals, metrics, check-ins, organizations.",
         "is_default": True,
-        "permissions": ["goals.*", "metrics.*", "check-ins.*", "orgs.*"],
+        # Within an org, who may manage its members and invitations is the
+        # org's own owner/admin role (platform-org's OrgRole), on top of this.
+        "permissions": ["goals.*", "metrics.*", "check-ins.*", "orgs.*", "org-members.*", "org-invitations.*"],
     },
     {
         "name": "Viewer",
         "description": "Read-only - e.g. held within one organization.",
-        "permissions": ["goals.view", "metrics.view", "check-ins.view", "orgs.view"],
+        "permissions": ["goals.view", "metrics.view", "check-ins.view", "orgs.view", "org-members.view"],
     },
 ]
+
+# platform-org has no User table: members' names/emails, and the email an
+# invitation is matched against, come from platform-auth's users.
+PLATFORM_ORG_USER_DIRECTORY = "config.user_directory.lookup_users"
+# An invitation link sends an invited email with no account to signup
+# (platform-auth's page, mounted at /auth in routes.ts), else to log in.
+PLATFORM_ORG_ACCOUNT_EXISTS = "config.user_directory.account_exists"
+PLATFORM_ORG_SIGNUP_PAGE = "/auth/signup"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["platform_auth.authentication.ActorAuthentication"],

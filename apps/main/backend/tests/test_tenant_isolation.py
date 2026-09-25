@@ -9,7 +9,10 @@ role, app-wide. Every probe is made by Bob against Alice's data.
 `python manage.py test tests` in apps/main/backend.
 """
 
+import base64
+import hashlib
 import json
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
@@ -44,6 +47,8 @@ class TenantIsolationTests(TestCase):
         self.goal = self.create(self.alice, "goals", title="Alice's goal", org_id=self.org["id"])
         self.metric = self.create(self.alice, "metrics", goal=self.goal["id"], name="Revenue", target_value=100)
         self.check_in = self.create(self.alice, "check-ins", metric=self.metric["id"], value=40)
+        self.invitation = self.create(self.alice, "org-invitations", org=self.org["id"], email="dave@example.com")
+        self.membership = self.alice.get(f"{API}/org-members").json()["items"][0]
 
         self.bob_goal = self.create(self.bob, "goals", title="Bob's goal")
         self.bob_metric = self.create(self.bob, "metrics", goal=self.bob_goal["id"], name="Km", target_value=10)
@@ -59,6 +64,8 @@ class TenantIsolationTests(TestCase):
             "goals": self.goal["id"],
             "metrics": self.metric["id"],
             "check-ins": self.check_in["id"],
+            "org-members": self.membership["id"],
+            "org-invitations": self.invitation["id"],
         }
 
     # --- reading ---------------------------------------------------------
@@ -76,6 +83,8 @@ class TenantIsolationTests(TestCase):
             "metrics": [f"filter{{goal}}={self.goal['id']}", "q=Revenue"],
             "check-ins": [f"filter{{metric}}={self.metric['id']}"],
             "orgs": [f"filter{{id}}={self.org['id']}", "q=Alice"],
+            "org-members": [f"filter{{org}}={self.org['id']}", f"filter{{user_id}}={self.alice.user_id}"],
+            "org-invitations": [f"filter{{org}}={self.org['id']}", "q=dave"],
         }
         for resource, queries in probes.items():
             for query in queries:
@@ -102,7 +111,8 @@ class TenantIsolationTests(TestCase):
     def test_update_and_delete_other_tenants_row_is_404(self):
         for resource, row_id in self.alices_rows().items():
             with self.subTest(resource):
-                self.assertEqual(self.bob.patch(f"{API}/{resource}/{row_id}", {}, format="json").status_code, 404)
+                # 405: the resource takes no PATCH at all (invitations).
+                self.assertIn(self.bob.patch(f"{API}/{resource}/{row_id}", {}, format="json").status_code, (404, 405))
                 self.assertEqual(self.bob.delete(f"{API}/{resource}/{row_id}").status_code, 404)
                 self.assertEqual(self.alice.get(f"{API}/{resource}/{row_id}").status_code, 200)
 
@@ -188,8 +198,11 @@ class TenantIsolationTests(TestCase):
             ("goals_get", self.goal["id"]),
             ("metrics_get", self.metric["id"]),
             ("check_ins_get", self.check_in["id"]),
+            ("org_members_get", self.membership["id"]),
+            ("org_invitations_get", self.invitation["id"]),
         ]:
             with self.subTest(tool):
+                self.assertFalse(self.mcp(self.alice, tool, id=row_id)[0])  # the tool exists
                 self.assertTrue(self.mcp(self.bob, tool, id=row_id)[0])
                 self.assertTrue(self.mcp(self.bob, tool.replace("_get", "_delete"), id=row_id)[0])
         error, text = self.mcp(self.bob, "goals_list")
@@ -208,3 +221,43 @@ class TenantIsolationTests(TestCase):
         as_alice.credentials(HTTP_AUTHORIZATION=f"Bearer {token['token']}")
         self.assertFalse(self.mcp(as_alice, "goals_get", id=self.goal["id"])[0])
         self.assertEqual(as_alice.get(f"{API}/goals").status_code, 401)
+
+    def test_oauth_connections_are_per_user(self):
+        # A connector's whole flow, approved by Alice: register, consent,
+        # code for tokens (application/x-www-form-urlencoded, like a real
+        # client).
+        redirect = "https://claude.ai/api/mcp/auth_callback"
+        verifier = "v" * 64
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        client_id = APIClient().post(
+            f"{API}/mcp/oauth/register", {"client_name": "Claude", "redirect_uris": [redirect]}, format="json"
+        ).json()["client_id"]
+        request = {
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": redirect,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "state": "s",
+        }
+        approved = self.alice.post(f"{API}/mcp/oauth/authorize", {**request, "approve": True}, format="json")
+        code = parse_qs(urlsplit(approved.json()["redirect_to"]).query)["code"][0]
+        tokens = APIClient().post(
+            f"{API}/mcp/oauth/token",
+            urlencode({"grant_type": "authorization_code", "code": code, "client_id": client_id,
+                       "redirect_uri": redirect, "code_verifier": verifier}),
+            content_type="application/x-www-form-urlencoded",
+        ).json()
+
+        # The connection is Alice's alone.
+        grant_id = self.alice.get(f"{API}/mcp/oauth/grants").json()["items"][0]["id"]
+        self.assertEqual(self.bob.get(f"{API}/mcp/oauth/grants").json()["items"], [])
+        self.assertEqual(self.bob.delete(f"{API}/mcp/oauth/grants/{grant_id}").status_code, 404)
+
+        # Its token acts as Alice at the MCP endpoint - and nowhere else.
+        as_alice = APIClient()
+        as_alice.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access_token']}")
+        self.assertFalse(self.mcp(as_alice, "goals_get", id=self.goal["id"])[0])
+        self.assertTrue(self.mcp(as_alice, "goals_get", id=self.bob_goal["id"])[0])
+        self.assertEqual(as_alice.get(f"{API}/goals").status_code, 401)
+        self.assertEqual(as_alice.get(f"{API}/mcp/oauth/grants").status_code, 401)

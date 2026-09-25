@@ -11,10 +11,11 @@
 #
 # Registry: both images go to ONE repository, `goalnexa`, as
 # backend-<commit> / frontend-<commit> - the free Starter plan allows one
-# repository and 500 MB. Before each build, every release is deleted and
-# garbage-collected except the one the Swarm is running (the rollback
-# target once this one is out) and the KEEP_RELEASES newest others (repo
-# variable, default 0).
+# repository and 500 MB. After each rollout, every release is deleted
+# except the one the Swarm runs, the one just built and the KEEP_RELEASES
+# newest others (repo variable, default 1 - the previous release, to roll
+# back to), then garbage collection starts; the next deploy waits for it
+# before pushing (the registry is read-only while it runs).
 #
 # Setup (repo Settings):
 #   Variables (repository level - the job's `if` can't see environment
@@ -94,48 +95,19 @@ jobs:
         with:
           token: ${{ secrets.DO_REGISTRY_TOKEN }}
 
-      # Frees space before pushing. Garbage collection makes the registry
-      # read-only while it runs, so wait for it (and for one still running
-      # from elsewhere) before the build pushes.
-      - name: Remove old releases from the registry
+      # Garbage collection (started by the previous deploy's cleanup)
+      # makes the registry read-only while it runs - wait it out before
+      # pushing. Usually long finished by now.
+      - name: Wait for registry garbage collection
         if: steps.tag.outputs.build == 'true'
-        env:
-          KEEP: ${{ vars.KEEP_RELEASES || '0' }}
-          TAG: ${{ steps.tag.outputs.tag }}
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
         run: |
-          # The release the Swarm runs now - read from the Swarm, not the
-          # registry, since the newest pushed one may have rolled back.
-          # Unreachable manager = stop here rather than guess.
-          docker -H "ssh://$DEPLOY_HOST" info >/dev/null
-          running="$(docker -H "ssh://$DEPLOY_HOST" service inspect goalnexa_main-backend \
-            --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null \
-            | sed -n 's/.*:backend-\([0-9a-f]*\).*/\1/p')" || running=""
-          echo "Running: ${running:-nothing yet}"
-
-          wait_gc() {
-            for _ in $(seq 90); do
-              doctl registry garbage-collection get-active >/dev/null 2>&1 || return 0
-              sleep 10
-            done
-            echo "Garbage collection still running after 15 min" >&2
-            return 1
-          }
-          wait_gc
-          old="$(doctl registry repository list-tags goalnexa -o json 2>/dev/null | jq -r --arg tag "$TAG" --arg running "$running" --argjson keep "$KEEP" '
-            map(select(.tag | test("^(backend|frontend)-")))
-            | map({sha: (.tag | sub("^[a-z]+-"; "")), at: .updated_at})
-            | map(select(.sha != $tag and .sha != $running))
-            | group_by(.sha) | map({sha: .[0].sha, at: (map(.at) | max)})
-            | sort_by(.at) | reverse | .[$keep:] | .[].sha')" || old=""
-          [ -n "$old" ] || { echo "Nothing to remove"; exit 0; }
-          for sha in $old; do
-            echo "Removing release $sha"
-            doctl registry repository delete-tag goalnexa "backend-$sha" --force || true
-            doctl registry repository delete-tag goalnexa "frontend-$sha" --force || true
+          for _ in $(seq 120); do
+            doctl registry garbage-collection get-active >/dev/null 2>&1 || exit 0
+            echo "Garbage collection still running..."
+            sleep 15
           done
-          doctl registry garbage-collection start --include-untagged-manifests --force
-          wait_gc
+          echo "Garbage collection still running after 30 min" >&2
+          exit 1
 
       - uses: docker/setup-buildx-action@v3
         if: steps.tag.outputs.build == 'true'
@@ -178,6 +150,43 @@ jobs:
             printf 'REGISTRY=%s\nDEPLOY_HOST=%s\n' "$REGISTRY" "$DEPLOY_HOST"
           } > "$ENV_FILE"
           ENV_FILE="$ENV_FILE" scripts/deploy.sh "$TAG"
+
+      # After the rollout, so a deploy never waits on garbage collection
+      # it started itself (it takes ~10 min). Keeps the release the Swarm
+      # runs now (read from the Swarm - this one, or the previous one if
+      # this one rolled back), this build, and the KEEP_RELEASES newest
+      # others (default 1: the previous release, to roll back to).
+      - name: Remove old releases from the registry
+        if: always() && steps.tag.outputs.build == 'true'
+        env:
+          KEEP: ${{ vars.KEEP_RELEASES || '1' }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+        run: |
+          # Unreachable manager = stop here rather than guess.
+          docker -H "ssh://$DEPLOY_HOST" info >/dev/null
+          running="$(docker -H "ssh://$DEPLOY_HOST" service inspect goalnexa_main-backend \
+            --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null \
+            | sed -n 's/.*:backend-\([0-9a-f]*\).*/\1/p')" || running=""
+          echo "Running: ${running:-nothing}"
+          tags="$(doctl registry repository list-tags goalnexa -o json 2>/dev/null)" || tags="[]"
+          echo "In the registry: $(echo "$tags" | jq -r '[.[] | .tag // "(untagged)"] | join(" ")')"
+          # Entries without a tag (untagged manifests) are garbage
+          # collection's job, not this step's.
+          old="$(echo "$tags" | jq -r --arg tag "$TAG" --arg running "$running" --argjson keep "$KEEP" '
+            map(select((.tag // "") | test("^(backend|frontend)-")))
+            | map({sha: (.tag | sub("^[a-z]+-"; "")), at: .updated_at})
+            | map(select(.sha != $tag and .sha != $running))
+            | group_by(.sha) | map({sha: .[0].sha, at: (map(.at) | max)})
+            | sort_by(.at) | reverse | .[$keep:] | .[].sha')" || old=""
+          [ -n "$old" ] || { echo "Nothing to remove"; exit 0; }
+          for sha in $old; do
+            echo "Removing release $sha"
+            doctl registry repository delete-tag goalnexa "backend-$sha" --force || true
+            doctl registry repository delete-tag goalnexa "frontend-$sha" --force || true
+          done
+          # Not waited for - the next deploy's first step does that.
+          doctl registry garbage-collection start --include-untagged-manifests --force
 
       - name: Clean up
         if: always()
