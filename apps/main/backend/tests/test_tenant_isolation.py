@@ -9,7 +9,10 @@ role, app-wide. Every probe is made by Bob against Alice's data.
 `python manage.py test tests` in apps/main/backend.
 """
 
+import base64
+import hashlib
 import json
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
@@ -208,3 +211,43 @@ class TenantIsolationTests(TestCase):
         as_alice.credentials(HTTP_AUTHORIZATION=f"Bearer {token['token']}")
         self.assertFalse(self.mcp(as_alice, "goals_get", id=self.goal["id"])[0])
         self.assertEqual(as_alice.get(f"{API}/goals").status_code, 401)
+
+    def test_oauth_connections_are_per_user(self):
+        # A connector's whole flow, approved by Alice: register, consent,
+        # code for tokens (application/x-www-form-urlencoded, like a real
+        # client).
+        redirect = "https://claude.ai/api/mcp/auth_callback"
+        verifier = "v" * 64
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        client_id = APIClient().post(
+            f"{API}/mcp/oauth/register", {"client_name": "Claude", "redirect_uris": [redirect]}, format="json"
+        ).json()["client_id"]
+        request = {
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": redirect,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "state": "s",
+        }
+        approved = self.alice.post(f"{API}/mcp/oauth/authorize", {**request, "approve": True}, format="json")
+        code = parse_qs(urlsplit(approved.json()["redirect_to"]).query)["code"][0]
+        tokens = APIClient().post(
+            f"{API}/mcp/oauth/token",
+            urlencode({"grant_type": "authorization_code", "code": code, "client_id": client_id,
+                       "redirect_uri": redirect, "code_verifier": verifier}),
+            content_type="application/x-www-form-urlencoded",
+        ).json()
+
+        # The connection is Alice's alone.
+        grant_id = self.alice.get(f"{API}/mcp/oauth/grants").json()["items"][0]["id"]
+        self.assertEqual(self.bob.get(f"{API}/mcp/oauth/grants").json()["items"], [])
+        self.assertEqual(self.bob.delete(f"{API}/mcp/oauth/grants/{grant_id}").status_code, 404)
+
+        # Its token acts as Alice at the MCP endpoint - and nowhere else.
+        as_alice = APIClient()
+        as_alice.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access_token']}")
+        self.assertFalse(self.mcp(as_alice, "goals_get", id=self.goal["id"])[0])
+        self.assertTrue(self.mcp(as_alice, "goals_get", id=self.bob_goal["id"])[0])
+        self.assertEqual(as_alice.get(f"{API}/goals").status_code, 401)
+        self.assertEqual(as_alice.get(f"{API}/mcp/oauth/grants").status_code, 401)

@@ -36,8 +36,9 @@ your team's OKRs in a shared organization, then switch between them with one
 dropdown.
 
 **An AI teammate, on your terms.** A built-in [MCP](https://modelcontextprotocol.io)
-server lets any modern AI assistant read and update your goals, using a
-personal access token you can revoke at any time. It can do exactly what you
+server lets any modern AI assistant read and update your goals. Claude connects
+by signing in, other clients with a personal access token, and you can
+disconnect either at any time. It can do exactly what you
 can and nothing more.
 
 <table>
@@ -53,9 +54,12 @@ can and nothing more.
 
 ## Talk to your goals
 
-Connect Claude Code, Claude Desktop, Codex, Cursor, VS Code, Gemini CLI or
-Windsurf in about a minute. Create a token on the **MCP access** page, copy the
-snippet for your client, and ask away:
+Connect Claude (desktop app, claude.ai, mobile) as a custom connector: in
+Claude, **Settings → Connectors → Add custom connector**, paste
+`https://<your-host>/api/v1/mcp`, click **Connect** and allow access. No token
+needed. Claude Code, Codex, Cursor, VS Code, Gemini CLI and Windsurf take about
+a minute too: create a token on the **MCP access** page, copy the snippet for
+your client, and ask away:
 
 ![A real Claude Code session using the GoalNexa MCP server](docs/media/claude-code-mcp.png)
 
@@ -137,7 +141,7 @@ flowchart LR
 | `apps/platform-core/` | DRF kernel: `BaseViewSet`/`BaseSerializer` (filtering, sorting, sideloading, schema API), error contract, schema-driven CRUD screens, design system | [PMNexa/platform-core](https://github.com/PMNexa/platform-core) |
 | `apps/platform-auth/` | Users, login/signup, rotating refresh tokens, session store | [PMNexa/platform-auth](https://github.com/PMNexa/platform-auth) |
 | `apps/platform-org/` | Multi-tenant organizations and memberships | [PMNexa/platform-org](https://github.com/PMNexa/platform-org) |
-| `apps/platform-mcp/` | MCP server over every `BaseViewSet`, personal access tokens, agent-skills serving, the MCP access page | [PMNexa/platform-mcp](https://github.com/PMNexa/platform-mcp) |
+| `apps/platform-mcp/` | MCP server over every `BaseViewSet`, OAuth and personal access tokens, agent-skills serving, the MCP access page | [PMNexa/platform-mcp](https://github.com/PMNexa/platform-mcp) |
 | `nginx/default.conf` | Single-port gateway: `/api/*` and `/admin/*` go to the backend, everything else to the frontend | this repo |
 | `scripts/seed_demo.py` | Demo data through the REST API | this repo |
 | `docs/product-discovery/` | Market research behind the product | this repo |
@@ -155,7 +159,7 @@ too, and a goal's progress is the mean of its metrics'. `Metric.current_value`
 is the value of the latest check-in by `checked_in_at` (user-set, backdatable)
 and is recomputed on every check-in change.
 
-### MCP server and personal access tokens
+### MCP server, OAuth and personal access tokens
 
 - `POST /api/v1/mcp` speaks MCP's Streamable HTTP transport (stateless, JSON
   responses). Every `BaseViewSet` resource gets
@@ -169,6 +173,12 @@ and is recomputed on every check-in change.
   SHA-256 hash, optional expiry, last-used tracking) work **only at the MCP
   endpoint**. They're rejected by the rest of the API and can't create or revoke
   other tokens. Manage them at `/mcp` or through `GET/POST/DELETE /api/v1/mcp/tokens`.
+- **OAuth 2.1** for clients that sign in instead (Claude's custom connectors):
+  discovery through `/.well-known/oauth-protected-resource` and
+  `/.well-known/oauth-authorization-server`, dynamic client registration, PKCE,
+  a consent page at `/mcp/authorize`, 1-hour access tokens with rotating refresh
+  tokens. Their access tokens work only at the MCP endpoint too. Connected apps
+  are listed at `/mcp`, where they can be disconnected.
 
 ### Agent skills
 

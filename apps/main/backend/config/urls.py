@@ -22,6 +22,11 @@ from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # platform_mcp's OAuth discovery documents - at the ROOT, where MCP
+    # clients look (/.well-known/oauth-protected-resource/api/v1/mcp,
+    # /.well-known/oauth-authorization-server); nginx routes
+    # /.well-known/oauth-* here.
+    path('', include('platform_mcp.wellknown_urls')),
     # Same "api/v1/auth/" prefix platform_auth's own standalone
     # config/urls.py uses - keeps its internal cookie path
     # (settings.URL_PREFIX + "/api/v1/auth") and the frontend's already-
