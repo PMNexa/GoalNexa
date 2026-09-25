@@ -56,8 +56,9 @@ can and nothing more.
 
 Connect Claude (desktop app, claude.ai, mobile) as a custom connector: in
 Claude, **Settings → Connectors → Add custom connector**, paste
-`https://<your-host>/api/v1/mcp`, click **Connect** and allow access. No token
-needed. Claude Code, Codex, Cursor, VS Code, Gemini CLI and Windsurf take about
+`https://<your-host>/api/v1/mcp`, keep the sign-in settings Claude marks
+**Detected** (Sign in now, Register automatically), click **Connect** and allow
+access. No token needed. Claude Code, Codex, Cursor, VS Code, Gemini CLI and Windsurf take about
 a minute too: create a token on the **MCP access** page, copy the snippet for
 your client, and ask away:
 
