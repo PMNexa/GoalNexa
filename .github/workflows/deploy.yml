@@ -122,8 +122,12 @@ jobs:
             return 1
           }
           wait_gc
-          old="$(doctl registry repository list-tags goalnexa -o json 2>/dev/null | jq -r --arg tag "$TAG" --arg running "$running" --argjson keep "$KEEP" '
-            map(select(.tag | test("^(backend|frontend)-")))
+          tags="$(doctl registry repository list-tags goalnexa -o json 2>/dev/null)" || tags="[]"
+          echo "In the registry: $(echo "$tags" | jq -r '[.[] | .tag // "(untagged)"] | join(" ")')"
+          # Entries without a tag (untagged manifests) are garbage
+          # collection's job, not this step's.
+          old="$(echo "$tags" | jq -r --arg tag "$TAG" --arg running "$running" --argjson keep "$KEEP" '
+            map(select((.tag // "") | test("^(backend|frontend)-")))
             | map({sha: (.tag | sub("^[a-z]+-"; "")), at: .updated_at})
             | map(select(.sha != $tag and .sha != $running))
             | group_by(.sha) | map({sha: .[0].sha, at: (map(.at) | max)})
