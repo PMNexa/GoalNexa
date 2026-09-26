@@ -409,7 +409,7 @@ taking the SAME `basePath` - `createOrgsNavItems("platform-org")` next to
 (the "Access control" group), `createMcpNavItems("mcp")` - so the link can't drift from where
 the routes are mounted, and the module brings its own label and icon.
 Main's `app-shell.tsx` just spreads them into `NAV_ITEMS` (plain literals
-remain for resources main mounts with a bare `createCrudRoutes`, e.g.
+remain for resources main mounts itself, e.g.
 `/goals`). An entry may carry `permission` (core's `NavItem`); main runs
 the list through platform-auth's `filterNavByPermissions` (drops links
 the user lacks, and groups left empty). Keep a nav builder browser-safe
@@ -607,7 +607,17 @@ owner. **An org's goals are shared with its members** (goalnexa's
 `access.py`: personal goals stay the owner's; org goals are visible to
 whoever may list that org at `/api/v1/orgs`, via platform-core's
 `visible_rows`), so leaving an org ends access to its goals, even ones
-you created. Main supplies platform-org's user directory
+you created. **A goal's `visibility`** narrows that: `public` (default)
+= the whole org, `private` = its owner plus its **goal members**
+(`GoalMember`, `/api/v1/goal-members` - `goal` + bare `user_id`, only
+members of the goal's org, only an org goal). Only the owner changes
+visibility or adds/removes members; a member can leave. Metrics and
+check-ins follow their goal. The UI is goalnexa-frontend's
+`GoalSharingPanel`, under a goal's page (`createGoalsRoutes()`, which
+swaps in `routes/goal-detail.tsx` as the goals' `detailFile`) and in the
+dashboard's goal drawer; `members` is `auto_exclude`d from
+`GoalSerializer` so the generic detail screen doesn't grow a raw-user-id
+tab. Names come from `/api/v1/org-members`. Main supplies platform-org's user directory
 (`PLATFORM_ORG_USER_DIRECTORY` -> `config/user_directory.py`) for member
 names/emails. Tests: `apps/main/backend/tests/test_org_membership.py`.
 **Tenant isolation** is pinned by `apps/main/backend/tests/`

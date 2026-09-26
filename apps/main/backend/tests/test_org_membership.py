@@ -176,3 +176,78 @@ class OrgMembershipTests(TestCase):
         bob = self.membership(self.bob, self.bob.user_id)
         self.bob.delete(f"{API}/org-members/{bob['id']}")
         self.assertEqual(ids(self.bob.get(f"{API}/goals")), set())
+
+    # --- private goals and goal members ------------------------------------
+
+    def share(self, client, goal, user_id):
+        return self.post(client, "goal-members", goal=goal["id"], user_id=user_id)
+
+    def test_private_goal_is_seen_by_its_owner_and_members_only(self):
+        self.join(self.bob, "bob@example.com")
+        self.join(self.carol, "carol@example.com")
+        public = self.post(self.alice, "goals", title="Team goal", org_id=self.org["id"]).json()
+        private = self.post(self.alice, "goals", title="Secret", org_id=self.org["id"], visibility="private").json()
+        metric = self.post(self.alice, "metrics", goal=private["id"], name="Revenue", target_value=100).json()
+        self.assertEqual((public["visibility"], private["visibility"]), ("public", "private"))
+
+        self.assertEqual(ids(self.alice.get(f"{API}/goals")), {public["id"], private["id"]})
+        for client in (self.bob, self.carol):
+            self.assertEqual(ids(client.get(f"{API}/goals")), {public["id"]})
+            self.assertEqual(client.get(f"{API}/goals/{private['id']}").status_code, 404)
+            self.assertEqual(self.post(client, "check-ins", metric=metric["id"], value=1).status_code, 404)
+
+        # Shared with Bob: he sees it and its metrics, Carol still doesn't.
+        member = self.share(self.alice, private, self.bob.user_id)
+        self.assertEqual(member.status_code, 201, member.content)
+        self.assertEqual(ids(self.bob.get(f"{API}/goals")), {public["id"], private["id"]})
+        self.assertEqual(ids(self.bob.get(f"{API}/metrics")), {metric["id"]})
+        self.assertEqual(self.post(self.bob, "check-ins", metric=metric["id"], value=1).status_code, 201)
+        self.assertEqual(ids(self.carol.get(f"{API}/goals")), {public["id"]})
+        self.assertEqual(ids(self.bob.get(f"{API}/goal-members")), {member.json()["id"]})
+        self.assertEqual(ids(self.carol.get(f"{API}/goal-members")), set())
+
+        # Made public: the whole org sees it.
+        self.alice.patch(f"{API}/goals/{private['id']}", {"visibility": "public"}, format="json")
+        self.assertIn(private["id"], ids(self.carol.get(f"{API}/goals")))
+
+    def test_only_the_owner_manages_visibility_and_members(self):
+        self.join(self.bob, "bob@example.com")
+        self.join(self.carol, "carol@example.com")
+        goal = self.post(self.alice, "goals", title="Secret", org_id=self.org["id"], visibility="private").json()
+        self.assertEqual(self.share(self.alice, goal, self.bob.user_id).status_code, 201)
+
+        # Bob sees it but can't share it on, or open it up.
+        self.assertEqual(self.share(self.bob, goal, self.carol.user_id).status_code, 403)
+        response = self.bob.patch(f"{API}/goals/{goal['id']}", {"visibility": "public"}, format="json")
+        self.assertEqual(response.status_code, 403)
+        # Other edits are fine.
+        response = self.bob.patch(f"{API}/goals/{goal['id']}", {"title": "Secret v2"}, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+
+        # The owner can remove a member; a member can leave.
+        carol = self.share(self.alice, goal, self.carol.user_id).json()
+        bob = next(row for row in self.alice.get(f"{API}/goal-members").json()["items"] if row["user_id"] == self.bob.user_id)
+        self.assertEqual(self.bob.delete(f"{API}/goal-members/{carol['id']}").status_code, 403)
+        self.assertEqual(self.bob.delete(f"{API}/goal-members/{bob['id']}").status_code, 204)
+        self.assertEqual(ids(self.bob.get(f"{API}/goals")), set())
+        self.assertEqual(self.alice.delete(f"{API}/goal-members/{carol['id']}").status_code, 204)
+        self.assertEqual(ids(self.carol.get(f"{API}/goals")), set())
+
+    def test_only_org_members_can_be_added(self):
+        self.join(self.bob, "bob@example.com")
+        goal = self.post(self.alice, "goals", title="Secret", org_id=self.org["id"], visibility="private").json()
+        personal = self.post(self.alice, "goals", title="Mine").json()
+        self.assertEqual(self.share(self.alice, goal, self.carol.user_id).status_code, 400)  # not in the org
+        self.assertEqual(self.share(self.alice, goal, self.alice.user_id).status_code, 400)  # the owner
+        self.assertEqual(self.share(self.alice, personal, self.bob.user_id).status_code, 400)  # no org
+        self.assertEqual(self.share(self.alice, goal, self.bob.user_id).status_code, 201)
+        self.assertEqual(self.share(self.alice, goal, self.bob.user_id).status_code, 400)  # already in
+        self.assertEqual(ids(self.carol.get(f"{API}/goals")), set())
+
+    def test_leaving_the_org_ends_access_to_a_shared_private_goal(self):
+        self.join(self.bob, "bob@example.com")
+        goal = self.post(self.alice, "goals", title="Secret", org_id=self.org["id"], visibility="private").json()
+        self.share(self.alice, goal, self.bob.user_id)
+        bob = self.membership(self.bob, self.bob.user_id)
+        self.bob.delete(f"{API}/org-members/{bob['id']}")
+        self.assertEqual(ids(self.bob.get(f"{API}/goals")), set())

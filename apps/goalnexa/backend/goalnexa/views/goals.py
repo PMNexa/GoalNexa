@@ -7,7 +7,7 @@ sub-goals instead of leaving those fields off.
 """
 
 from django.shortcuts import get_object_or_404
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from core_api.viewsets import BaseViewSet
@@ -32,7 +32,7 @@ class GoalViewSet(BaseViewSet):
     scope_field = "org_id"
 
     def get_queryset(self):
-        # Own goals plus the goals of every org the caller is a member of.
+        # Own goals plus the org goals the caller may see (access.py).
         return super().get_queryset().filter(visible_goals(self.request)).order_by("-created_at")
 
     def _resolve_parent(self, exclude_id=None):
@@ -67,6 +67,9 @@ class GoalViewSet(BaseViewSet):
         # that into "leave untouched" would make clearing a parent
         # impossible from the UI.
         instance = serializer.instance
+        visibility = serializer.validated_data.get("visibility", instance.visibility)
+        if visibility != instance.visibility and str(instance.owner_id) != str(self.request.user.id):
+            raise PermissionDenied("Only the goal's owner can change who sees it.")
         if "parent" in self.request.data:
             parent_id = self.request.data.get("parent")
             parent = self._resolve_parent(exclude_id=instance.id) if parent_id else None

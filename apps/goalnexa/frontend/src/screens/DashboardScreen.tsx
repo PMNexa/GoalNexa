@@ -10,6 +10,7 @@ import {
   type LinkComponent,
 } from "platform-core";
 import type { Goal } from "../lib/api/goals";
+import GoalSharingPanel from "./GoalSharingPanel";
 import type { Metric } from "../lib/api/metrics";
 import {
   fetchCheckIns,
@@ -130,6 +131,8 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
   const [seriesVersion, setSeriesVersion] = useState(0);
   const loadedKeyRef = useRef<string | null>(null);
   const [detail, setDetail] = useState<DetailTarget | null>(null);
+  // Bumped when the drawer's sharing panel changes the goal - reloads its details.
+  const [detailVersion, setDetailVersion] = useState(0);
   const [error, setError] = useState<Error | null>(null);
   const [onboarding, setOnboarding] = useState(false);
   // Bumped after onboarding creates an org - reloads the org list.
@@ -388,13 +391,22 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
       <Drawer open={detail !== null} title={detail?.endpoint === "/api/v1/metrics" ? "Metric" : "Goal"} onClose={closeDetail}>
         {detail && (
           <CrudDetailScreen
-            key={`${detail.endpoint}/${detail.id}`}
+            key={`${detail.endpoint}/${detail.id}/${detailVersion}`}
             baseUrl={detail.endpoint}
             accessToken={accessToken}
             id={detail.id}
             linkComponent={linkComponent}
             resourcePath={resourcePath}
             onDeleted={handleDetailDeleted}
+          />
+        )}
+        {detail?.endpoint === "/api/v1/goals" && (
+          <GoalSharingPanel
+            key={detail.id}
+            accessToken={accessToken}
+            goalId={detail.id}
+            onChanged={() => setDetailVersion((v) => v + 1)}
+            onLeft={handleDetailDeleted}
           />
         )}
       </Drawer>

@@ -251,12 +251,12 @@ RBAC_DEFAULT_ROLES = [
         "is_default": True,
         # Within an org, who may manage its members and invitations is the
         # org's own owner/admin role (platform-org's OrgRole), on top of this.
-        "permissions": ["goals.*", "metrics.*", "check-ins.*", "orgs.*", "org-members.*", "org-invitations.*"],
+        "permissions": ["goals.*", "goal-members.*", "metrics.*", "check-ins.*", "orgs.*", "org-members.*", "org-invitations.*"],
     },
     {
         "name": "Viewer",
         "description": "Read-only - e.g. held within one organization.",
-        "permissions": ["goals.view", "metrics.view", "check-ins.view", "orgs.view", "org-members.view"],
+        "permissions": ["goals.view", "goal-members.view", "metrics.view", "check-ins.view", "orgs.view", "org-members.view"],
     },
 ]
 

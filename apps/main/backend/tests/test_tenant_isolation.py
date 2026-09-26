@@ -49,6 +49,11 @@ class TenantIsolationTests(TestCase):
         self.check_in = self.create(self.alice, "check-ins", metric=self.metric["id"], value=40)
         self.invitation = self.create(self.alice, "org-invitations", org=self.org["id"], email="dave@example.com")
         self.membership = self.alice.get(f"{API}/org-members").json()["items"][0]
+        # Carol joins Alice's org so Alice's goal can be shared with her.
+        self.carol = signup("Carol")
+        token = self.create(self.alice, "org-invitations", org=self.org["id"], email="carol@example.com")["token"]
+        self.assertEqual(self.carol.post(f"{API}/org-invitations/token/{token}/accept").status_code, 200)
+        self.goal_member = self.create(self.alice, "goal-members", goal=self.goal["id"], user_id=self.carol.user_id)
 
         self.bob_goal = self.create(self.bob, "goals", title="Bob's goal")
         self.bob_metric = self.create(self.bob, "metrics", goal=self.bob_goal["id"], name="Km", target_value=10)
@@ -64,6 +69,7 @@ class TenantIsolationTests(TestCase):
             "goals": self.goal["id"],
             "metrics": self.metric["id"],
             "check-ins": self.check_in["id"],
+            "goal-members": self.goal_member["id"],
             "org-members": self.membership["id"],
             "org-invitations": self.invitation["id"],
         }
@@ -82,6 +88,7 @@ class TenantIsolationTests(TestCase):
             "goals": [f"filter{{owner_id}}={self.alice.user_id}", f"filter{{org_id}}={self.org['id']}", "q=Alice"],
             "metrics": [f"filter{{goal}}={self.goal['id']}", "q=Revenue"],
             "check-ins": [f"filter{{metric}}={self.metric['id']}"],
+            "goal-members": [f"filter{{goal}}={self.goal['id']}", f"filter{{user_id}}={self.carol.user_id}"],
             "orgs": [f"filter{{id}}={self.org['id']}", "q=Alice"],
             "org-members": [f"filter{{org}}={self.org['id']}", f"filter{{user_id}}={self.alice.user_id}"],
             "org-invitations": [f"filter{{org}}={self.org['id']}", "q=dave"],
@@ -122,6 +129,9 @@ class TenantIsolationTests(TestCase):
             ("metrics", {"goal": self.bob_goal["id"], "parent": self.metric["id"], "name": "Sneaky", "target_value": 1}),
             ("check-ins", {"metric": self.metric["id"], "value": 999}),
             ("goals", {"title": "Sneaky", "parent": self.goal["id"]}),
+            ("goal-members", {"goal": self.goal["id"], "user_id": self.bob.user_id}),
+            # Bob's own goal is personal - and Alice isn't in any org of his.
+            ("goal-members", {"goal": self.bob_goal["id"], "user_id": self.alice.user_id}),
         ]
         for resource, body in attempts:
             with self.subTest(resource=resource, body=body):
@@ -198,6 +208,7 @@ class TenantIsolationTests(TestCase):
             ("goals_get", self.goal["id"]),
             ("metrics_get", self.metric["id"]),
             ("check_ins_get", self.check_in["id"]),
+            ("goal_members_get", self.goal_member["id"]),
             ("org_members_get", self.membership["id"]),
             ("org_invitations_get", self.invitation["id"]),
         ]:

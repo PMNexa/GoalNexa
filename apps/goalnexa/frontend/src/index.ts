@@ -18,13 +18,20 @@
  * (one tab per to-many relation, derived from the schema). This package
  * used to ship custom `GoalsEditScreen`/`MetricsEditScreen` (+ route
  * files, wired in via `createCrudRoutes`'s `editFile`) just to show
- * those inline; the detail screen replaced them.
+ * those inline; the detail screen replaced them. A goal's page adds one
+ * thing to it - who the goal is shared with (`GoalSharingPanel`), hence
+ * `createGoalsRoutes()` instead of a bare `createCrudRoutes`.
  */
-export type { Goal, GoalStatus } from "./lib/api/goals";
+export type { Goal, GoalStatus, GoalVisibility } from "./lib/api/goals";
 
 export type { Metric } from "./lib/api/metrics";
 
 export type { CheckIn } from "./lib/api/checkIns";
+
+// Goals: the generic CRUD pages, with the sharing panel on a goal's page.
+export { createGoalsRoutes } from "./goalsRoutes";
+export { default as GoalSharingPanel } from "./screens/GoalSharingPanel";
+export type { GoalSharingPanelProps } from "./screens/GoalSharingPanel";
 
 // Dashboard: org + goals filters, progress-over-time / current-progress
 // charts. `createDashboardRoutes(basePath)` is what a host mounts.

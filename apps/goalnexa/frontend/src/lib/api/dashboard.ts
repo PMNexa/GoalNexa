@@ -24,7 +24,7 @@ interface Page<T> {
 // until `total` is reached rather than silently truncating.
 const PAGE_SIZE = 100;
 
-async function fetchAll<T>(path: string, accessToken: string): Promise<T[]> {
+export async function fetchAll<T>(path: string, accessToken: string): Promise<T[]> {
   const joiner = path.includes("?") ? "&" : "?";
   const items: T[] = [];
   for (let page = 1; ; page += 1) {

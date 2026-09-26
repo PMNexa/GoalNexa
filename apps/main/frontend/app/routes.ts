@@ -1,5 +1,5 @@
 import { type RouteConfig, index, layout } from "@react-router/dev/routes";
-import { createDashboardRoutes } from "goalnexa-frontend";
+import { createDashboardRoutes, createGoalsRoutes } from "goalnexa-frontend";
 import { createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
 import { createCrudRoutes } from "platform-core";
 import { createMcpRoutes } from "platform-mcp-frontend";
@@ -46,7 +46,9 @@ export default [
   layout("routes/app-shell.tsx", [
     ...createDashboardRoutes("dashboard"),
     ...createOrgsRoutes("platform-org"),
-    ...createCrudRoutes("/api/v1/goals"),
+    // Goals: the generic pages too, but a goal's page adds who it's
+    // shared with - goalnexa-frontend's builder swaps in that one file.
+    ...createGoalsRoutes(),
     ...createCrudRoutes("/api/v1/metrics"),
     ...createCrudRoutes("/api/v1/check-ins"),
     // Personal access tokens + how to connect an AI client to the MCP

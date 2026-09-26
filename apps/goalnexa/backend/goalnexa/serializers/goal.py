@@ -19,10 +19,15 @@ class GoalSerializer(BaseSerializer):
     org picker instead of a raw-id text box - it's still a plain
     serializer field otherwise, written through `validated_data` like any
     other (no `GoalViewSet._resolve_*` needed for it).
+
+    `members` (the reverse `GoalMember` relation) is left out: who a goal
+    is shared with is managed at `/api/v1/goal-members` (goalnexa-frontend's
+    goal members panel), not as a generic related-rows tab whose form
+    would ask for a raw user id.
     """
 
     class Meta:
         model = Goal
         extra_kwargs = {"owner_id": {"read_only": True}}
-        auto_exclude = ["created_at", "updated_at"]
+        auto_exclude = ["created_at", "updated_at", "members"]
         related_endpoints = {"org_id": "/api/v1/orgs"}

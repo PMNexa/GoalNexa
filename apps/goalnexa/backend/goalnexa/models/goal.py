@@ -10,6 +10,11 @@ class GoalStatus(models.TextChoices):
     ARCHIVED = "archived", "Archived"
 
 
+class GoalVisibility(models.TextChoices):
+    PUBLIC = "public", "Public"
+    PRIVATE = "private", "Private"
+
+
 class Goal(TimestampedModel):
     """`owner_id` is a bare UUIDField, not a ForeignKey - this module
     shares nothing at the DB level with whatever module owns the actual
@@ -24,6 +29,11 @@ class Goal(TimestampedModel):
     asking platform-org's own viewset which orgs the caller is in - no
     Python import of its models). Setting it is checked the same way
     (`BaseViewSet._check_cross_module_ids`): only an org you belong to.
+
+    `visibility` narrows that for an org goal: PUBLIC (the default) is
+    seen by every member of the org, PRIVATE only by its owner and its
+    `members` (`GoalMember`). A personal goal is private either way. Only
+    the owner changes it (`GoalViewSet.perform_update`).
     """
 
     id = models.UUIDField(primary_key=True, default=generate_uuid7, editable=False)
@@ -33,6 +43,15 @@ class Goal(TimestampedModel):
     org_id = models.UUIDField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=GoalStatus.choices, default=GoalStatus.NOT_STARTED)
     target_date = models.DateField(null=True, blank=True)
+    # db_default too: the previous release's code, still running while a
+    # deploy migrates, inserts goals without this column.
+    visibility = models.CharField(
+        max_length=16,
+        choices=GoalVisibility.choices,
+        default=GoalVisibility.PUBLIC,
+        db_default=GoalVisibility.PUBLIC,
+        help_text="Public: every member of its organization sees it. Private: only you and the goal's members.",
+    )
     # Self-referential, optional - a sub-goal under a bigger one. SET_NULL
     # (not CASCADE): deleting a parent goal shouldn't silently destroy its
     # whole sub-tree, just detach the children back to top-level. No cycle
