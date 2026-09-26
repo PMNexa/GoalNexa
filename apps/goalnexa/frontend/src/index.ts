@@ -31,3 +31,9 @@ export type { CheckIn } from "./lib/api/checkIns";
 export { default as DashboardScreen } from "./screens/DashboardScreen";
 export type { DashboardScreenProps } from "./screens/DashboardScreen";
 export { createDashboardRoutes } from "./dashboardRoutes";
+
+// The org being worked in - the dashboard's org filter, which a host's
+// header can switch too (`setCurrentOrg`); `fetchOrgs` lists the choices.
+export { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "./lib/currentOrg";
+export { fetchOrgs } from "./lib/api/dashboard";
+export type { OrgOption } from "./lib/api/dashboard";

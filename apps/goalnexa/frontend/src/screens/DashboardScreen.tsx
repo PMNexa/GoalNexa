@@ -36,6 +36,7 @@ import { fitDomain } from "./dashboard/chartUtils";
 import { formatPct, pctDomainMax } from "./dashboard/chartUtils";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
 import OnboardingWizard from "./onboarding/OnboardingWizard";
+import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../lib/currentOrg";
 
 const markerDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
@@ -64,27 +65,8 @@ interface DetailTarget {
 
 /** Palette has 8 validated categorical slots - a 9th series would need a generated hue, so selection stops at 8. */
 const MAX_GOALS = 8;
-const PERSONAL = "__personal__";
-/** The picked org is remembered per browser; a storage failure just means it isn't. */
-const ORG_STORAGE_KEY = "goalnexa:dashboard-org";
 /** Set once a user without an org skips the onboarding wizard - not asked again in this browser. */
 const ONBOARDING_SKIPPED_KEY = "goalnexa:onboarding-skipped";
-
-function readStoredOrg(): string | null {
-  try {
-    return window.localStorage.getItem(ORG_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function storeOrg(key: string) {
-  try {
-    window.localStorage.setItem(ORG_STORAGE_KEY, key);
-  } catch {
-    // Not remembered - nothing else depends on it.
-  }
-}
 
 function onboardingSkipped(): boolean {
   try {
@@ -161,9 +143,9 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
         setOrgs(items);
         setOnboarding(items.length === 0 && !onboardingSkipped());
         // The last pick, if it's still one of this user's orgs.
-        const stored = readStoredOrg();
-        const valid = stored === PERSONAL || items.some((org) => org.id === stored);
-        setOrgKey(valid && stored ? stored : (items[0]?.id ?? PERSONAL));
+        const stored = getCurrentOrg();
+        const valid = stored === PERSONAL_ORG || items.some((org) => org.id === stored);
+        setOrgKey(valid && stored ? stored : (items[0]?.id ?? PERSONAL_ORG));
       })
       .catch((thrown: unknown) => !cancelled && setError(toError(thrown)));
     return () => {
@@ -171,12 +153,22 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
     };
   }, [accessToken, orgsVersion]);
 
+  // A switch from outside (the host's header menu, another tab) - follow
+  // it if it's one of this user's orgs.
+  useEffect(() => {
+    if (orgs === null) return;
+    return subscribeCurrentOrg(() => {
+      const next = getCurrentOrg();
+      if (next === PERSONAL_ORG || orgs.some((org) => org.id === next)) setOrgKey(next);
+    });
+  }, [orgs]);
+
   useEffect(() => {
     if (orgKey === null) return;
     let cancelled = false;
     setGoals(null);
     setSelected(new Map());
-    fetchGoals(accessToken, orgKey === PERSONAL ? null : orgKey)
+    fetchGoals(accessToken, orgKey === PERSONAL_ORG ? null : orgKey)
       .then((items) => {
         if (cancelled) return;
         setGoals(items);
@@ -366,7 +358,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
         accessToken={accessToken}
         onComplete={(orgId) => {
           // The org list reload picks the stored org, so the new one opens.
-          storeOrg(orgId);
+          setCurrentOrg(orgId);
           setOnboarding(false);
           setOrgsVersion((v) => v + 1);
         }}
@@ -427,7 +419,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                 disabled={orgs === null}
                 onChange={(event) => {
                   setOrgKey(event.target.value);
-                  storeOrg(event.target.value);
+                  setCurrentOrg(event.target.value);
                 }}
               >
                 {orgs === null && <option value="">Loading…</option>}
@@ -436,7 +428,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                     {org.name}
                   </option>
                 ))}
-                <option value={PERSONAL}>Personal (no organization)</option>
+                <option value={PERSONAL_ORG}>Personal (no organization)</option>
               </select>
             </div>
 

@@ -8,6 +8,7 @@ import { createOrgsNavItems } from "platform-org-frontend";
 import { createExtensionNavItems } from "../extensions";
 import { DashboardIcon, GoalsIcon } from "../lib/navIcons";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
+import { useUserMenu } from "../lib/useUserMenu";
 
 function ShellLink({ to, className, children, ...rest }: LinkComponentProps) {
   return (
@@ -60,8 +61,10 @@ const NAV_ITEMS: NavEntry[] = [
  * goalnexa-frontend's `dashboard.tsx`, platform-mcp-frontend's `mcp.tsx`) read it with
  * `useOutletContext<string>()`.
  *
- * "Log out" is platform-auth's `logout()`: revokes the refresh token
- * server-side, then clears the session (which redirects to login via
+ * The header's user block is a dropdown: switch organization / manage
+ * organizations (`useUserMenu`), then "Log out" - platform-auth's
+ * `logout()`: revokes the refresh token server-side, then clears the
+ * session (which redirects to login via
  * `useRequireAccessToken`). Until then the session never ends on its
  * own - platform-auth's session store keeps the access token fresh.
  */
@@ -71,6 +74,7 @@ export default function AppShellLayout() {
   const accessToken = useRequireAccessToken();
   const permissions = useMyPermissions();
   const navItems = filterNavByPermissions(NAV_ITEMS, permissions);
+  const userMenu = useUserMenu(accessToken, permissions);
 
   useEffect(() => {
     return subscribeSession(() => setSessionState(getSession()));
@@ -85,6 +89,8 @@ export default function AppShellLayout() {
       linkComponent={ShellLink}
       user={session?.user ?? null}
       onLogout={session ? () => void logout() : undefined}
+      userMenu={userMenu.items}
+      onUserMenuOpen={userMenu.refresh}
     >
       <Outlet context={accessToken} />
     </AppShell>

@@ -461,7 +461,12 @@ plugs in the pieces `AppShell` deliberately doesn't own: a
 dependency inside the package" convention as the screens), the
 `navItems` list (spans routes from multiple modules, so it's assembled
 here), and the session
-read for the header's user/logout display. "Log out" there is
+read for the header's user menu. The header's user block is a dropdown
+(platform-core's `UserMenu`, fed by AppShell's `userMenu` entries):
+"Switch organization" (goalnexa-frontend's current-org store,
+`setCurrentOrg` - the dashboard's org filter, which follows it live;
+picking one opens `/dashboard`), "Manage organizations", then "Log out"
+- main's `lib/useUserMenu.ts` builds it. "Log out" is
 platform-auth's `logout()`: revokes the refresh token server-side, then
 clears the session. Nothing else ends a session - platform-auth's
 session store refreshes the 15-minute access token before it expires,
