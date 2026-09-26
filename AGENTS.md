@@ -60,8 +60,13 @@ Swarm) and the previous one, and starts garbage collection without
 waiting (~10 min; the next deploy waits if it's still running). Only `scripts/deploy.sh` deploys - Swarm ignores
 `depends_on`, so the script migrates with the new image first, then
 `stack deploy`, then fails if a service rolled back. A migration must
-therefore work with the previous release's code too. Releasing = merging
-a PR into the `deploy` branch (`.github/workflows/deploy.yml`). Setup,
+therefore work with the previous release's code too. **Production
+deploys from the private `PMNexa/goalnexa-cloud` repo only** - this
+public repo has no `deploy` branch (never create one or open a release
+PR here). Releasing = run cloud's "Sync from public repo" workflow (merges
+this repo's `main` into cloud's `main`), then merge a PR from `main` into
+cloud's `deploy` branch (its `.github/workflows/deploy.yml`, the same
+file as here - keep it, cloud gets it through the sync). Setup,
 release, rollback and scaling: `docs/deployment.md`. Adding a node =
 `docker swarm join` + more replicas; the stack needs no change.
 
@@ -173,10 +178,16 @@ is remembered in localStorage (`goalnexa:dashboard-org`). There is no
 table view - charts only. The color tokens live on the `.gn-dashboard` root, not just on
 `.gn-viz`, because the filter card's color keys sit outside the charts.
 A user with no organization gets the onboarding wizard instead
-(`screens/onboarding/OnboardingWizard.tsx`): org name → goals (optional
-target date) → metrics per goal (start → target, must differ) → review,
-then it creates everything over the REST API (`lib/api/onboarding.ts`)
-and opens the dashboard on the new org. Nothing is written before the
+(`screens/onboarding/OnboardingWizard.tsx`). It first asks how they'll
+use GoalNexa, and each answer has its own steps. **Website**: org name →
+goals (optional target date) → metrics per goal (start → target, must
+differ) → review, then it creates everything over the REST API
+(`lib/api/onboarding.ts`) and opens the dashboard on the new org.
+**AI agent**: connect (platform-mcp-frontend's `McpConnectGuide` - pick
+the client, its own steps and snippet, "Create a token" fills it in) →
+install the skills (the copyable prompt) → starter prompts (plan / check
+in / review); finishing counts as "Skip for now" - the agent creates the
+org. Nothing is written before the
 last step; a failed create retries without duplicating what went
 through. "Skip for now" sets `goalnexa:onboarding-skipped` in
 localStorage (not asked again in that browser).

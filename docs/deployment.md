@@ -6,6 +6,12 @@ container registry, Caddy terminating HTTPS. Merging a PR into the `deploy`
 branch builds and rolls out the new version
 (`.github/workflows/deploy.yml` → `scripts/deploy.sh`).
 
+**All of this runs in the private `PMNexa/goalnexa-cloud` repo**, which
+merges this public repo daily ("Sync from public repo"). The `deploy`
+branch, the `production` environment, the variables and the secrets
+live there; this public repo has no `deploy` branch, and its copy of
+`deploy.yml` skips itself (no variables).
+
 ```
 DNS A record → manager Droplet, ports 80/443
 Droplet(s) ── Swarm: caddy (HTTPS, Let's Encrypt) → nginx ×2
@@ -110,30 +116,30 @@ To deploy from your own machine instead of CI, add
 ## 7. GitHub variables, environment and secrets
 
 ```bash
-gh variable set REGISTRY --body registry.digitalocean.com/<registry-name>
-gh variable set DEPLOY_HOST --body deploy@<public-ip>
+gh variable set -R PMNexa/goalnexa-cloud REGISTRY --body registry.digitalocean.com/<registry-name>
+gh variable set -R PMNexa/goalnexa-cloud DEPLOY_HOST --body deploy@<public-ip>
 
 # environment only the deploy branch may use
-gh api -X PUT repos/PMNexa/GoalNexa/environments/production \
+gh api -X PUT repos/PMNexa/goalnexa-cloud/environments/production \
   -F 'deployment_branch_policy[protected_branches]=false' \
   -F 'deployment_branch_policy[custom_branch_policies]=true'
-gh api -X POST repos/PMNexa/GoalNexa/environments/production/deployment-branch-policies -f name=deploy -f type=branch
+gh api -X POST repos/PMNexa/goalnexa-cloud/environments/production/deployment-branch-policies -f name=deploy -f type=branch
 
-gh secret set PROD_ENV --env production < .env.production
-gh secret set DO_REGISTRY_TOKEN --env production          # paste the step 2 token
-gh secret set DEPLOY_SSH_KEY --env production < ~/.ssh/goalnexa_deploy
-ssh-keyscan -t ed25519 <public-ip> | gh secret set DEPLOY_KNOWN_HOSTS --env production
+gh secret set -R PMNexa/goalnexa-cloud PROD_ENV --env production < .env.production
+gh secret set -R PMNexa/goalnexa-cloud DO_REGISTRY_TOKEN --env production          # paste the step 2 token
+gh secret set -R PMNexa/goalnexa-cloud DEPLOY_SSH_KEY --env production < ~/.ssh/goalnexa_deploy
+ssh-keyscan -t ed25519 <public-ip> | gh secret set -R PMNexa/goalnexa-cloud DEPLOY_KNOWN_HOSTS --env production
 ```
 
 The variables must be repository-level: the workflow's `if` can't see
 environment variables, and it skips itself while they're unset.
 
-The `deploy` branch is protected (PR only, 0 approvals, CI checks
+The `deploy` branch (in goalnexa-cloud) is protected (PR only, 0 approvals, CI checks
 `backend`/`frontend`/`images` must pass and be up to date, admins
 included, no force-push or delete). To recreate it:
 
 ```bash
-gh api -X PUT repos/PMNexa/GoalNexa/branches/deploy/protection --input - <<'EOF'
+gh api -X PUT repos/PMNexa/goalnexa-cloud/branches/deploy/protection --input - <<'EOF'
 {
   "required_status_checks": {"strict": true, "checks": [
     {"context": "backend", "app_id": 15368},
@@ -184,12 +190,15 @@ Check: `ssh deploy@<public-ip> docker service ls` - replicas 2/2, 2/2,
 
 ## 10. Day to day
 
-**Release** - PR from `main` into `deploy`, merged with a merge commit
-(a squash leaves `deploy` with a commit `main` lacks, and they drift):
+**Release** - in goalnexa-cloud: bring in the public repo's `main`
+(the daily sync, or run it now), then a PR from `main` into `deploy`,
+merged with a merge commit (a squash leaves `deploy` with a commit `main`
+lacks, and they drift):
 
 ```bash
-gh pr create --base deploy --head main --title "Release"
-gh pr merge --merge
+gh workflow run sync-upstream.yml -R PMNexa/goalnexa-cloud   # wait for it
+gh pr create -R PMNexa/goalnexa-cloud --base deploy --head main --title "Release"
+gh pr merge -R PMNexa/goalnexa-cloud --merge
 ```
 
 Migrations run with the new image while the old one still serves, so a
@@ -204,7 +213,7 @@ gh workflow run deploy.yml --ref deploy -f tag=<12-char sha>
 ```
 
 **Change a setting** - update `.env.production`, re-upload it
-(`gh secret set PROD_ENV --env production < .env.production`), then
+(`gh secret set -R PMNexa/goalnexa-cloud PROD_ENV --env production < .env.production`), then
 re-run the latest tag as above.
 
 **Clean up old images** now and then:
