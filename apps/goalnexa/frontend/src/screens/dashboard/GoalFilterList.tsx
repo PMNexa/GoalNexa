@@ -29,6 +29,11 @@ function formatAmount(value: string): string {
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+/** A name's hover text: the name, plus its description when there is one. */
+function withDescription(name: string, description: string | undefined): string {
+  return description?.trim() ? `${name}\n${description.trim()}` : name;
+}
+
 /** Compact for the narrow tree row (93,500,000 -> "93.5M", 200,000 -> "200K"); the exact figures stay in the row's tooltip. */
 const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 
@@ -171,7 +176,7 @@ function GoalFilterList({
             <button
               type="button"
               className="gn-name-btn"
-              title={metric.name}
+              title={withDescription(metric.name, metric.description)}
               aria-haspopup="dialog"
               onClick={() => onOpenMetric(metric.id)}
             >
@@ -225,7 +230,7 @@ function GoalFilterList({
           <button
             type="button"
             className="gn-name-btn"
-            title={goal.title}
+            title={withDescription(goal.title, goal.description)}
             aria-haspopup="dialog"
             onClick={() => onOpenGoal(goal.id)}
           >

@@ -15,14 +15,14 @@ export function createOrg(accessToken: string, name: string): Promise<{ id: stri
 
 export function createGoal(
   accessToken: string,
-  data: { title: string; org_id: string; target_date: string | null },
+  data: { title: string; description: string; org_id: string; target_date: string | null },
 ): Promise<Goal> {
   return apiRequest<Goal>("/api/v1/goals", accessToken, { method: "POST", data });
 }
 
 export function createMetric(
   accessToken: string,
-  data: { goal: string; name: string; unit: string; base_value: number; target_value: number },
+  data: { goal: string; name: string; description: string; unit: string; base_value: number; target_value: number },
 ): Promise<Metric> {
   return apiRequest<Metric>("/api/v1/metrics", accessToken, { method: "POST", data });
 }

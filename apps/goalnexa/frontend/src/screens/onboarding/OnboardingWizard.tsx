@@ -6,6 +6,7 @@ import { createGoal, createMetric, createOrg } from "../../lib/api/onboarding";
 interface MetricDraft {
   key: number;
   name: string;
+  description: string;
   unit: string;
   base: string;
   target: string;
@@ -14,6 +15,7 @@ interface MetricDraft {
 interface GoalDraft {
   key: number;
   title: string;
+  description: string;
   targetDate: string;
   metrics: MetricDraft[];
 }
@@ -40,8 +42,8 @@ const STARTER_PROMPTS = [
 ];
 
 let nextKey = 1;
-const newMetric = (): MetricDraft => ({ key: nextKey++, name: "", unit: "", base: "0", target: "" });
-const newGoal = (): GoalDraft => ({ key: nextKey++, title: "", targetDate: "", metrics: [newMetric()] });
+const newMetric = (): MetricDraft => ({ key: nextKey++, name: "", description: "", unit: "", base: "0", target: "" });
+const newGoal = (): GoalDraft => ({ key: nextKey++, title: "", description: "", targetDate: "", metrics: [newMetric()] });
 
 type Created = { org: string | null; goals: Map<number, string>; metrics: Set<number> };
 const emptyCreated = (): Created => ({ org: null, goals: new Map(), metrics: new Set() });
@@ -153,7 +155,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
       for (const goal of goals) {
         let goalId = done.goals.get(goal.key);
         if (!goalId) {
-          goalId = (await createGoal(accessToken, { title: goal.title.trim(), org_id: done.org, target_date: goal.targetDate || null })).id;
+          goalId = (await createGoal(accessToken, { title: goal.title.trim(), description: goal.description.trim(), org_id: done.org, target_date: goal.targetDate || null })).id;
           done.goals.set(goal.key, goalId);
         }
         for (const metric of goal.metrics) {
@@ -161,6 +163,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
           await createMetric(accessToken, {
             goal: goalId,
             name: metric.name.trim(),
+            description: metric.description.trim(),
             unit: metric.unit.trim(),
             base_value: Number(metric.base || "0"),
             target_value: Number(metric.target),
@@ -247,7 +250,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
                   <h3 className="card-title">What are you aiming for?</h3>
                   <p className="text-secondary">Add a few goals. A target date is optional, but it lets the dashboard project whether you'll make it.</p>
                   {goals.map((goal, i) => (
-                    <div key={goal.key} className="row g-2 align-items-end mb-2">
+                    <div key={goal.key} className="row g-2 align-items-end mb-3">
                       <div className="col">
                         <FormLabel htmlFor={`onboarding-goal-${goal.key}`} required={i === 0}>
                           {i === 0 ? "Goal" : <span className="visually-hidden">Goal</span>}
@@ -285,6 +288,16 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
                           <Icon name="trash" />
                         </Button>
                       </div>
+                      <div className="col-12">
+                        <label className="visually-hidden" htmlFor={`onboarding-goal-desc-${goal.key}`}>Goal description</label>
+                        <FormControl
+                          id={`onboarding-goal-desc-${goal.key}`}
+                          placeholder="Description (optional) - why it matters, what done looks like"
+                          value={goal.description}
+                          disabled={kept.goals.has(goal.key)}
+                          onChange={(event) => updateGoal(goal.key, { description: event.target.value })}
+                        />
+                      </div>
                     </div>
                   ))}
                   <Button variant="link" className="px-0" onClick={() => setGoals((prev) => [...prev, newGoal()])}>
@@ -313,7 +326,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
                         const locked = kept.metrics.has(metric.key);
                         const id = `onboarding-metric-${metric.key}`;
                         return (
-                          <div key={metric.key} className="row g-2 align-items-center mb-2">
+                          <div key={metric.key} className="row g-2 align-items-center mb-3">
                             <div className="col-12 col-md">
                               <label className="visually-hidden" htmlFor={`${id}-name`}>Metric name</label>
                               <FormControl
@@ -370,6 +383,16 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
                                 <Icon name="trash" />
                               </Button>
                             </div>
+                            <div className="col-12">
+                              <label className="visually-hidden" htmlFor={`${id}-desc`}>Metric description</label>
+                              <FormControl
+                                id={`${id}-desc`}
+                                placeholder="Description (optional) - how it's measured"
+                                value={metric.description}
+                                disabled={locked}
+                                onChange={(event) => updateMetric(goal.key, metric.key, { description: event.target.value })}
+                              />
+                            </div>
                           </div>
                         );
                       })}
@@ -399,11 +422,13 @@ function OnboardingWizard({ accessToken, onComplete, onSkip }: OnboardingWizardP
                           {goal.title}
                           {goal.targetDate && <span className="text-secondary fw-normal"> · by {goal.targetDate}</span>}
                         </div>
+                        {goal.description.trim() && <div className="text-secondary">{goal.description.trim()}</div>}
                         <ul className="mb-0">
                           {goal.metrics.map((metric) => (
                             <li key={metric.key}>
                               {metric.name}: {formatAmount(metric.base)} → {formatAmount(metric.target)}
                               {metric.unit ? ` ${metric.unit}` : ""}
+                              {metric.description.trim() && <span className="text-secondary"> - {metric.description.trim()}</span>}
                             </li>
                           ))}
                         </ul>

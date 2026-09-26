@@ -22,7 +22,9 @@ From what the user said, propose:
   organization with `orgs_list` and set `org_id`. Ask if it's unclear.
 - **1–4 metrics**, each measurable with one number that someone can check in:
   `name`, `unit` (short: `km`, `%`, `users`, `hours`, or empty for a count),
-  `base_value` (where it stands today; ask if unknown) and `target_value`.
+  `base_value` (where it stands today; ask if unknown), `target_value`, and an
+  optional one-sentence `description` (how it's measured, e.g. "Sum of paid
+  invoices in the calendar month").
   - Prefer outcomes over activity ("Weekly distance 10 → 40 km" beats
     "Go running").
   - A metric that should go down gets a target below its base ("Median response

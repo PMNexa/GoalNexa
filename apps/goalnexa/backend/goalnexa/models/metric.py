@@ -23,6 +23,7 @@ class Metric(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=generate_uuid7, editable=False)
     goal = models.ForeignKey(Goal, on_delete=models.CASCADE, db_column="goal_id", related_name="metrics")
     name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
     unit = models.CharField(max_length=32, blank=True, default="")
     base_value = models.DecimalField(
         max_digits=14, decimal_places=2, default=0, help_text="Where the metric starts - progress is measured from here."
