@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type SubmitEvent } from "react";
-import { Button, Card, CardBody, FormControl, FormLabel, Icon } from "platform-core";
+import { useRef, useState, useSyncExternalStore, type SubmitEvent } from "react";
+import { Button, Card, CardBody, CopyButton, FormControl, FormLabel, Icon } from "platform-core";
 import { McpConnectGuide } from "platform-mcp-frontend";
 import { createGoal, createMetric, createOrg } from "../../lib/api/onboarding";
 
@@ -87,19 +87,6 @@ export interface OnboardingWizardProps {
   onSkip: () => void;
 }
 
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1500);
-    return () => clearTimeout(timer);
-  }, [copied]);
-  return (
-    <Button variant="secondary" outline onClick={() => void navigator.clipboard.writeText(text).then(() => setCopied(true))}>
-      {copied ? "Copied" : "Copy"}
-    </Button>
-  );
-}
 
 /**
  * First-run onboarding for a user with no organization. It starts by
