@@ -35,6 +35,8 @@ def sync_current_value(metric_id) -> None:
 class CheckInViewSet(BaseViewSet):
     queryset = CheckIn.objects.all()
     serializer_class = CheckInSerializer
+    # A check-in has no name of its own - find it by its note, metric or goal.
+    search_fields = ["note", "metric__name", "metric__goal__title"]
     permission_classes = [IsAuthenticated]
     scope_field = "metric__goal__org_id"  # its goal's org - see GoalViewSet
 

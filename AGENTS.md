@@ -365,7 +365,10 @@ one gets Link existing / New (create + link) / Unlink, backed by
 `BaseViewSet`'s generic `POST <res>/<id>/relations/<name>/link|unlink`
 actions, and a custom through model's own fields (e.g. a `role`) are
 asked for on link. List rows open the detail page; create lands on it;
-an edit's Save returns to it. Names, the row label field and whether
+its Edit switches the Details tab to the form in place (Save/Cancel,
+no page change - so it works in the dashboard drawer too); the
+`/<resource>/:id/edit` page still exists and its Save returns to the
+detail page. Names, the row label field and whether
 search is offered all come from the schema API too (`label`,
 `label_plural`, `display_field`, `searchable`). Nothing per resource to
 write: add the relation on the model, register both sides'

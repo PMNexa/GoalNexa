@@ -87,7 +87,7 @@ class TenantIsolationTests(TestCase):
         probes = {
             "goals": [f"filter{{owner_id}}={self.alice.user_id}", f"filter{{org_id}}={self.org['id']}", "q=Alice"],
             "metrics": [f"filter{{goal}}={self.goal['id']}", "q=Revenue"],
-            "check-ins": [f"filter{{metric}}={self.metric['id']}"],
+            "check-ins": [f"filter{{metric}}={self.metric['id']}", "q=Revenue"],
             "goal-members": [f"filter{{goal}}={self.goal['id']}", f"filter{{user_id}}={self.carol.user_id}"],
             "orgs": [f"filter{{id}}={self.org['id']}", "q=Alice"],
             "org-members": [f"filter{{org}}={self.org['id']}", f"filter{{user_id}}={self.alice.user_id}"],
@@ -101,6 +101,12 @@ class TenantIsolationTests(TestCase):
                         self.assertNotIn(self.alices_rows()[resource], ids(response))
                     else:
                         self.assertEqual(response.status_code, 400)
+
+    def test_check_in_search_matches_its_metric_and_goal(self):
+        # The probe above only means something if Alice's own search finds it.
+        for query in ("q=Revenue", "q=Alice"):
+            with self.subTest(query):
+                self.assertIn(self.check_in["id"], ids(self.alice.get(f"{API}/check-ins?{query}")))
 
     def test_retrieve_other_tenants_row_is_404(self):
         for resource, row_id in self.alices_rows().items():
