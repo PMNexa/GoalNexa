@@ -161,7 +161,15 @@ panel. Unticking a metric leaves it out of that goal's progress (it's an
 opt-out, so the default matches the rest of the app), and "Check in"
 opens a check-in form in platform-core's `Modal`
 (`screens/dashboard/CheckInModal.tsx`); saving refreshes the charts
-without resetting the filters. The goal picker is
+without resetting the filters. Creating happens in the tree too: "New
+goal" in the Goals header, and each row's "+" is a menu
+(`screens/dashboard/RowMenu.tsx`) - a goal's: Add metric / Add sub-goal,
+a metric's: Check in / Add sub-metric. The form is the resource's
+schema-driven `CrudFormModal` with the org/goal/parent preset from the
+row, never asked (`CreateRecordModal.tsx`); a new goal or metric shows
+its goal if a color slot is free. The menu is `position: fixed` inline
+(the tree is a scroll box, and Bootstrap's `.dropdown-menu` would win
+over a class). The goal picker is
 `screens/dashboard/GoalFilterList.tsx`, a tree with no checkboxes. A
 goal node is color key, title (up to 2 lines), % pill and eye, with a
 thin progress bar in the goal's color. A goal's branches are its metrics
@@ -169,7 +177,8 @@ thin progress bar in the goal's color. A goal's branches are its metrics
 its own); a metric's sub-metrics nest under it (`parent` on both;
 `buildTree`). Tree lines are drawn in CSS from each key (`.gn-branch`).
 A metric row is: name
-(truncates, with a tooltip), current / target, "+" check-in, eye. The
+(truncates, with a tooltip), current / target, "+" menu, eye; a goal
+node has a "+" menu before its eye too. The
 eye (show/hide, `aria-pressed`) is always the last control on a row. A
 hidden goal collapses to its muted title; a hidden metric stays in
 place, dimmed. A goal's or metric's name opens its platform-core `CrudDetailScreen` in

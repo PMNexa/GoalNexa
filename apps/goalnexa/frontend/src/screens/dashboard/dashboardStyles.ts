@@ -187,7 +187,7 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
 .gn-goal-head {
   position: relative;
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr) auto auto;
+  grid-template-columns: 12px minmax(0, 1fr) auto auto auto;
   align-items: start;
   column-gap: 0.5rem;
 }
@@ -396,6 +396,12 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   background: transparent;
   border-color: transparent;
   box-shadow: none;
+}
+/* A row's "+" menu: fixed-positioned inline (see RowMenu) so the tree's
+   scroll box can't clip it; right-aligned to the toggle. */
+.gn-row-menu-list {
+  min-width: 10rem;
+  z-index: 1050;
 }
 .gn-eye.is-off {
   color: var(--gn-text-secondary);

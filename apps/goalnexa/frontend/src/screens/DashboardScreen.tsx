@@ -31,6 +31,7 @@ import {
 } from "../lib/progress";
 import ProgressBarChart from "./dashboard/ProgressBarChart";
 import CheckInModal from "./dashboard/CheckInModal";
+import CreateRecordModal, { type CreateTarget } from "./dashboard/CreateRecordModal";
 import GoalFilterList from "./dashboard/GoalFilterList";
 import ProgressLineChart, { type ChartMarker } from "./dashboard/ProgressLineChart";
 import { fitDomain } from "./dashboard/chartUtils";
@@ -105,7 +106,9 @@ function freeSlot(slots: Map<string, number>): number {
  * goals, see their progress over time + where each stands now. Each
  * selected goal lists its metrics: unticking one leaves it out of that
  * goal's progress (both charts), and "Check in" logs a reading
- * inline - the charts refresh in place. A goal's or metric's name opens
+ * inline - the charts refresh in place. "New goal" and each row's "+"
+ * menu create goals, sub-goals, metrics and sub-metrics where they hang
+ * in the tree (`CreateRecordModal`). A goal's or metric's name opens
  * platform-core's `CrudDetailScreen` in a right-hand drawer. Progress
  * math lives in `lib/progress.ts`; charts are plain SVG
  * (`dashboard/`), no chart library. A user with no organization gets the
@@ -126,6 +129,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
   // progress matches the rest of the app by default.
   const [disabledMetrics, setDisabledMetrics] = useState<Set<string>>(new Set());
   const [checkInFor, setCheckInFor] = useState<string | null>(null);
+  const [createTarget, setCreateTarget] = useState<CreateTarget | null>(null);
   // Bumped after an inline check-in - refetches metrics/check-ins without
   // flashing the charts back to "Loading…" (see the effect below).
   const [seriesVersion, setSeriesVersion] = useState(0);
@@ -352,6 +356,40 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
     closeDetail();
   }
 
+  const orgId = orgKey === PERSONAL_ORG ? null : orgKey;
+  const titleOf = (endpoint: "/api/v1/goals" | "/api/v1/metrics", id: string) =>
+    endpoint === "/api/v1/goals" ? goals?.find((goal) => goal.id === id)?.title : metrics.find((metric) => metric.id === id)?.name;
+
+  function addGoal(parentGoalId: string | null) {
+    setCreateTarget({
+      endpoint: "/api/v1/goals",
+      title: parentGoalId ? `New sub-goal of ${titleOf("/api/v1/goals", parentGoalId)}` : "New goal",
+      preset: { org_id: orgId, ...(parentGoalId ? { parent: parentGoalId } : {}) },
+    });
+  }
+
+  function addMetric(goalId: string, parentMetricId: string | null) {
+    setCreateTarget({
+      endpoint: "/api/v1/metrics",
+      title: parentMetricId
+        ? `New sub-metric of ${titleOf("/api/v1/metrics", parentMetricId)}`
+        : `New metric for ${titleOf("/api/v1/goals", goalId)}`,
+      preset: { goal: goalId, ...(parentMetricId ? { parent: parentMetricId } : {}) },
+    });
+  }
+
+  // A new goal joins the tree (shown, if there's a free slot); a new
+  // metric shows its goal, so it lands somewhere visible.
+  function handleCreated(row: Record<string, unknown>) {
+    const goalId = String(createTarget?.endpoint === "/api/v1/goals" ? row.id : row.goal);
+    if (createTarget?.endpoint === "/api/v1/goals") setGoals((prev) => [...(prev ?? []), row as unknown as Goal]);
+    setSelected((prev) => {
+      if (prev.has(goalId) || prev.size >= MAX_GOALS) return prev;
+      return new Map(prev).set(goalId, freeSlot(prev));
+    });
+    setSeriesVersion((v) => v + 1);
+  }
+
   const slotOf = (goalId: string) => selected.get(goalId) ?? 1;
   const atLimit = selected.size >= MAX_GOALS;
 
@@ -387,6 +425,12 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
           setCheckInFor(null);
           setSeriesVersion((v) => v + 1);
         }}
+      />
+      <CreateRecordModal
+        accessToken={accessToken}
+        target={createTarget}
+        onCreated={handleCreated}
+        onClose={() => setCreateTarget(null)}
       />
       <Drawer open={detail !== null} title={detail?.endpoint === "/api/v1/metrics" ? "Metric" : "Goal"} onClose={closeDetail}>
         {detail && (
@@ -452,6 +496,9 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                 </span>
               </FormLabel>
               <div className="d-flex gap-2">
+                <button type="button" className="btn btn-link btn-sm p-0" onClick={() => addGoal(null)} disabled={orgKey === null}>
+                  New goal
+                </button>
                 <button type="button" className="btn btn-link btn-sm p-0" onClick={selectFirst} disabled={!goals?.length}>
                   {goals && goals.length > MAX_GOALS ? `Show first ${MAX_GOALS}` : "Show all"}
                 </button>
@@ -483,6 +530,8 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                 currentByGoal={currentByGoal}
                 loading={loadingSeries}
                 onCheckIn={setCheckInFor}
+                onAddMetric={addMetric}
+                onAddGoal={addGoal}
                 onOpenGoal={(id) => setDetail({ endpoint: "/api/v1/goals", id })}
                 onOpenMetric={(id) => setDetail({ endpoint: "/api/v1/metrics", id })}
               />

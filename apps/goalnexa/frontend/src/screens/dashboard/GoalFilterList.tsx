@@ -1,6 +1,7 @@
 import type { Goal } from "../../lib/api/goals";
 import type { Metric } from "../../lib/api/metrics";
 import { formatPct, seriesColor } from "./chartUtils";
+import RowMenu from "./RowMenu";
 
 export interface GoalFilterListProps {
   goals: Goal[];
@@ -20,6 +21,9 @@ export interface GoalFilterListProps {
   /** Metrics for the current selection are still loading. */
   loading: boolean;
   onCheckIn: (metricId: string) => void;
+  /** "+" menu: a metric on the goal (`parentMetricId` null = a root metric) or a sub-goal. */
+  onAddMetric: (goalId: string, parentMetricId: string | null) => void;
+  onAddGoal: (parentGoalId: string) => void;
   /** A goal's / metric's name was clicked - the host shows its details. */
   onOpenGoal: (goalId: string) => void;
   onOpenMetric: (metricId: string) => void;
@@ -136,10 +140,11 @@ function buildTree<T extends { id: string; parent: string | null }>(items: T[]):
  * title, current % pill, eye) with a thin progress bar in its series
  * color. Its branches: its metrics (only while the goal is shown), then
  * its sub-goals (always - a sub-goal is shown/hidden on its own). A
- * metric row is line-color key + name, current / target, "+" check-in,
- * eye, with its sub-metrics nested under it - the metric keys are the
+ * metric row is line-color key + name, current / target, "+" menu
+ * (check in, add a sub-metric), eye, with its sub-metrics nested under it - the metric keys are the
  * legend for each goal's progress-over-time panel. The eye is
- * always the last control on a row. A hidden goal collapses to its muted
+ * always the last control on a row; a goal's "+" menu adds a metric or a
+ * sub-goal, so new rows are created right where they hang in the tree. A hidden goal collapses to its muted
  * title; a hidden metric stays in place, dimmed, so it's easy to show
  * again. A goal's or metric's name is a button: the host opens its
  * details. Styles: `dashboardStyles.ts` (`.gn-goal-*`, `.gn-branch*`,
@@ -158,6 +163,8 @@ function GoalFilterList({
   currentByGoal,
   loading,
   onCheckIn,
+  onAddMetric,
+  onAddGoal,
   onOpenGoal,
   onOpenMetric,
 }: GoalFilterListProps) {
@@ -196,16 +203,14 @@ function GoalFilterList({
               {metric.unit ? ` ${metric.unit}` : ""}
             </span>
           </span>
-          <button
-            type="button"
-            className="btn btn-icon btn-sm btn-ghost-primary gn-row-btn"
-            aria-label={`Check in ${metric.name}`}
-            aria-haspopup="dialog"
-            title="Check in"
-            onClick={() => onCheckIn(metric.id)}
-          >
-            {PlusIcon}
-          </button>
+          <RowMenu
+            label={`Check in or add to ${metric.name}`}
+            icon={PlusIcon}
+            items={[
+              { label: "Check in", onSelect: () => onCheckIn(metric.id) },
+              { label: "Add sub-metric", onSelect: () => onAddMetric(metric.goal, metric.id) },
+            ]}
+          />
           <VisibilityToggle shown={metricShown} name={metric.name} onToggle={() => onToggleMetric(metric.id)} />
         </div>
         {children.length > 0 && <ul className="gn-branches">{children.map(renderMetric)}</ul>}
@@ -237,6 +242,14 @@ function GoalFilterList({
             <span className="gn-goal-title">{goal.title}</span>
           </button>
           {shown && !loading ? <span className="gn-goal-pct">{current === null ? "—" : formatPct(current)}</span> : <span />}
+          <RowMenu
+            label={`Add to ${goal.title}`}
+            icon={PlusIcon}
+            items={[
+              { label: "Add metric", onSelect: () => onAddMetric(goal.id, null) },
+              { label: "Add sub-goal", onSelect: () => onAddGoal(goal.id) },
+            ]}
+          />
           <VisibilityToggle
             shown={shown}
             name={goal.title}
