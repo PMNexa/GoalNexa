@@ -4,11 +4,17 @@ import { createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
 import { createCrudRoutes } from "platform-core";
 import { createMcpRoutes } from "platform-mcp-frontend";
 import { createOrgsPublicRoutes, createOrgsRoutes } from "platform-org-frontend";
-import { createExtensionRoutes } from "./extensions";
+import { createExtensionPublicRoutes, createExtensionRoutes } from "./extensions";
+
+// A downstream build's public pages (see app/extensions/index.ts); one of
+// them may be `/` itself, replacing the redirect below.
+const extensionPublicRoutes = createExtensionPublicRoutes();
 
 export default [
-  // `/` only redirects to /dashboard - there is no landing page.
-  index("routes/index.tsx"),
+  // `/` only redirects to /dashboard - there is no landing page (unless
+  // an extension brings one).
+  ...(extensionPublicRoutes.some((route) => route.index) ? [] : [index("routes/index.tsx")]),
+  ...extensionPublicRoutes,
   // platform-auth registered ONCE: this app picks the mount ("auth"),
   // platform-auth-frontend supplies every page under it (/auth/login,
   // /auth/signup) - storing the session and redirecting to `?next=`

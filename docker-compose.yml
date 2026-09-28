@@ -18,6 +18,7 @@ services:
       # build adds, and the pip requirements that install them.
       DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-self_hosted}
       GOALNEXA_EXTENSIONS: ${GOALNEXA_EXTENSIONS:-}
+      GOALNEXA_EXTENSION_SETTINGS: ${GOALNEXA_EXTENSION_SETTINGS:-}
       # Auth rate limits (see .env.sample). 2 proxies: Tailscale Funnel
       # puts the real client IP in X-Forwarded-For, nginx appends
       # Funnel's; a direct hit on the port has only nginx's entry.

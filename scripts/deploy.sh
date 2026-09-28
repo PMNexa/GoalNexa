@@ -64,7 +64,7 @@ echo "==> Migrating ($IMAGE_TAG)"
 remote run --rm \
   -e DJANGO_DEBUG=false -e DJANGO_SECRET_KEY -e JWT_SECRET \
   -e DJANGO_ALLOWED_HOSTS -e DATABASE_URL -e DEPLOYMENT_MODE \
-  -e GOALNEXA_EXTENSIONS \
+  -e GOALNEXA_EXTENSIONS -e GOALNEXA_EXTENSION_SETTINGS \
   "$REGISTRY/goalnexa:backend-$IMAGE_TAG" \
   sh -c "python manage.py migrate --noinput && python manage.py createcachetable"
 

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import importlib
+import json
 import os
 from pathlib import Path
 
@@ -286,6 +287,16 @@ REST_FRAMEWORK = {
     # limit for everyone); too high and a client can fake its IP.
     "NUM_PROXIES": int((os.environ.get("TRUSTED_PROXY_COUNT") or "1")),
 }
+
+# Extensions' own settings (e.g. a payment provider's API token), as one
+# JSON object of setting name -> value - so a deployment passes them
+# through a single environment variable instead of every compose/stack
+# file listing each extension's keys. Applied before host_settings below,
+# which may read or derive from them.
+_extension_settings = json.loads(os.environ.get("GOALNEXA_EXTENSION_SETTINGS") or "{}")
+if not isinstance(_extension_settings, dict):
+    raise ValueError("GOALNEXA_EXTENSION_SETTINGS must be a JSON object")
+globals().update(_extension_settings)
 
 # Last, so an extension sees (and may change) every setting above.
 for _extension in GOALNEXA_EXTENSIONS:

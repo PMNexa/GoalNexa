@@ -21,14 +21,17 @@ COPY apps/platform-org/backend platform-org/backend
 COPY apps/goalnexa/backend goalnexa/backend
 COPY apps/platform-mcp/backend platform-mcp/backend
 COPY apps/main/backend/requirements.txt main/backend/requirements.txt
+# A downstream build's extensions (GOALNEXA_EXTENSIONS): every
+# apps/extensions/<name>/backend with a pyproject.toml is installed too.
+# Installed is not enabled - GOALNEXA_EXTENSIONS picks which ones run.
+COPY apps/extensions extensions
 
-# Extra pip args for a downstream build's extensions (GOALNEXA_EXTENSIONS),
-# e.g. --build-arg BACKEND_EXTRA_PIP=/apps/platform-billing/backend after
-# a COPY of it - or a fork's own Dockerfile FROM this image.
+# Extra pip args, for anything apps/extensions doesn't cover.
 ARG BACKEND_EXTRA_PIP=""
 RUN pip install -r main/backend/requirements.txt \
     ./platform-core/backend ./platform-auth/backend ./platform-org/backend \
-    ./goalnexa/backend ./platform-mcp/backend ${BACKEND_EXTRA_PIP}
+    ./goalnexa/backend ./platform-mcp/backend ${BACKEND_EXTRA_PIP} \
+    $(for d in extensions/*/backend; do [ -f "$d/pyproject.toml" ] && echo "./$d"; done)
 
 COPY apps/main/backend/manage.py main/backend/manage.py
 COPY apps/main/backend/config main/backend/config

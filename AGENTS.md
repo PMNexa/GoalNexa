@@ -593,13 +593,19 @@ files - so the seams it needs live here, doing nothing by default:
   platform-auth's `AUTH_FIRST_RUN_SETUP = False` - no `/auth/setup`,
   signup open from the first account (which would otherwise become
   app-wide Admin); the operator's admin is `manage.py grant_role`.
-- `GOALNEXA_EXTENSIONS` (comma-separated Django app modules, installed
-  via `BACKEND_EXTRA_PIP`): added to `INSTALLED_APPS`, each one's `urls`
-  mounted at `api/v1/`, each one's `host_settings.configure(settings)`
-  run at the end of `settings.py`.
+- `GOALNEXA_EXTENSIONS` (comma-separated Django app modules): added to
+  `INSTALLED_APPS`, each one's `urls` mounted at `api/v1/`, each one's
+  `host_settings.configure(settings)` run at the end of `settings.py`.
+  The fork puts them in `apps/extensions/<name>/backend/` (empty here):
+  the backend image pip-installs every one, the dev compose via
+  `BACKEND_EXTRA_PIP`. Their settings (API tokens, ...) travel as ONE
+  JSON env var, `GOALNEXA_EXTENSION_SETTINGS`, merged into settings
+  before `host_settings` - so no compose/stack file names a fork's keys.
 - `apps/main/frontend/app/extensions/index.ts`: `createExtensionRoutes()`
-  (mounted in the app-shell layout) and `createExtensionNavItems()`,
-  both empty here; the fork replaces that directory. Its two signatures
+  (mounted in the app-shell layout), `createExtensionPublicRoutes()`
+  (outside it - public pages; an `index: true` one replaces the `/`
+  redirect, e.g. a landing page) and `createExtensionNavItems()`, all
+  empty here; the fork replaces that directory. Its three signatures
   are a contract with the fork - change them deliberately.
 Anything a self-hoster could use too (tenant isolation, email
 verification, ...) belongs here, not in the fork.
