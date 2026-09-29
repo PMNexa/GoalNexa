@@ -12,7 +12,7 @@ export interface GoalFilterListProps {
   maxGoals: number;
   onToggleGoal: (goalId: string) => void;
   metricsByGoal: Map<string, Metric[]>;
-  /** metric id -> its line color slot in the goal's progress-over-time panel (absent = not charted). */
+  /** metric id -> its line color slot in its chart of the goal's progress-over-time panel. */
   metricSlot: Map<string, number>;
   disabledMetrics: Set<string>;
   onToggleMetric: (metricId: string) => void;

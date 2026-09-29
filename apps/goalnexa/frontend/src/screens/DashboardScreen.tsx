@@ -236,18 +236,21 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
     return byGoal;
   }, [metrics]);
 
-  // A metric's line color = its position among its goal's metrics (by
-  // name) - stable while other metrics are shown/hidden. The palette has
-  // 8 validated slots, so a goal's 9th+ metric isn't charted (never a
-  // cycled/generated color); its panel says how many were left out.
-  const metricSlot = useMemo(() => {
-    const slots = new Map<string, number>();
+  // A metric's line = its position among its goal's metrics (by name) -
+  // stable while other metrics are shown/hidden. The palette has 8
+  // validated slots, so metrics are charted 8 per chart: the 9th+ go on
+  // another chart in the same panel, reusing the slots (never a generated
+  // color, and never two lines of one color in one chart).
+  const { metricSlot, metricChart } = useMemo(() => {
+    const metricSlot = new Map<string, number>();
+    const metricChart = new Map<string, number>();
     for (const goalMetrics of metricsByGoal.values()) {
       goalMetrics.forEach((metric, i) => {
-        if (i < MAX_GOALS) slots.set(metric.id, i + 1);
+        metricSlot.set(metric.id, (i % MAX_GOALS) + 1);
+        metricChart.set(metric.id, Math.floor(i / MAX_GOALS));
       });
     }
-    return slots;
+    return { metricSlot, metricChart };
   }, [metricsByGoal]);
 
   // Linear projections to each shown goal's target date (none without
@@ -275,13 +278,9 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
   const metricPanels = useMemo(
     () =>
       progress.map((p) => {
-        const shownMetrics = (metricsByGoal.get(p.goal.id) ?? []).filter((metric) => !disabledMetrics.has(metric.id));
-        const charted = shownMetrics.filter((metric) => metricSlot.has(metric.id));
-        return {
-          progress: p,
-          projected: projections.byGoal.get(p.goal.id) ?? null,
-          overflow: shownMetrics.length - charted.length,
-          series: charted.map((metric) => ({
+        const goalMetrics = metricsByGoal.get(p.goal.id) ?? [];
+        const shownMetrics = goalMetrics.filter((metric) => !disabledMetrics.has(metric.id));
+        const series = shownMetrics.map((metric) => ({
             id: metric.id,
             label: metric.name,
             slot: metricSlot.get(metric.id) as number,
@@ -291,10 +290,32 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
               point.value === undefined
                 ? null
                 : `${formatAmount(point.value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}`,
-          })),
+        }));
+        // One chart per 8-metric block that has a shown metric.
+        const charts = new Map<number, typeof series>();
+        shownMetrics.forEach((metric, i) => {
+          const chart = metricChart.get(metric.id) as number;
+          charts.set(chart, [...(charts.get(chart) ?? []), series[i]]);
+        });
+        return {
+          progress: p,
+          projected: projections.byGoal.get(p.goal.id) ?? null,
+          series,
+          charts: [...charts.entries()]
+            .sort(([a], [b]) => a - b)
+            .map(([chart, lines]) => ({
+              first: chart * MAX_GOALS + 1,
+              last: Math.min(goalMetrics.length, (chart + 1) * MAX_GOALS),
+              lines,
+            })),
+          multiChart: goalMetrics.length > MAX_GOALS,
+          // One % ceiling for all of a panel's charts, so its metrics stay comparable.
+          yMax: pctDomainMax(
+            series.flatMap((line) => [...line.points, ...(line.projection ? [line.projection] : [])].map((point) => point.pct)),
+          ),
         };
       }),
-    [progress, projections, metricsByGoal, disabledMetrics, metricSlot, checkIns],
+    [progress, projections, metricsByGoal, disabledMetrics, metricSlot, metricChart, checkIns],
   );
 
   // One shared time range across every panel (each panel fits its own %
@@ -562,7 +583,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                 </CardBody>
               </Card>
             ) : (
-              metricPanels.map(({ progress: p, projected, series, overflow }) => (
+              metricPanels.map(({ progress: p, projected, series, charts, multiChart, yMax }) => (
                 <Card key={p.goal.id}>
                   <CardHeader>
                     <CardTitle>
@@ -589,27 +610,26 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                         {(metricsByGoal.get(p.goal.id)?.length ?? 0) === 0 ? "No metrics yet." : "All metrics hidden."}
                       </p>
                     ) : (
-                      <ProgressLineChart
-                        series={series}
-                        height={220}
-                        domain={
-                          panelDomain && {
-                            ...panelDomain,
-                            yMax: pctDomainMax(
-                              series.flatMap((line) => [...line.points, ...(line.projection ? [line.projection] : [])].map((point) => point.pct)),
-                            ),
-                          }
-                        }
-                        markers={goalMarkers(p.goal, now)}
-                        alwaysLegend
-                        emptyText="No check-ins yet."
-                        ariaLabel={`${p.goal.title}: metric progress over time`}
-                      />
-                    )}
-                    {overflow > 0 && (
-                      <p className="text-secondary small mb-0 mt-1">
-                        +{overflow} more metric{overflow === 1 ? "" : "s"} not charted (max {MAX_GOALS} lines per goal).
-                      </p>
+                      charts.map(({ first, last, lines }, i) => {
+                        return (
+                          <div key={first} className={i > 0 ? "mt-3" : undefined}>
+                            {multiChart && (
+                              <div className="text-secondary small mb-1">
+                                Metrics {first}–{last} of {metricsByGoal.get(p.goal.id)?.length ?? 0}
+                              </div>
+                            )}
+                            <ProgressLineChart
+                              series={lines}
+                              height={220}
+                              domain={panelDomain && { ...panelDomain, yMax }}
+                              markers={goalMarkers(p.goal, now)}
+                              alwaysLegend
+                              emptyText="No check-ins yet."
+                              ariaLabel={`${p.goal.title}: metric progress over time${multiChart ? `, metrics ${first} to ${last}` : ""}`}
+                            />
+                          </div>
+                        );
+                      })
                     )}
                   </CardBody>
                 </Card>

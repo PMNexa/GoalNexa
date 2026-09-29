@@ -144,9 +144,11 @@ as "projected"); the goal's is the mean of those, a metric with no trend
 the panel header - not in the goal tree (tried, too busy). None once
 the target date has passed. A single chart could need more lines than the palette has colors.
 A metric's line color is its position among its goal's metrics (by
-name), so it stays put when other metrics are hidden. A goal's 9th+
-metric isn't charted: the palette has 8 slots, colors are never cycled,
-and the panel notes how many were left out. The goal tree shows each
+name), so it stays put when other metrics are hidden. The palette has
+8 slots and one chart never repeats a color, so a goal's metrics are
+charted 8 per chart: its 9th-16th go on a second chart in the same
+panel ("Metrics 9-12 of 12"), reusing the slots, sharing the panel's %
+ceiling. Every metric is charted. The goal tree shows each
 metric's color key, so it doubles as the panels' legend. A goal's progress = the mean of its
 ROOT metrics' `(value - base_value) / (target_value - base_value)` (so a
 metric meant to go down works too); sub-metrics break a root down and
