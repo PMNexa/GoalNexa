@@ -2,9 +2,13 @@ from django.urls import path
 from rest_framework.routers import SimpleRouter
 
 from core_api.registry import register_model_endpoint
-from goalnexa.models import CheckIn, Goal, GoalMember, Metric
+from goalnexa.models import Activity, CheckIn, Cycle, Goal, GoalComment, GoalMember, GoalScore, Metric
 from goalnexa.views import (
+    ActivityViewSet,
     CheckInViewSet,
+    CycleViewSet,
+    GoalCommentViewSet,
+    GoalScoreViewSet,
     GoalMemberViewSet,
     GoalViewSet,
     MetricIngestView,
@@ -20,6 +24,10 @@ router.register("goals", GoalViewSet, basename="goals")
 router.register("goal-members", GoalMemberViewSet, basename="goal-members")
 router.register("metrics", MetricViewSet, basename="metrics")
 router.register("check-ins", CheckInViewSet, basename="check-ins")
+router.register("cycles", CycleViewSet, basename="cycles")
+router.register("goal-scores", GoalScoreViewSet, basename="goal-scores")
+router.register("activities", ActivityViewSet, basename="activities")
+router.register("goal-comments", GoalCommentViewSet, basename="goal-comments")
 
 # Lets a relation field's schema (e.g. Metric.goal) tell the frontend
 # where to fetch ITS OWN rows from for a picker - see core_api.registry's
@@ -28,6 +36,10 @@ register_model_endpoint(Goal, "/api/v1/goals")
 register_model_endpoint(GoalMember, "/api/v1/goal-members")
 register_model_endpoint(Metric, "/api/v1/metrics")
 register_model_endpoint(CheckIn, "/api/v1/check-ins")
+register_model_endpoint(Cycle, "/api/v1/cycles")
+register_model_endpoint(GoalScore, "/api/v1/goal-scores")
+register_model_endpoint(Activity, "/api/v1/activities")
+register_model_endpoint(GoalComment, "/api/v1/goal-comments")
 
 urlpatterns = [
     # Token-authenticated check-ins from scripts/webhooks (views/ingest.py).

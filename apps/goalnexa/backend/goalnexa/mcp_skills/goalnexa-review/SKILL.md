@@ -15,6 +15,10 @@ client prefix. If they're missing, point the user to {{tokens_url}} and stop.
   `goals_list` with `filter: {"org_id": "<org id>"}`.
 - **Personal goals**: `goals_list` with `filter: {"org_id.isnull": true}`.
 - **Everything**: no filter.
+- **A cycle** (a quarter or other period): `cycles_list` (`q` = its name, or
+  `filter: {"status": "active"}` for the current one), then add
+  `"cycle": "<cycle id>"` to the goals filter. For "this quarter", prefer the
+  active cycle when the organization uses cycles.
 
 Leave out `archived` (and, unless asked, `completed`) goals. Add
 `include: ["metrics"]` to get each goal's metrics in the same call, and use
@@ -41,6 +45,11 @@ The server keeps these up to date on every goal - read them, don't recompute:
 `include: ["goal"]`. A metric with no schedule is stale when
 `last_checked_in_at` is more than 14 days ago (or null while the goal is in
 progress).
+
+**What changed** (for "since last week" or a stand-up): `activities_list` with
+`filter: {"goal": "<id>", "created_at.gte": "<ISO date>"}` - check-ins (with
+`data.source`: web, agent or ingest), metric and goal changes, health changes
+and comments.
 
 Keep the tool calls lean: one `goals_list` with `include: ["metrics"]` has
 everything above.

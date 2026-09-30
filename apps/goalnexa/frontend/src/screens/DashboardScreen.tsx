@@ -10,6 +10,7 @@ import {
   type LinkComponent,
 } from "platform-core";
 import type { Goal, GoalHealth } from "../lib/api/goals";
+import GoalActivityPanel from "./GoalActivityPanel";
 import GoalSharingPanel from "./GoalSharingPanel";
 import MetricIngestPanel from "./MetricIngestPanel";
 import type { Metric } from "../lib/api/metrics";
@@ -21,6 +22,7 @@ import {
   type OrgOption,
 } from "../lib/api/dashboard";
 import type { CheckIn } from "../lib/api/checkIns";
+import { fetchCycles, type Cycle } from "../lib/api/cycles";
 import {
   computeGoalProgress,
   computeMetricSeries,
@@ -43,6 +45,9 @@ import OnboardingWizard from "./onboarding/OnboardingWizard";
 import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../lib/currentOrg";
 
 const markerDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+
+/** A check-in's source, in a chart tooltip ("via AI agent"); web check-ins say nothing. */
+const SOURCE_LABELS = { web: "the web app", agent: "AI agent", ingest: "ingest URL" } as const;
 
 const HEALTH_LABELS: Record<Exclude<GoalHealth, "unknown">, string> = {
   on_track: "On track",
@@ -72,6 +77,16 @@ export interface DashboardScreenProps {
 interface DetailTarget {
   endpoint: "/api/v1/goals" | "/api/v1/metrics";
   id: string;
+}
+
+/** The cycle filter: every goal, goals in no cycle, or one cycle's (its id). */
+const ALL_CYCLES = "all";
+const NO_CYCLE = "none";
+
+/** The cycle running today, if any - what the dashboard opens on. */
+function currentCycle(cycles: Cycle[]): Cycle | undefined {
+  const today = new Date().toISOString().slice(0, 10);
+  return cycles.find((c) => c.status === "active" && c.starts_on <= today && today <= c.ends_on);
 }
 
 /** Palette has 8 validated categorical slots - a 9th series would need a generated hue, so selection stops at 8. */
@@ -111,7 +126,8 @@ function freeSlot(slots: Map<string, number>): number {
 }
 
 /**
- * Goal dashboard: pick ONE org (or personal goals), pick up to 8 of its
+ * Goal dashboard: pick ONE org (or personal goals) - and optionally one of
+ * its cycles (opens on the one running today) - pick up to 8 of its
  * goals, see their progress over time + where each stands now. Each
  * selected goal lists its metrics: unticking one leaves it out of that
  * goal's progress (both charts), and "Check in" logs a reading
@@ -130,6 +146,10 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
   const [orgs, setOrgs] = useState<OrgOption[] | null>(null);
   const [orgKey, setOrgKey] = useState<string | null>(null);
   const [goals, setGoals] = useState<Goal[] | null>(null);
+  // Bumped when an org's goals (re)load - resets the selection (below).
+  const [goalsLoaded, setGoalsLoaded] = useState(0);
+  const [cycles, setCycles] = useState<Cycle[]>([]);
+  const [cycleKey, setCycleKey] = useState<string>(ALL_CYCLES);
   // goal id -> color slot, in selection order. A goal keeps its slot for
   // as long as it's selected, so (de)selecting others never repaints it.
   const [selected, setSelected] = useState<Map<string, number>>(new Map());
@@ -186,18 +206,37 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
     let cancelled = false;
     setGoals(null);
     setSelected(new Map());
-    fetchGoals(accessToken, orgKey === PERSONAL_ORG ? null : orgKey)
-      .then((items) => {
+    const org = orgKey === PERSONAL_ORG ? null : orgKey;
+    Promise.all([fetchGoals(accessToken, org), fetchCycles(accessToken, org)])
+      .then(([items, orgCycles]) => {
         if (cancelled) return;
         setGoals(items);
-        // Start with the first few goals selected so the page opens on a chart.
-        setSelected(new Map(items.slice(0, MAX_GOALS).map((goal, i) => [goal.id, i + 1])));
+        setCycles(orgCycles);
+        // Open on the cycle running today, if there is one.
+        setCycleKey(currentCycle(orgCycles)?.id ?? ALL_CYCLES);
+        setGoalsLoaded((n) => n + 1);
       })
       .catch((thrown: unknown) => !cancelled && setError(toError(thrown)));
     return () => {
       cancelled = true;
     };
   }, [accessToken, orgKey]);
+
+  // The goals the cycle filter lets through - what the tree lists.
+  const shownGoals = useMemo(
+    () =>
+      (goals ?? []).filter((goal) =>
+        cycleKey === ALL_CYCLES ? true : cycleKey === NO_CYCLE ? goal.cycle === null : goal.cycle === cycleKey,
+      ),
+    [goals, cycleKey],
+  );
+
+  // A new org or cycle starts with its first few goals selected, so the page opens on a chart.
+  useEffect(() => {
+    setSelected(new Map(shownGoals.slice(0, MAX_GOALS).map((goal, i) => [goal.id, i + 1])));
+    // Not on every `shownGoals` change: creating a goal mustn't reset the selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goalsLoaded, cycleKey]);
 
   const selectedIds = useMemo(() => [...selected.keys()].sort(), [selected]);
   const selectedKey = selectedIds.join(",");
@@ -300,7 +339,9 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
             formatDetail: (point: ProgressPoint) =>
               point.value === undefined
                 ? null
-                : `${formatAmount(point.value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}`,
+                : `${formatAmount(point.value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}${
+                    point.source && point.source !== "web" ? ` · via ${SOURCE_LABELS[point.source]}` : ""
+                  }`,
         }));
         // One chart per 8-metric block that has a shown metric.
         const charts = new Map<number, typeof series>();
@@ -365,7 +406,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
   }
 
   function selectFirst() {
-    setSelected(new Map((goals ?? []).slice(0, MAX_GOALS).map((goal, i) => [goal.id, i + 1])));
+    setSelected(new Map(shownGoals.slice(0, MAX_GOALS).map((goal, i) => [goal.id, i + 1])));
   }
 
   // Anything may have changed in the drawer (a check-in, a metric's
@@ -396,7 +437,11 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
     setCreateTarget({
       endpoint: "/api/v1/goals",
       title: parentGoalId ? `New sub-goal of ${titleOf("/api/v1/goals", parentGoalId)}` : "New goal",
-      preset: { org_id: orgId, ...(parentGoalId ? { parent: parentGoalId } : {}) },
+      preset: {
+        org_id: orgId,
+        ...(parentGoalId ? { parent: parentGoalId } : {}),
+        ...(cycleKey !== ALL_CYCLES && cycleKey !== NO_CYCLE ? { cycle: cycleKey } : {}),
+      },
     });
   }
 
@@ -485,6 +530,9 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
             onLeft={handleDetailDeleted}
           />
         )}
+        {detail?.endpoint === "/api/v1/goals" && (
+          <GoalActivityPanel key={`${detail.id}/${detailVersion}`} accessToken={accessToken} goalId={detail.id} />
+        )}
         {detail?.endpoint === "/api/v1/metrics" && (
           <MetricIngestPanel
             key={detail.id}
@@ -528,19 +576,40 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
               </select>
             </div>
 
+            {cycles.length > 0 && (
+              <div className="mb-3">
+                <FormLabel htmlFor="dashboard-cycle">Cycle</FormLabel>
+                <select
+                  id="dashboard-cycle"
+                  className="form-select form-select-sm"
+                  value={cycleKey}
+                  onChange={(event) => setCycleKey(event.target.value)}
+                >
+                  <option value={ALL_CYCLES}>All goals</option>
+                  {cycles.map((cycle) => (
+                    <option key={cycle.id} value={cycle.id}>
+                      {cycle.name}
+                      {cycle.status === "closed" ? " (closed)" : cycle.status === "planning" ? " (planning)" : ""}
+                    </option>
+                  ))}
+                  <option value={NO_CYCLE}>Not in a cycle</option>
+                </select>
+              </div>
+            )}
+
             <div className="d-flex align-items-center justify-content-between mb-2">
               <FormLabel className="mb-0">
                 Goals{" "}
                 <span className="text-secondary fw-normal">
-                  {selected.size}/{Math.min(MAX_GOALS, goals?.length ?? 0)}
+                  {selected.size}/{Math.min(MAX_GOALS, shownGoals.length)}
                 </span>
               </FormLabel>
               <div className="d-flex gap-2">
                 <button type="button" className="btn btn-link btn-sm p-0" onClick={() => addGoal(null)} disabled={orgKey === null}>
                   New goal
                 </button>
-                <button type="button" className="btn btn-link btn-sm p-0" onClick={selectFirst} disabled={!goals?.length}>
-                  {goals && goals.length > MAX_GOALS ? `Show first ${MAX_GOALS}` : "Show all"}
+                <button type="button" className="btn btn-link btn-sm p-0" onClick={selectFirst} disabled={!shownGoals.length}>
+                  {shownGoals.length > MAX_GOALS ? `Show first ${MAX_GOALS}` : "Show all"}
                 </button>
                 <button
                   type="button"
@@ -554,11 +623,13 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
             </div>
             {goals === null ? (
               <div className="text-secondary small">Loading goals…</div>
-            ) : goals.length === 0 ? (
-              <div className="text-secondary small">No goals in this organization yet.</div>
+            ) : shownGoals.length === 0 ? (
+              <div className="text-secondary small">
+                {goals.length === 0 ? "No goals in this organization yet." : "No goals in this cycle yet."}
+              </div>
             ) : (
               <GoalFilterList
-                goals={goals}
+                goals={shownGoals}
                 selected={selected}
                 atLimit={atLimit}
                 maxGoals={MAX_GOALS}
@@ -577,7 +648,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                 now={now}
               />
             )}
-            {atLimit && goals && goals.length > MAX_GOALS && (
+            {atLimit && shownGoals.length > MAX_GOALS && (
               <div className="text-secondary small mt-2">Up to {MAX_GOALS} goals at a time.</div>
             )}
           </CardBody>

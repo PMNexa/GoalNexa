@@ -243,7 +243,10 @@ CORE_API_ACCESS_POLICY = "platform_auth.rbac.policy.RBACPolicy"
 RBAC_SCOPE_ENDPOINT = "/api/v1/orgs"
 RBAC_SCOPE_LABEL = "Organization"
 # Created on migrate when missing. Member (every new user, app-wide) gets
-# the everyday resources; managing users/roles is Admin's.
+# the everyday resources; managing users/roles is Admin's. A resource
+# added later: list it here in the same release - its new permissions
+# are added to the EXISTING roles whose patterns match (platform-auth's
+# sync_catalog), so installs that already have these roles get it too.
 RBAC_DEFAULT_ROLES = [
     {"name": "Admin", "description": "Full access, including users and roles.", "grants_all": True},
     {
@@ -252,12 +255,18 @@ RBAC_DEFAULT_ROLES = [
         "is_default": True,
         # Within an org, who may manage its members and invitations is the
         # org's own owner/admin role (platform-org's OrgRole), on top of this.
-        "permissions": ["goals.*", "goal-members.*", "metrics.*", "check-ins.*", "orgs.*", "org-members.*", "org-invitations.*"],
+        "permissions": [
+            "goals.*", "goal-members.*", "metrics.*", "check-ins.*", "cycles.*", "goal-scores.*",
+            "activities.*", "goal-comments.*", "orgs.*", "org-members.*", "org-invitations.*",
+        ],
     },
     {
         "name": "Viewer",
         "description": "Read-only - e.g. held within one organization.",
-        "permissions": ["goals.view", "goal-members.view", "metrics.view", "check-ins.view", "orgs.view", "org-members.view"],
+        "permissions": [
+            "goals.view", "goal-members.view", "metrics.view", "check-ins.view", "cycles.view", "goal-scores.view",
+            "activities.view", "goal-comments.view", "orgs.view", "org-members.view",
+        ],
     },
 ]
 

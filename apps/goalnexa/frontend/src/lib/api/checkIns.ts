@@ -6,4 +6,10 @@ export interface CheckIn {
   note: string;
   /** When the reading was taken (ISO timestamp) - user-set, defaults to creation time when left blank. */
   checked_in_at: string;
+  /** Who logged it (null: an ingest-token check-in, or one from before attribution) and from where - set by the server. */
+  author_id: string | null;
+  source: CheckInSource;
 }
+
+/** Where a check-in came from: the web app, an AI agent over MCP, or a script/webhook with the metric's ingest token. */
+export type CheckInSource = "web" | "agent" | "ingest";

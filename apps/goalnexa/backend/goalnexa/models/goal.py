@@ -1,6 +1,7 @@
 from django.db import models
 
 from core_api.utils import TimestampedModel, generate_uuid7
+from goalnexa.models.cycle import Cycle
 
 
 class GoalStatus(models.TextChoices):
@@ -84,6 +85,11 @@ class Goal(TimestampedModel):
         default=GoalHealth.UNKNOWN,
         db_default=GoalHealth.UNKNOWN,
         help_text="Where the goal is heading: from its projected progress at the target date.",
+    )
+    # The period it's set for (optional) - SET_NULL: deleting a cycle
+    # leaves its goals. Same org as the goal (GoalViewSet._resolve_cycle).
+    cycle = models.ForeignKey(
+        Cycle, on_delete=models.SET_NULL, null=True, blank=True, db_column="cycle_id", related_name="goals"
     )
     # Self-referential, optional - a sub-goal under a bigger one. SET_NULL
     # (not CASCADE): deleting a parent goal shouldn't silently destroy its

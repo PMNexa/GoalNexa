@@ -21,4 +21,6 @@ export interface Goal {
   progress: string | null;
   projected_progress: string | null;
   health: GoalHealth;
+  /** The cycle (period) it's set for - a bare id, `null` for none. */
+  cycle: string | null;
 }

@@ -1,5 +1,11 @@
 import { type RouteConfig, index, layout } from "@react-router/dev/routes";
-import { createDashboardRoutes, createGoalsRoutes, createMetricsRoutes, createRemindersRoutes } from "goalnexa-frontend";
+import {
+  createCyclesRoutes,
+  createDashboardRoutes,
+  createGoalsRoutes,
+  createMetricsRoutes,
+  createRemindersRoutes,
+} from "goalnexa-frontend";
 import { createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
 import { createCrudRoutes } from "platform-core";
 import { createMcpRoutes } from "platform-mcp-frontend";
@@ -58,6 +64,8 @@ export default [
     // Metrics likewise: a metric's page adds its automatic check-ins.
     ...createMetricsRoutes(),
     ...createCrudRoutes("/api/v1/check-ins"),
+    // Cycles (quarters): a cycle's page adds closing it and its scorecard.
+    ...createCyclesRoutes(),
     // Where check-in reminders go, and what's due (goalnexa).
     ...createRemindersRoutes("reminders"),
     // Personal access tokens + how to connect an AI client to the MCP

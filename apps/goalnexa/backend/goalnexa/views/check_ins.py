@@ -10,7 +10,10 @@ Since `checked_in_at` is user-editable (a reading can be logged after the
 fact), "latest" isn't necessarily the check-in just written - so every
 write (create/update/delete) recomputes it from the metric's own
 check-ins instead of copying the new value over, along with the metric's
-schedule and its goal's progress/health (`goalnexa.progress`).
+schedule and its goal's progress/health (`goalnexa.progress`). Each
+write also goes in the goal's activity feed, and a new check-in records
+who logged it and from where (`author_id`, `source`: web, or an AI agent
+when it's an MCP tool call).
 """
 
 from django.shortcuts import get_object_or_404
@@ -19,9 +22,26 @@ from rest_framework.permissions import IsAuthenticated
 
 from core_api.viewsets import BaseViewSet
 from goalnexa.access import visible_goals
-from goalnexa.models import CheckIn, Metric
+from goalnexa.activity import record, request_source
+from goalnexa.models import ActivityVerb, CheckIn, Metric
 from goalnexa.progress import refresh_metric_and_goal
 from goalnexa.serializers import CheckInSerializer
+
+
+def record_check_in(check_in: CheckIn, verb: str, actor_id) -> None:
+    metric = check_in.metric
+    record(
+        metric.goal_id,
+        verb,
+        actor_id,
+        metric=metric.id,
+        metric_name=metric.name,
+        unit=metric.unit,
+        value=check_in.value,
+        adds=metric.aggregation == "sum",
+        source=check_in.source,
+        check_in=check_in.id,
+    )
 
 
 class CheckInViewSet(BaseViewSet):
@@ -47,8 +67,10 @@ class CheckInViewSet(BaseViewSet):
         return get_object_or_404(Metric.objects.filter(visible_goals(self.request, "goal__")), id=metric_id)
 
     def perform_create(self, serializer):
-        check_in = serializer.save(metric=self._resolve_metric())
+        source = request_source(self.request)
+        check_in = serializer.save(metric=self._resolve_metric(), author_id=self.request.user.id, source=source)
         refresh_metric_and_goal(check_in.metric_id)
+        record_check_in(check_in, ActivityVerb.CHECKED_IN, self.request.user.id)
 
     def perform_update(self, serializer):
         # Only `metric` is reassignable (presence-based, same rule as
@@ -62,8 +84,10 @@ class CheckInViewSet(BaseViewSet):
         refresh_metric_and_goal(check_in.metric_id)
         if old_metric_id != check_in.metric_id:
             refresh_metric_and_goal(old_metric_id)
+        record_check_in(check_in, ActivityVerb.CHECK_IN_CHANGED, self.request.user.id)
 
     def perform_destroy(self, instance):
         metric_id = instance.metric_id
+        record_check_in(instance, ActivityVerb.CHECK_IN_REMOVED, self.request.user.id)
         instance.delete()
         refresh_metric_and_goal(metric_id)

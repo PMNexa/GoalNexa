@@ -5,6 +5,14 @@ from core_api.utils import TimestampedModel, generate_uuid7
 from goalnexa.models.metric import Metric
 
 
+class CheckInSource(models.TextChoices):
+    """Where a check-in came from - set by the server, never by the caller."""
+
+    WEB = "web", "Web"
+    AGENT = "agent", "AI agent"
+    INGEST = "ingest", "Ingest URL"
+
+
 class CheckIn(TimestampedModel):
     """A progress log entry against a `Metric` (1-n, like `Metric.goal`) -
     `value` is the metric's new reading as of this check-in (e.g. "82" for
@@ -19,6 +27,11 @@ class CheckIn(TimestampedModel):
     check-in by `checked_in_at` (or their sum; see `goalnexa.progress`) -
     stored, not derived on read, so a plain goal/metric list stays a
     single-table query.
+
+    `author_id` (bare user id; null for an ingest-token check-in) and
+    `source` say who and what logged it - the web app, an AI agent over
+    MCP, or a script/webhook with the metric's ingest token
+    (`CheckInViewSet`, `views/ingest.py`). Both read-only.
     """
 
     id = models.UUIDField(primary_key=True, default=generate_uuid7, editable=False)
@@ -27,6 +40,10 @@ class CheckIn(TimestampedModel):
     note = models.TextField(blank=True, default="")
     checked_in_at = models.DateTimeField(
         default=timezone.now, help_text="When this reading was taken. Leave blank for now."
+    )
+    author_id = models.UUIDField(null=True, blank=True)
+    source = models.CharField(
+        max_length=16, choices=CheckInSource.choices, default=CheckInSource.WEB, db_default=CheckInSource.WEB
     )
 
     class Meta:

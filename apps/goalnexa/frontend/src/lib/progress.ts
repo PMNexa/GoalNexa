@@ -1,6 +1,6 @@
 import type { Goal, GoalHealth } from "./api/goals";
 import type { Metric } from "./api/metrics";
-import type { CheckIn } from "./api/checkIns";
+import type { CheckIn, CheckInSource } from "./api/checkIns";
 
 /**
  * A goal's progress = the mean of its ROOT metrics' progress (see
@@ -24,6 +24,8 @@ export interface ProgressPoint {
   pct: number;
   /** The raw reading behind `pct`, when the point is one metric's own check-in (see `computeMetricSeries`). */
   value?: number;
+  /** Where that check-in came from (see `computeMetricSeries`). */
+  source?: CheckInSource;
 }
 
 export interface GoalProgress {
@@ -113,7 +115,7 @@ export function computeMetricSeries(metric: Metric, checkIns: CheckIn[]): Progre
     .sort((a, b) => Date.parse(a.checked_in_at) - Date.parse(b.checked_in_at))
     .map((checkIn) => {
       value = applyCheckIn(metric, value, checkIn);
-      return { t: Date.parse(checkIn.checked_in_at), pct: metricPct(value, metric), value };
+      return { t: Date.parse(checkIn.checked_in_at), pct: metricPct(value, metric), value, source: checkIn.source };
     });
 }
 

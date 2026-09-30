@@ -11,10 +11,15 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from core_api.viewsets import BaseViewSet
-from goalnexa.access import visible_goals
-from goalnexa.models import Goal
+from goalnexa.access import visible_cycles, visible_goals
+from goalnexa.activity import changes, record, snapshot
+from goalnexa.models import ActivityVerb, Cycle, CycleStatus, Goal
 from goalnexa.progress import refresh_goal
 from goalnexa.serializers import GoalSerializer
+
+
+#: The goal fields a change of which goes in its feed.
+FEED_FIELDS = ["title", "status", "target_date", "visibility", "org_id", "cycle", "parent"]
 
 
 class GoalViewSet(BaseViewSet):
@@ -53,8 +58,24 @@ class GoalViewSet(BaseViewSet):
             raise ValidationError({"parent": ["A goal can't be its own parent."]})
         return get_object_or_404(Goal.objects.filter(visible_goals(self.request)), id=parent_id)
 
+    def _resolve_cycle(self, org_id):
+        """`cycle` (optional, presence-based like `parent`): one the caller
+        can see, in the goal's own org (or personal for a personal goal),
+        and not closed."""
+        cycle_id = self.request.data.get("cycle")
+        if not cycle_id:
+            return None
+        cycle = get_object_or_404(Cycle.objects.filter(visible_cycles(self.request)), id=cycle_id)
+        if str(cycle.org_id or "") != str(org_id or ""):
+            raise ValidationError({"cycle": ["That cycle belongs to another organization."]})
+        if cycle.status == CycleStatus.CLOSED:
+            raise ValidationError({"cycle": ["That cycle is closed."]})
+        return cycle
+
     def perform_create(self, serializer):
-        serializer.save(owner_id=self.request.user.id, parent=self._resolve_parent())
+        cycle = self._resolve_cycle(serializer.validated_data.get("org_id"))
+        goal = serializer.save(owner_id=self.request.user.id, parent=self._resolve_parent(), cycle=cycle)
+        record(goal.id, ActivityVerb.GOAL_CREATED, self.request.user.id, title=goal.title)
 
     def perform_update(self, serializer):
         # Presence, not truthiness: "parent" ABSENT from the body (a plain
@@ -71,12 +92,23 @@ class GoalViewSet(BaseViewSet):
         visibility = serializer.validated_data.get("visibility", instance.visibility)
         if visibility != instance.visibility and str(instance.owner_id) != str(self.request.user.id):
             raise PermissionDenied("Only the goal's owner can change who sees it.")
+        before = snapshot(instance, FEED_FIELDS)
+        org_id = serializer.validated_data.get("org_id", instance.org_id)
+        if "cycle" in self.request.data:
+            cycle = self._resolve_cycle(org_id)
+        elif instance.cycle_id and str(instance.cycle.org_id or "") != str(org_id or ""):
+            cycle = None  # moved to another org - its cycle doesn't come along
+        else:
+            cycle = instance.cycle
         if "parent" in self.request.data:
             parent_id = self.request.data.get("parent")
             parent = self._resolve_parent(exclude_id=instance.id) if parent_id else None
         else:
             parent = instance.parent
-        goal = serializer.save(parent=parent)
+        goal = serializer.save(parent=parent, cycle=cycle)
         # Its target date may have moved - health and projection follow it.
         refresh_goal(goal.id)
         goal.refresh_from_db()  # the response shows the recomputed fields
+        diff = changes(before, goal, FEED_FIELDS)
+        if diff:
+            record(goal.id, ActivityVerb.GOAL_CHANGED, self.request.user.id, changes=diff)

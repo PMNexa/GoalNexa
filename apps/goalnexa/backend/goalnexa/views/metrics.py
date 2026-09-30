@@ -25,12 +25,17 @@ from rest_framework.response import Response
 
 from core_api.viewsets import BaseViewSet
 from goalnexa.access import visible_goals
-from goalnexa.models import Goal, Metric
+from goalnexa.activity import changes, record, snapshot
+from goalnexa.models import ActivityVerb, Goal, Metric
 from goalnexa.progress import refresh_goal, refresh_metric, refresh_metric_and_goal
 from goalnexa.serializers import MetricSerializer
 
 #: What every ingest token starts with - recognizable if it leaks.
 INGEST_TOKEN_PREFIX = "gnm_"
+
+
+#: The metric fields a change of which goes in the goal's feed.
+FEED_FIELDS = ["name", "unit", "base_value", "target_value", "aggregation", "check_in_every", "goal"]
 
 
 def hash_ingest_token(token: str) -> str:
@@ -75,6 +80,7 @@ class MetricViewSet(BaseViewSet):
         metric = serializer.save(goal=self._resolve_goal(), parent=self._resolve_parent(), **extra)
         refresh_metric_and_goal(metric.id)
         metric.refresh_from_db()  # the response shows the recomputed fields
+        record(metric.goal_id, ActivityVerb.METRIC_ADDED, self.request.user.id, metric=metric.id, metric_name=metric.name)
 
     def perform_update(self, serializer):
         # Presence, not truthiness - see GoalViewSet.perform_update's own
@@ -89,6 +95,7 @@ class MetricViewSet(BaseViewSet):
         parent = (self._resolve_parent(exclude_id=instance.id) if data.get("parent") else None) if "parent" in data else instance.parent
         old_goal_id = instance.goal_id
         old_value_rule = (instance.aggregation, instance.base_value)
+        before = snapshot(instance, FEED_FIELDS)
         metric = serializer.save(goal=goal, parent=parent)
         # A current value set by hand stays - unless what check-ins add up
         # to just changed (a SUM metric counts from its base).
@@ -97,9 +104,13 @@ class MetricViewSet(BaseViewSet):
         if old_goal_id != metric.goal_id:
             refresh_goal(old_goal_id)
         metric.refresh_from_db()  # the response shows the recomputed fields
+        diff = changes(before, metric, FEED_FIELDS)
+        if diff:
+            record(metric.goal_id, ActivityVerb.METRIC_CHANGED, self.request.user.id, metric=metric.id, metric_name=metric.name, changes=diff)
 
     def perform_destroy(self, instance):
         goal_id = instance.goal_id
+        record(goal_id, ActivityVerb.METRIC_REMOVED, self.request.user.id, metric_name=instance.name)
         instance.delete()
         refresh_goal(goal_id)
 

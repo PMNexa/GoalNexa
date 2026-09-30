@@ -32,6 +32,16 @@ def visible_goals(request, path: str = "") -> Q:
     return (own & Q(**{f"{path}org_id__isnull": True})) | (Q(**{f"{path}org_id__in": orgs.values("id")}) & shared)
 
 
+def visible_cycles(request, path: str = "") -> Q:
+    """Cycles the caller may see: their personal ones, and every cycle of
+    an org they belong to (a cycle has no private mode)."""
+    own = Q(**{f"{path}owner_id": request.user.id, f"{path}org_id__isnull": True})
+    orgs = visible_rows(ORGS_ENDPOINT, request)
+    if orgs is None:
+        return Q(**{f"{path}owner_id": request.user.id})
+    return own | Q(**{f"{path}org_id__in": orgs.values("id")})
+
+
 def is_org_member(request, org_id, user_id) -> bool:
     """Whether `user_id` is an active member of `org_id`, as far as the
     caller can tell (platform-org's members endpoint lists only the orgs

@@ -33,6 +33,7 @@ const NAV_ITEMS: NavEntry[] = [
     icon: GoalsIcon,
     children: [
       { label: "Goals", to: "/goals" },
+      { label: "Cycles", to: "/cycles" },
       { label: "Metrics", to: "/metrics" },
       { label: "Check-ins", to: "/check-ins" },
       { label: "Reminders", to: "/reminders" },

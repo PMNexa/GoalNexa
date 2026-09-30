@@ -14,6 +14,8 @@ dependencies = [
     "uuid6>=2024.1.12",
     # Check-in reminders: one URL format for email, ntfy, Telegram, Slack, webhooks, ...
     "apprise>=1.9",
+    # IANA time zones for digests - slim images ship no system zoneinfo.
+    "tzdata>=2024.1",
 ]
 # platform-core-backend (core_api: errors/exceptions/pagination/filters/
 # uuid7 utils, BaseSerializer/BaseViewSet) is a real runtime dependency,

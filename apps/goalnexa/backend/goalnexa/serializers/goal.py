@@ -37,5 +37,9 @@ class GoalSerializer(BaseSerializer):
             "projected_progress": {"read_only": True},
             "health": {"read_only": True},
         }
-        auto_exclude = ["created_at", "updated_at", "members"]
+        # members: see above. The feed, comments and cycle scores have their
+        # own panels (GoalActivityPanel, the cycle page) - not generic tabs.
+        auto_exclude = [
+            "created_at", "updated_at", "members", "activities", "comments", "scores", "snapshots", "rolled_from",
+        ]
         related_endpoints = {"org_id": "/api/v1/orgs"}

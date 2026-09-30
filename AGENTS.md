@@ -211,6 +211,39 @@ last step; a failed create retries without duplicating what went
 through. "Skip for now" sets `goalnexa:onboarding-skipped` in
 localStorage (not asked again in that browser).
 
+**Team rhythm: cycles, digest, feed, comments, attribution** (goalnexa).
+A `Cycle` (`/api/v1/cycles`, org or personal, visible like an org's
+public goals - `access.visible_cycles`) is a period goals join via
+`Goal.cycle` (same org, not closed - `GoalViewSet._resolve_cycle`).
+`POST cycles/<id>/close` (`goalnexa/cycles.py`, one transaction) writes a
+`GoalScore` per goal (0-1, default progress/100; outcome achieved >= 0.7,
+partial >= 0.3, else missed, or dropped) and marks it done (completed),
+dropped (archived) or rolled over - a copy with metrics and members in
+`next_cycle`: a reading metric's new base = its current value, a sum
+metric's = its old base. A closed cycle is read-only. UI: `CyclePanel`
+under a cycle's page (`createCyclesRoutes()`: close form, then the
+scorecard) and the dashboard's cycle filter (opens on the cycle running
+today; "New goal" presets it). **Digest**: `goalnexa/digest.py`, from
+the same `ReminderSettings` (`digest` off/daily/weekly, `digest_weekday`,
+`digest_hour` in the browser-saved `timezone` - hence the `tzdata`
+dependency: the slim image lacks some zones), once per period
+(`last_digest_at`, claimed like reminders). It covers every goal the user
+can see, scoped exactly as the API would (`as_user`: a DRF request
+forced to an `ActorStub`), and compares against the daily
+`GoalSnapshot`s `goalnexa_jobs` takes. **Feed**: `Activity`
+(`/api/v1/activities`, read-only) written by `goalnexa/activity.py`'s
+`record` at every check-in/metric/goal write, comment, close, and a
+health change (`refresh_goal`); `data` keeps names/values so a row
+survives its metric. **Comments**: `GoalComment`
+(`/api/v1/goal-comments`, author-only edit/delete). UI for both:
+`GoalActivityPanel` on a goal's page and in the dashboard's goal drawer.
+**Attribution**: `CheckIn.author_id`/`source` (web, agent, ingest), set
+server-side - "agent" when platform-mcp's sub-request carries
+`request.META["platform_mcp.request"]` (read by key, no import); shown
+in chart tooltips and the feed. New resources get RBAC by adding their
+patterns to main's `RBAC_DEFAULT_ROLES`: platform-auth's `sync_catalog`
+adds NEW permissions to existing roles whose patterns match.
+
 **Check-in time is `CheckIn.checked_in_at`**, not `created_at`. It's
 user-set and defaults to now when left blank (the form omits the key and
 the model default applies). `Metric.current_value` = the value of the

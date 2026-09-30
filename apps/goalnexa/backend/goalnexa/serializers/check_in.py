@@ -16,4 +16,6 @@ class CheckInSerializer(BaseSerializer):
 
     class Meta:
         model = CheckIn
-        auto_exclude = ["created_at", "updated_at"]
+        auto_exclude = ["created_at", "updated_at", "comments"]
+        # Who logged it and from where - the server's to set (CheckInViewSet).
+        extra_kwargs = {"author_id": {"read_only": True}, "source": {"read_only": True}}

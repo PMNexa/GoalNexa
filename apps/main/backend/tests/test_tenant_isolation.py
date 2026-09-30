@@ -55,6 +55,15 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.carol.post(f"{API}/org-invitations/token/{token}/accept").status_code, 200)
         self.goal_member = self.create(self.alice, "goal-members", goal=self.goal["id"], user_id=self.carol.user_id)
 
+        self.cycle = self.create(self.alice, "cycles", name="Q4", org_id=self.org["id"], starts_on="2026-10-01", ends_on="2026-12-31")
+        self.comment = self.create(self.alice, "goal-comments", goal=self.goal["id"], body="On it")
+        self.activity = self.alice.get(f"{API}/activities?filter{{goal}}={self.goal['id']}").json()["items"][0]
+        # A closed cycle's score.
+        closed = self.create(self.alice, "cycles", name="Q3", org_id=self.org["id"], starts_on="2026-07-01", ends_on="2026-09-30")
+        scored = self.create(self.alice, "goals", title="Q3 goal", org_id=self.org["id"], cycle=closed["id"])
+        self.assertEqual(self.alice.post(f"{API}/cycles/{closed['id']}/close", {}, format="json").status_code, 200)
+        self.score = self.alice.get(f"{API}/goal-scores?filter{{goal}}={scored['id']}").json()["items"][0]
+
         self.bob_goal = self.create(self.bob, "goals", title="Bob's goal")
         self.bob_metric = self.create(self.bob, "metrics", goal=self.bob_goal["id"], name="Km", target_value=10)
 
@@ -72,6 +81,10 @@ class TenantIsolationTests(TestCase):
             "goal-members": self.goal_member["id"],
             "org-members": self.membership["id"],
             "org-invitations": self.invitation["id"],
+            "cycles": self.cycle["id"],
+            "goal-comments": self.comment["id"],
+            "activities": self.activity["id"],
+            "goal-scores": self.score["id"],
         }
 
     # --- reading ---------------------------------------------------------
@@ -126,7 +139,9 @@ class TenantIsolationTests(TestCase):
             with self.subTest(resource):
                 # 405: the resource takes no PATCH at all (invitations).
                 self.assertIn(self.bob.patch(f"{API}/{resource}/{row_id}", {}, format="json").status_code, (404, 405))
-                self.assertEqual(self.bob.delete(f"{API}/{resource}/{row_id}").status_code, 404)
+                # Read-only resources take no DELETE at all.
+                expected = 405 if resource in ("activities", "goal-scores") else 404
+                self.assertEqual(self.bob.delete(f"{API}/{resource}/{row_id}").status_code, expected)
                 self.assertEqual(self.alice.get(f"{API}/{resource}/{row_id}").status_code, 200)
 
     def test_cannot_attach_to_other_tenants_parent(self):
@@ -226,6 +241,28 @@ class TenantIsolationTests(TestCase):
         self.assertFalse(error)
         self.assertNotIn(self.goal["id"], text)
         self.assertTrue(self.mcp(self.bob, "check_ins_create", metric=self.metric["id"], value=1)[0])
+
+    def test_cycles_comments_and_feeds_stay_scoped(self):
+        # Bob can't file a goal under Alice's cycle, close it, or comment on her goal.
+        self.assertIn(self.bob.post(f"{API}/goals", {"title": "x", "cycle": self.cycle["id"]}, format="json").status_code, (400, 404))
+        self.assertEqual(self.bob.post(f"{API}/cycles/{self.cycle['id']}/close", {}, format="json").status_code, 404)
+        self.assertEqual(self.bob.post(f"{API}/goal-comments", {"goal": self.goal["id"], "body": "hi"}, format="json").status_code, 404)
+        # Nor roll his own goals into it.
+        bob_cycle = self.create(self.bob, "cycles", name="Mine", starts_on="2026-10-01", ends_on="2026-12-31")
+        self.create(self.bob, "goals", title="Bob Q4", cycle=bob_cycle["id"])
+        response = self.bob.post(f"{API}/cycles/{bob_cycle['id']}/close", {"next_cycle": self.cycle["id"]}, format="json")
+        self.assertEqual(response.status_code, 404)
+        # Carol (org member) sees the org's cycle, its goal's feed and comments.
+        self.assertIn(self.cycle["id"], ids(self.carol.get(f"{API}/cycles")))
+        self.assertIn(self.comment["id"], ids(self.carol.get(f"{API}/goal-comments")))
+        # Only its author edits a comment.
+        self.assertEqual(self.carol.patch(f"{API}/goal-comments/{self.comment['id']}", {"body": "x"}, format="json").status_code, 403)
+
+    def test_mcp_check_ins_are_attributed_to_the_agent(self):
+        error, text = self.mcp(self.alice, "check_ins_create", metric=self.metric["id"], value=55)
+        self.assertFalse(error, text)
+        latest = self.alice.get(f"{API}/check-ins?filter{{metric}}={self.metric['id']}&sort=-created_at").json()["items"][0]
+        self.assertEqual((latest["source"], latest["author_id"]), ("agent", self.alice.user_id))
 
     def test_metric_ingest_tokens_stay_scoped(self):
         # Bob can't mint or revoke a token for Alice's metric.

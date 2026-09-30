@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { CrudDetailScreen, useResourcePath, type LinkComponentProps } from "platform-core";
 import { Link as RouterLink, useLocation, useNavigate, useOutletContext, useParams } from "react-router";
-import GoalActivityPanel from "../screens/GoalActivityPanel";
-import GoalSharingPanel from "../screens/GoalSharingPanel";
+import CyclePanel from "../screens/CyclePanel";
 
 // oxlint-disable-next-line react/only-export-components
 export function meta() {
-  return [{ title: "Goal" }];
+  return [{ title: "Cycle" }];
 }
 
 function CrudLink({ to, className, children, ...rest }: LinkComponentProps) {
@@ -18,26 +17,25 @@ function CrudLink({ to, className, children, ...rest }: LinkComponentProps) {
 }
 
 /**
- * A goal's page - registered by `createGoalsRoutes()` as the goals'
- * `detailFile`: platform-core's generic detail screen (same props its own
- * `crud-detail.tsx` passes), then who the goal is shared with.
+ * A cycle's page - registered by `createCyclesRoutes()` as the cycles'
+ * `detailFile`: platform-core's generic detail screen (its goals are a
+ * tab), then closing it or, once closed, its scores (`CyclePanel`).
  */
-export default function GoalDetailRoute() {
+export default function CycleDetailRoute() {
   const accessToken = useOutletContext<string>();
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const resourcePath = useResourcePath();
-  // Every segment but the id - where the goals list is mounted.
   const basePath = pathname.split("/").filter(Boolean).slice(0, -1).join("/");
-  // Bumped when the panel changes the goal, so the details show it.
+  // Bumped when the panel closes the cycle, so the details show it.
   const [version, setVersion] = useState(0);
 
   return (
     <div key={id}>
       <CrudDetailScreen
         key={version}
-        baseUrl="/api/v1/goals"
+        baseUrl="/api/v1/cycles"
         accessToken={accessToken}
         id={id}
         basePath={basePath}
@@ -45,13 +43,7 @@ export default function GoalDetailRoute() {
         resourcePath={resourcePath}
         onDeleted={() => navigate(`/${basePath}`)}
       />
-      <GoalSharingPanel
-        accessToken={accessToken}
-        goalId={id}
-        onChanged={() => setVersion((v) => v + 1)}
-        onLeft={() => navigate(`/${basePath}`)}
-      />
-      <GoalActivityPanel key={version} accessToken={accessToken} goalId={id} />
+      <CyclePanel accessToken={accessToken} cycleId={id} onClosed={() => setVersion((v) => v + 1)} />
     </div>
   );
 }

@@ -6,8 +6,10 @@ import {
   fetchReminderSettings,
   saveReminderSettings,
   sendTestReminder,
+  type DigestFrequency,
   type DueMetric,
   type ReminderSettings,
+  type ReminderSettingsInput,
 } from "../lib/api/reminders";
 
 export interface RemindersScreenProps {
@@ -15,6 +17,22 @@ export interface RemindersScreenProps {
 }
 
 const DUE = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** The browser's IANA time zone - digests go out at the chosen hour there. */
+function browserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+function formFrom(row: ReminderSettings): ReminderSettingsInput {
+  const { allowed_schemes: _schemes, ...form } = row;
+  return form;
+}
 
 const EXAMPLES = [
   ["Email", "mailtos://user:app-password@gmail.com"],
@@ -27,8 +45,9 @@ const EXAMPLES = [
 
 /**
  * Check-in reminders: where the signed-in user's reminders go (Apprise
- * URLs - email, ntfy, Telegram, Slack, Discord, webhooks, ...), a test
- * message, and which of their metrics are due right now. A metric gets a
+ * URLs - email, ntfy, Telegram, Slack, Discord, webhooks, ...), their goals
+ * digest (daily/weekly, at a local hour - the browser's time zone is saved
+ * with it), a test message, and which of their metrics are due right now. A metric gets a
  * schedule from its own "Check in every" field; the server's scheduler
  * (`manage.py goalnexa_jobs`) sends one message per run listing a goal
  * owner's overdue metrics, once per due date. Self-contained like every
@@ -36,8 +55,7 @@ const EXAMPLES = [
  */
 function RemindersScreen({ accessToken }: RemindersScreenProps) {
   const [settings, setSettings] = useState<ReminderSettings | null>(null);
-  const [urls, setUrls] = useState("");
-  const [enabled, setEnabled] = useState(true);
+  const [form, setForm] = useState<ReminderSettingsInput | null>(null);
   const [due, setDue] = useState<{ items: DueMetric[]; total: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +67,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
       .then((row) => {
         if (cancelled) return;
         setSettings(row);
-        setUrls(row.urls);
-        setEnabled(row.enabled);
+        setForm(formFrom(row));
       })
       .catch((thrown: unknown) => !cancelled && setError(errorMessage(thrown)));
     fetchDueMetrics(accessToken)
@@ -77,10 +94,23 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
 
   function handleSave(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    void act(async () => setSettings(await saveReminderSettings(accessToken, { enabled, urls })), "Saved.");
+    if (!form) return;
+    void act(async () => {
+      const saved = await saveReminderSettings(accessToken, { ...form, timezone: browserTimeZone() });
+      setSettings(saved);
+      setForm(formFrom(saved));
+    }, "Saved.");
   }
 
-  const dirty = settings !== null && (urls !== settings.urls || enabled !== settings.enabled);
+  function update<K extends keyof ReminderSettingsInput>(key: K, value: ReminderSettingsInput[K]) {
+    setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+
+  const dirty =
+    settings !== null &&
+    form !== null &&
+    (Object.keys(form) as (keyof ReminderSettingsInput)[]).some((key) => key !== "timezone" && form[key] !== settings[key]);
+  const zoneChanged = settings !== null && settings.urls !== "" && settings.timezone !== browserTimeZone();
 
   return (
     <div className="row g-3">
@@ -94,7 +124,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
               Give a metric a schedule (its <strong>Check in every</strong> field) and, once a check-in is overdue, its
               goal's owner gets a reminder listing everything that's due - one message, once per due date.
             </p>
-            {settings === null ? (
+            {settings === null || form === null ? (
               !error && <div className="text-secondary">Loading…</div>
             ) : (
               <form id="reminder-settings-form" onSubmit={handleSave}>
@@ -102,8 +132,8 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                   <input
                     className="form-check-input"
                     type="checkbox"
-                    checked={enabled}
-                    onChange={(event) => setEnabled(event.target.checked)}
+                    checked={form.enabled}
+                    onChange={(event) => update("enabled", event.target.checked)}
                   />
                   <span className="form-check-label">Send me reminders</span>
                 </label>
@@ -113,8 +143,8 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                   className="form-control font-monospace"
                   rows={4}
                   placeholder={"ntfys://ntfy.sh/my-goalnexa-topic\nmailtos://user:app-password@gmail.com"}
-                  value={urls}
-                  onChange={(event) => setUrls(event.target.value)}
+                  value={form.urls}
+                  onChange={(event) => update("urls", event.target.value)}
                 />
                 <small className="form-hint">
                   One{" "}
@@ -123,6 +153,54 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                   </a>{" "}
                   per line; lines starting with # are ignored.
                   {settings.allowed_schemes && <> This server accepts: {settings.allowed_schemes.join(", ")}.</>}
+                </small>
+                <FormLabel className="mt-3" htmlFor="reminder-digest">
+                  Goals digest
+                </FormLabel>
+                <div className="d-flex flex-wrap gap-2 align-items-center">
+                  <select
+                    id="reminder-digest"
+                    className="form-select w-auto"
+                    value={form.digest}
+                    onChange={(event) => update("digest", event.target.value as DigestFrequency)}
+                  >
+                    <option value="weekly">Weekly</option>
+                    <option value="daily">Daily</option>
+                    <option value="off">Off</option>
+                  </select>
+                  {form.digest === "weekly" && (
+                    <select
+                      className="form-select w-auto"
+                      aria-label="Digest day"
+                      value={form.digest_weekday}
+                      onChange={(event) => update("digest_weekday", Number(event.target.value))}
+                    >
+                      {WEEKDAYS.map((day, i) => (
+                        <option key={day} value={i}>
+                          on {day}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {form.digest !== "off" && (
+                    <select
+                      className="form-select w-auto"
+                      aria-label="Digest hour"
+                      value={form.digest_hour}
+                      onChange={(event) => update("digest_hour", Number(event.target.value))}
+                    >
+                      {Array.from({ length: 24 }, (_, hour) => (
+                        <option key={hour} value={hour}>
+                          at {String(hour).padStart(2, "0")}:00
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <small className="form-hint">
+                  What moved, what's at risk or off track, what's achieved and which check-ins are due - across your goals
+                  and your organizations' shared ones. Your time zone: {browserTimeZone()}
+                  {zoneChanged && <> (saved as {settings.timezone} - save to update)</>}.
                 </small>
               </form>
             )}
@@ -139,7 +217,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
           </CardBody>
           {settings !== null && (
             <CardBody className="border-top d-flex gap-2">
-              <Button type="submit" form="reminder-settings-form" variant="primary" disabled={busy || !dirty}>
+              <Button type="submit" form="reminder-settings-form" variant="primary" disabled={busy || !(dirty || zoneChanged)}>
                 Save
               </Button>
               <Button

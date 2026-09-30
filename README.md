@@ -37,6 +37,12 @@ Discord or a webhook. Or skip typing entirely: every metric can take check-ins
 from a script, cron job, Home Assistant or n8n through its own token. Each goal
 shows whether it's on track, from its projected progress at the target date.
 
+**A rhythm your team keeps.** Set goals per quarter (or any cycle), then close
+it: score each goal, write a retro, and roll unfinished goals into the next one
+with a click. Every goal has an activity feed and comments, each check-in shows
+whether a person, an AI agent or a script logged it, and a daily or weekly
+digest tells everyone what moved and what needs attention.
+
 **Personal and team, in one place.** Keep your half-marathon plan private and
 your team's OKRs in a shared organization, then switch between them with one
 dropdown.

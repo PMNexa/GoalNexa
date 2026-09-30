@@ -27,11 +27,13 @@ export type { Goal, GoalHealth, GoalStatus, GoalVisibility } from "./lib/api/goa
 
 export type { CheckInCadence, Metric, MetricAggregation } from "./lib/api/metrics";
 
-export type { CheckIn } from "./lib/api/checkIns";
+export type { CheckIn, CheckInSource } from "./lib/api/checkIns";
 
-// Goals: the generic CRUD pages, with the sharing panel on a goal's page.
+// Goals: the generic CRUD pages, with the sharing and activity panels on a goal's page.
 export { createGoalsRoutes } from "./goalsRoutes";
 export { default as GoalSharingPanel } from "./screens/GoalSharingPanel";
+export { default as GoalActivityPanel } from "./screens/GoalActivityPanel";
+export type { GoalActivityPanelProps } from "./screens/GoalActivityPanel";
 export type { GoalSharingPanelProps } from "./screens/GoalSharingPanel";
 
 // Metrics: the generic CRUD pages, with automatic check-ins (ingest
@@ -39,6 +41,13 @@ export type { GoalSharingPanelProps } from "./screens/GoalSharingPanel";
 export { createMetricsRoutes } from "./metricsRoutes";
 export { default as MetricIngestPanel } from "./screens/MetricIngestPanel";
 export type { MetricIngestPanelProps } from "./screens/MetricIngestPanel";
+
+// Cycles: the generic CRUD pages, with closing (scores, rollover) and the
+// scorecard on a cycle's page.
+export { createCyclesRoutes } from "./cyclesRoutes";
+export { default as CyclePanel } from "./screens/CyclePanel";
+export type { CyclePanelProps } from "./screens/CyclePanel";
+export type { Cycle, CycleStatus, GoalOutcome, GoalScore } from "./lib/api/cycles";
 
 // Check-in reminders: where they go, and what's due -
 // `createRemindersRoutes(basePath)` is what a host mounts.

@@ -29,7 +29,7 @@ from decimal import Decimal
 from django.db.models import Sum
 from django.utils import timezone
 
-from goalnexa.models import CheckIn, CheckInCadence, Goal, GoalHealth, Metric, MetricAggregation
+from goalnexa.models import ActivityVerb, CheckIn, CheckInCadence, Goal, GoalHealth, Metric, MetricAggregation
 
 #: Projected progress at or above this (but under 100%) is AT_RISK; below it, OFF_TRACK.
 AT_RISK_FLOOR = 80.0
@@ -187,6 +187,10 @@ def refresh_goal(goal_id) -> Goal | None:
             check_ins_by_metric.setdefault(check_in.metric_id, []).append(check_in)
     fields = compute_goal(goal, metrics, check_ins_by_metric, timezone.localdate())
     Goal.objects.filter(id=goal_id).update(**fields)
+    if fields["health"] != goal.health and fields["health"] != GoalHealth.UNKNOWN:
+        from goalnexa.activity import record  # activity imports models only; kept lazy for the migration's sake
+
+        record(goal.id, ActivityVerb.HEALTH_CHANGED, **{"from": goal.health, "to": fields["health"]})
     for name, value in fields.items():
         setattr(goal, name, value)
     return goal

@@ -3,7 +3,9 @@ what no request triggers:
 
 - goals whose target date just passed get their health recomputed
   (`goalnexa.progress` - an on-track goal past its date is off track);
-- overdue check-in reminders go out (`goalnexa.reminders`).
+- overdue check-in reminders go out (`goalnexa.reminders`);
+- every goal gets its daily snapshot, and due digests go out
+  (`goalnexa.digest`).
 
 Once, or forever with `--loop` (the `scheduler` service in the compose
 and stack files). Safe to run more than once at a time.
@@ -16,6 +18,7 @@ from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 from django.utils import timezone
 
+from goalnexa.digest import send_due_digests, snapshot_goals
 from goalnexa.models import Goal, GoalHealth
 from goalnexa.progress import refresh_goal
 from goalnexa.reminders import send_due_reminders
@@ -30,7 +33,12 @@ def run_once() -> dict:
     for goal_id in lapsed.values_list("id", flat=True):
         refresh_goal(goal_id)
         refreshed += 1
-    return {"goals_refreshed": refreshed, "users_reminded": send_due_reminders()}
+    return {
+        "goals_refreshed": refreshed,
+        "users_reminded": send_due_reminders(),
+        "snapshots": snapshot_goals(today),
+        "digests": send_due_digests(),
+    }
 
 
 class Command(BaseCommand):

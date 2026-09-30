@@ -20,6 +20,11 @@ From what the user said, propose:
   hint), and `status: "in_progress"` (or `"not_started"` if it starts later).
 - **Owner**: personal by default. For a team or company goal, find the
   organization with `orgs_list` and set `org_id`. Ask if it's unclear.
+- **Cycle**: if the organization (or the user, for a personal goal) runs
+  cycles - `cycles_list` with `filter: {"org_id": "<id>", "status": "active"}`
+  (or `"org_id.isnull": true`) - put the goal in the matching one (`cycle`) and
+  default `target_date` to the cycle's `ends_on`. "Next quarter" can be a
+  `planning` cycle; don't create cycles unless asked.
 - **1–4 metrics**, each measurable with one number that someone can check in:
   `name`, `unit` (short: `km`, `%`, `users`, `hours`, or empty for a count),
   `base_value` (where it stands today; ask if unknown), `target_value`, and an

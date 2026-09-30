@@ -24,9 +24,10 @@ from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
 
 from core_api.errors import Unauthorized
-from goalnexa.models import Metric
+from goalnexa.models import ActivityVerb, CheckInSource, Metric
 from goalnexa.progress import refresh_metric_and_goal
 from goalnexa.serializers import CheckInSerializer
+from goalnexa.views.check_ins import record_check_in
 from goalnexa.views.metrics import hash_ingest_token
 
 
@@ -66,8 +67,9 @@ class MetricIngestView(APIView):
         data = {key: request.data[key] for key in ("value", "note", "checked_in_at") if key in request.data}
         serializer = CheckInSerializer(data=data)
         serializer.is_valid(raise_exception=True)
-        check_in = serializer.save(metric=metric)
+        check_in = serializer.save(metric=metric, source=CheckInSource.INGEST)
         refresh_metric_and_goal(metric.id)
+        record_check_in(check_in, ActivityVerb.CHECKED_IN, None)
         metric.refresh_from_db(fields=["current_value"])
         return Response({**serializer.data, "id": str(check_in.id), "current_value": str(metric.current_value)}, status=201)
 
