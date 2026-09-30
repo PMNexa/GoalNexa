@@ -15,6 +15,16 @@ class GoalVisibility(models.TextChoices):
     PRIVATE = "private", "Private"
 
 
+class GoalHealth(models.TextChoices):
+    """Where a goal is heading - see `goalnexa.progress.goal_health`."""
+
+    UNKNOWN = "unknown", "Unknown"
+    ON_TRACK = "on_track", "On track"
+    AT_RISK = "at_risk", "At risk"
+    OFF_TRACK = "off_track", "Off track"
+    ACHIEVED = "achieved", "Achieved"
+
+
 class Goal(TimestampedModel):
     """`owner_id` is a bare UUIDField, not a ForeignKey - this module
     shares nothing at the DB level with whatever module owns the actual
@@ -34,6 +44,12 @@ class Goal(TimestampedModel):
     seen by every member of the org, PRIVATE only by its owner and its
     `members` (`GoalMember`). A personal goal is private either way. Only
     the owner changes it (`GoalViewSet.perform_update`).
+
+    `progress`, `projected_progress` and `health` are computed by the
+    server (`goalnexa.progress.refresh_goal`) whenever a check-in, one of
+    its metrics or its target date changes - the same math as the
+    dashboard, stored so an agent, a digest or a filter
+    (`?filter{health}=at_risk`) doesn't redo it.
     """
 
     id = models.UUIDField(primary_key=True, default=generate_uuid7, editable=False)
@@ -51,6 +67,23 @@ class Goal(TimestampedModel):
         default=GoalVisibility.PUBLIC,
         db_default=GoalVisibility.PUBLIC,
         help_text="Public: every member of its organization sees it. Private: only you and the goal's members.",
+    )
+    progress = models.DecimalField(
+        max_digits=9, decimal_places=2, null=True, blank=True, help_text="Mean progress of its root metrics, in %."
+    )
+    projected_progress = models.DecimalField(
+        max_digits=9,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Progress expected by the target date if each metric keeps its check-in trend, in %.",
+    )
+    health = models.CharField(
+        max_length=16,
+        choices=GoalHealth.choices,
+        default=GoalHealth.UNKNOWN,
+        db_default=GoalHealth.UNKNOWN,
+        help_text="Where the goal is heading: from its projected progress at the target date.",
     )
     # Self-referential, optional - a sub-goal under a bigger one. SET_NULL
     # (not CASCADE): deleting a parent goal shouldn't silently destroy its

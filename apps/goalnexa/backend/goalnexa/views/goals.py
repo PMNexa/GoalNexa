@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from core_api.viewsets import BaseViewSet
 from goalnexa.access import visible_goals
 from goalnexa.models import Goal
+from goalnexa.progress import refresh_goal
 from goalnexa.serializers import GoalSerializer
 
 
@@ -75,4 +76,7 @@ class GoalViewSet(BaseViewSet):
             parent = self._resolve_parent(exclude_id=instance.id) if parent_id else None
         else:
             parent = instance.parent
-        serializer.save(parent=parent)
+        goal = serializer.save(parent=parent)
+        # Its target date may have moved - health and projection follow it.
+        refresh_goal(goal.id)
+        goal.refresh_from_db()  # the response shows the recomputed fields

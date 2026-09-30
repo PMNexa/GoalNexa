@@ -9,8 +9,9 @@ import {
   FormLabel,
   type LinkComponent,
 } from "platform-core";
-import type { Goal } from "../lib/api/goals";
+import type { Goal, GoalHealth } from "../lib/api/goals";
 import GoalSharingPanel from "./GoalSharingPanel";
+import MetricIngestPanel from "./MetricIngestPanel";
 import type { Metric } from "../lib/api/metrics";
 import {
   fetchCheckIns,
@@ -23,6 +24,7 @@ import type { CheckIn } from "../lib/api/checkIns";
 import {
   computeGoalProgress,
   computeMetricSeries,
+  goalHealth,
   goalTargetTime,
   projectGoal,
   projectMetric,
@@ -41,6 +43,13 @@ import OnboardingWizard from "./onboarding/OnboardingWizard";
 import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../lib/currentOrg";
 
 const markerDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+
+const HEALTH_LABELS: Record<Exclude<GoalHealth, "unknown">, string> = {
+  on_track: "On track",
+  at_risk: "At risk",
+  off_track: "Off track",
+  achieved: "Achieved",
+};
 
 /** Vertical lines on a goal's panel: now, and its target date if it has one. */
 function goalMarkers(goal: Goal, now: number): ChartMarker[] {
@@ -110,7 +119,9 @@ function freeSlot(slots: Map<string, number>): number {
  * menu create goals, sub-goals, metrics and sub-metrics where they hang
  * in the tree (`CreateRecordModal`). A goal's or metric's name opens
  * platform-core's `CrudDetailScreen` in a right-hand drawer. Progress
- * math lives in `lib/progress.ts`; charts are plain SVG
+ * math lives in `lib/progress.ts` - including each panel's health badge
+ * (on track / at risk / off track / achieved, from its projection) and the
+ * tree's "check-in due" clocks; charts are plain SVG
  * (`dashboard/`), no chart library. A user with no organization gets the
  * onboarding wizard (`onboarding/`) instead, until they finish or skip it. Self-contained like every screen in
  * this package - `accessToken` in, no router dependency.
@@ -474,6 +485,14 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
             onLeft={handleDetailDeleted}
           />
         )}
+        {detail?.endpoint === "/api/v1/metrics" && (
+          <MetricIngestPanel
+            key={detail.id}
+            accessToken={accessToken}
+            metricId={detail.id}
+            onChanged={() => setDetailVersion((v) => v + 1)}
+          />
+        )}
       </Drawer>
       {error && (
         <div className="col-12">
@@ -555,6 +574,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                 onAddGoal={addGoal}
                 onOpenGoal={(id) => setDetail({ endpoint: "/api/v1/goals", id })}
                 onOpenMetric={(id) => setDetail({ endpoint: "/api/v1/metrics", id })}
+                now={now}
               />
             )}
             {atLimit && goals && goals.length > MAX_GOALS && (
@@ -598,6 +618,14 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
                             → {formatPct(projected.pct)} by {markerDate.format(projected.t)}
                           </span>
                         )}
+                        {(() => {
+                          const health = goalHealth(p.current, projected?.pct ?? null, goalTargetTime(p.goal), now);
+                          return health === "unknown" ? null : (
+                            <span className={`gn-health is-${health}`} title="From the projection: on track = 100% by the target date, at risk = 80%+">
+                              {HEALTH_LABELS[health]}
+                            </span>
+                          );
+                        })()}
                       </span>
                     </CardTitle>
                     <span className="card-subtitle ms-auto text-secondary small d-none d-md-inline">

@@ -154,6 +154,14 @@ ROOT metrics' `(value - base_value) / (target_value - base_value)` (so a
 metric meant to go down works too); sub-metrics break a root down and
 don't count (`rootMetrics`; the goalnexa skills say the same). The math
 is in `lib/progress.ts`.
+A `sum` metric (`Metric.aggregation`) replays as a running total from
+its base (each check-in is an amount done, `applyCheckIn`); a `latest`
+one, each check-in is the new value. Each panel header ends with a
+health badge (on track / at risk / off track / achieved - `goalHealth`,
+over the dashboard's own % and projection, so it matches them), and a
+metric row whose scheduled check-in is due shows a clock after its name
+that opens the check-in form (`isCheckInDue`); the metric drawer shows
+its automatic check-ins (`MetricIngestPanel`).
 A new metric's `current_value` starts at its `base_value` unless one is
 sent (`MetricViewSet.perform_create`). The
 charts are plain SVG, no chart library. The cap of 8 goals matches the
@@ -206,10 +214,39 @@ localStorage (not asked again in that browser).
 **Check-in time is `CheckIn.checked_in_at`**, not `created_at`. It's
 user-set and defaults to now when left blank (the form omits the key and
 the model default applies). `Metric.current_value` = the value of the
-LATEST check-in by `checked_in_at`, recomputed on every check-in
-create/update/delete (`goalnexa/views/check_ins.py`'s
-`sync_current_value`), because a backdated check-in isn't necessarily
-the latest. The generic CRUD form renders date/datetime schema fields as
+LATEST check-in by `checked_in_at` (a `sum` metric: base + all of them),
+recomputed on every check-in create/update/delete
+(`goalnexa/progress.py`'s `refresh_metric_and_goal`), because a
+backdated check-in isn't necessarily the latest.
+
+**Freshness: schedules, reminders, ingest, stored health** (goalnexa).
+`goalnexa/progress.py` is the server's copy of `lib/progress.ts` (keep
+them in step) and stores what agents, filters and reminders need: on a
+metric `last_checked_in_at` and `check_in_due_at` (last check-in, or
+creation, + `check_in_every`: daily/weekly/monthly, blank = no schedule),
+on a goal `progress`/`projected_progress`/`health` (`goal_health`:
+projected >= 100% on track, >= 80% at risk, else off track; past its
+target date off track; achieved at 100%). Every check-in/metric/goal
+write refreshes them, and the views `refresh_from_db()` so the response
+isn't stale. Time-driven work is `manage.py goalnexa_jobs --loop 300`
+(the `main-scheduler`/`scheduler` service in every compose/stack file):
+goals whose target date passed turn off track, and overdue metrics are
+reminded - one Apprise message per goal owner per run, once per due
+date (`reminded_at`, cleared when the due date moves, claimed with a
+conditional UPDATE so two schedulers can't double-send). Where they go is
+the owner's `/api/v1/reminder-settings` (Apprise URLs, a plain view, not
+a `BaseViewSet` - so no RBAC permission to seed; page: `/reminders`,
+`createRemindersRoutes`). Hosted, `GOALNEXA_REMINDER_SCHEMES` limits the
+schemes to fixed-host services (a `json://` webhook or custom SMTP host
+would let a stranger make the server call its own network). **Ingest**:
+`POST /api/v1/metrics/<id>/ingest` checks in with the metric's own token
+(`gnm_...`, `Authorization: Bearer` or `?token=`), no login - issued/
+revoked at `POST|DELETE /api/v1/metrics/<id>/ingest-token` (shown once,
+only its SHA-256 and last 4 chars kept), rate limited per metric
+(`GOALNEXA_INGEST_RATE`). The view has `authentication_classes = []`:
+the host's JWT authentication would reject a `gnm_` token. UI:
+`MetricIngestPanel` on a metric's page (`createMetricsRoutes()`, which
+swaps in `routes/metric-detail.tsx`) and in the dashboard drawer. The generic CRUD form renders date/datetime schema fields as
 native pickers (platform-core `CrudFormFields`: the form keeps API
 values, converted to and from the picker's local time). The schema also
 carries `nullable` and `help_text`: an emptied non-nullable field is

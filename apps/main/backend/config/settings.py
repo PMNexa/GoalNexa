@@ -261,6 +261,23 @@ RBAC_DEFAULT_ROLES = [
     },
 ]
 
+# --- goalnexa app config (all optional) ---
+# Check-ins posted by scripts/webhooks with a metric's ingest token
+# (goalnexa/views/ingest.py), per metric.
+GOALNEXA_INGEST_RATE = os.environ.get("GOALNEXA_INGEST_RATE") or "60/min"
+# Where reminders link back to; unset = the host each user saved their
+# reminder settings from.
+GOALNEXA_PUBLIC_URL = os.environ.get("GOALNEXA_PUBLIC_URL", "")
+# Which Apprise URL schemes a user may send reminders to (None = any).
+# Hosted, only services with a fixed host: a webhook (json://, form://),
+# a self-hosted ntfy/gotify or an SMTP server would let a stranger make
+# the server call its own network.
+GOALNEXA_REMINDER_SCHEMES = (
+    None
+    if DEPLOYMENT_MODE != "saas"
+    else ["tgram", "discord", "slack", "msteams", "pover", "pbul", "pushed", "join", "line"]
+)
+
 # platform-org has no User table: members' names/emails, and the email an
 # invitation is matched against, come from platform-auth's users.
 PLATFORM_ORG_USER_DIRECTORY = "config.user_directory.lookup_users"

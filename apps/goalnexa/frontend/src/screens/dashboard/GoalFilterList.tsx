@@ -1,5 +1,6 @@
 import type { Goal } from "../../lib/api/goals";
 import type { Metric } from "../../lib/api/metrics";
+import { isCheckInDue } from "../../lib/progress";
 import { formatPct, seriesColor } from "./chartUtils";
 import RowMenu from "./RowMenu";
 
@@ -27,6 +28,8 @@ export interface GoalFilterListProps {
   /** A goal's / metric's name was clicked - the host shows its details. */
   onOpenGoal: (goalId: string) => void;
   onOpenMetric: (metricId: string) => void;
+  /** Epoch ms - what "overdue" is measured against. */
+  now: number;
 }
 
 function formatAmount(value: string): string {
@@ -53,6 +56,13 @@ function SvgIcon({ children }: { children: React.ReactNode }) {
     </svg>
   );
 }
+const ClockIcon = (
+  <SvgIcon>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 7v5l3 3" />
+  </SvgIcon>
+);
+const DUE_DATE = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const PlusIcon = (
   <SvgIcon>
     <path d="M12 5l0 14" />
@@ -141,7 +151,9 @@ function buildTree<T extends { id: string; parent: string | null }>(items: T[]):
  * color. Its branches: its metrics (only while the goal is shown), then
  * its sub-goals (always - a sub-goal is shown/hidden on its own). A
  * metric row is line-color key + name, current / target, "+" menu
- * (check in, add a sub-metric), eye, with its sub-metrics nested under it - the metric keys are the
+ * (check in, add a sub-metric), eye, with its sub-metrics nested under it; a
+ * clock after the name flags a scheduled check-in that's due (click: check
+ * in) - the metric keys are the
  * legend for each goal's progress-over-time panel. The eye is
  * always the last control on a row; a goal's "+" menu adds a metric or a
  * sub-goal, so new rows are created right where they hang in the tree. A hidden goal collapses to its muted
@@ -167,10 +179,12 @@ function GoalFilterList({
   onAddGoal,
   onOpenGoal,
   onOpenMetric,
+  now,
 }: GoalFilterListProps) {
   function renderMetric({ item: metric, children }: TreeNode<Metric>) {
     const metricShown = !disabledMetrics.has(metric.id);
     const slot = metricSlot.get(metric.id);
+    const due = isCheckInDue(metric, now);
     return (
       <li key={metric.id} className="gn-branch gn-metric">
         <div className={`gn-metric-row${metricShown ? "" : " is-off"}${children.length > 0 ? " has-branches" : ""}`}>
@@ -189,6 +203,17 @@ function GoalFilterList({
             >
               <span className="gn-metric-name">{metric.name}</span>
             </button>
+            {due && (
+              <button
+                type="button"
+                className="gn-due"
+                title={`Check-in due since ${DUE_DATE.format(Date.parse(metric.check_in_due_at as string))} - check in now`}
+                aria-label={`${metric.name}: check-in due - check in now`}
+                onClick={() => onCheckIn(metric.id)}
+              >
+                {ClockIcon}
+              </button>
+            )}
           </span>
           <span
             className="gn-metric-value"

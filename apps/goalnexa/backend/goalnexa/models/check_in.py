@@ -8,13 +8,15 @@ from goalnexa.models.metric import Metric
 class CheckIn(TimestampedModel):
     """A progress log entry against a `Metric` (1-n, like `Metric.goal`) -
     `value` is the metric's new reading as of this check-in (e.g. "82" for
-    a weight metric currently at 85), not a delta to add.
+    a weight metric currently at 85), not a delta to add - unless the
+    metric's `aggregation` is SUM, where it IS the amount to add ("ran 12
+    km").
 
     `checked_in_at` is WHEN the reading was taken - user-editable (log a
     reading after the fact), defaulting to now when left blank. Distinct
     from `created_at` (when the row was written), which stays internal.
     `Metric.current_value` tracks the value of the metric's LATEST
-    check-in by `checked_in_at` (see CheckInViewSet's own docstring) -
+    check-in by `checked_in_at` (or their sum; see `goalnexa.progress`) -
     stored, not derived on read, so a plain goal/metric list stays a
     single-table query.
     """

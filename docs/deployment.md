@@ -186,7 +186,8 @@ The first run takes 5-10 minutes (empty build cache).
 > until then, anyone who finds the site can claim it.
 
 Check: `ssh deploy@<public-ip> docker service ls` - replicas 2/2, 2/2,
-1/1.
+1/1, and 1/1 for `main-scheduler` (check-in reminders and goal health,
+`manage.py goalnexa_jobs`).
 
 ## 10. Day to day
 

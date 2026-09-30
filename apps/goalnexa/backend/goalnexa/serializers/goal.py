@@ -24,10 +24,18 @@ class GoalSerializer(BaseSerializer):
     is shared with is managed at `/api/v1/goal-members` (goalnexa-frontend's
     goal members panel), not as a generic related-rows tab whose form
     would ask for a raw user id.
+
+    `progress`/`projected_progress`/`health` are computed by the server
+    (`goalnexa.progress`), read-only here.
     """
 
     class Meta:
         model = Goal
-        extra_kwargs = {"owner_id": {"read_only": True}}
+        extra_kwargs = {
+            "owner_id": {"read_only": True},
+            "progress": {"read_only": True},
+            "projected_progress": {"read_only": True},
+            "health": {"read_only": True},
+        }
         auto_exclude = ["created_at", "updated_at", "members"]
         related_endpoints = {"org_id": "/api/v1/orgs"}

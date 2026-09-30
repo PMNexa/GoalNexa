@@ -227,6 +227,26 @@ class TenantIsolationTests(TestCase):
         self.assertNotIn(self.goal["id"], text)
         self.assertTrue(self.mcp(self.bob, "check_ins_create", metric=self.metric["id"], value=1)[0])
 
+    def test_metric_ingest_tokens_stay_scoped(self):
+        # Bob can't mint or revoke a token for Alice's metric.
+        for method in ("post", "delete"):
+            response = getattr(self.bob, method)(f"{API}/metrics/{self.metric['id']}/ingest-token")
+            self.assertEqual(response.status_code, 404)
+        token = self.alice.post(f"{API}/metrics/{self.metric['id']}/ingest-token").json()["token"]
+        self.assertNotIn(token, json.dumps(self.alice.get(f"{API}/metrics/{self.metric['id']}").json()))
+
+        with_token = APIClient()
+        with_token.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        # It checks in to that one metric - not Bob's, and not the API.
+        self.assertEqual(with_token.post(f"{API}/metrics/{self.metric['id']}/ingest", {"value": 1}, format="json").status_code, 201)
+        self.assertEqual(with_token.post(f"{API}/metrics/{self.bob_metric['id']}/ingest", {"value": 1}, format="json").status_code, 401)
+        self.assertEqual(with_token.get(f"{API}/metrics").status_code, 401)
+
+    def test_reminder_settings_are_per_user(self):
+        saved = self.alice.put(f"{API}/reminder-settings", {"urls": "tgram://123456789:abcdefg/12345", "enabled": True}, format="json")
+        self.assertEqual(saved.status_code, 200, saved.content)
+        self.assertEqual(self.bob.get(f"{API}/reminder-settings").json()["urls"], "")
+
     def test_personal_access_tokens_are_per_user(self):
         token = self.alice.post(f"{API}/mcp/tokens", {"name": "laptop"}, format="json").json()
         self.assertNotIn(token["id"], json.dumps(self.bob.get(f"{API}/mcp/tokens").json()))

@@ -29,6 +29,8 @@ x-backend: &backend
     AUTH_LOGIN_EMAIL_RATE: ${AUTH_LOGIN_EMAIL_RATE:-20/hour}
     AUTH_SIGNUP_RATE: ${AUTH_SIGNUP_RATE:-10/hour}
     TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-1}
+    GOALNEXA_INGEST_RATE: ${GOALNEXA_INGEST_RATE:-60/min}
+    GOALNEXA_PUBLIC_URL: ${GOALNEXA_PUBLIC_URL:-}
 
 services:
   db:
@@ -69,6 +71,15 @@ services:
       timeout: 3s
       retries: 30
       start_period: 5s
+
+  # goalnexa's time-driven jobs: check-in reminders, and the health of
+  # goals whose target date passed (`manage.py goalnexa_jobs`).
+  scheduler:
+    <<: *backend
+    command: ["python", "manage.py", "goalnexa_jobs", "--loop", "300"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
   main-frontend:
     build:

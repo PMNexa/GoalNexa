@@ -15,9 +15,12 @@ If they're missing, the MCP server isn't connected: point the user to
 
 - A **goal** has one or more **metrics**. A metric has `base_value` (where it
   started), `target_value`, `unit` and `current_value`.
-- A **check-in** is a *reading*: the metric's value at a moment
-  (`checked_in_at`). It isn't a delta. `current_value` is always the value of the
-  latest check-in by `checked_in_at`, and the server recomputes it.
+- A metric's `aggregation` says what a **check-in**'s `value` is:
+  - `"latest"` (most metrics): a *reading*, the metric's value at a moment
+    (`checked_in_at`). `current_value` is the latest check-in's value.
+  - `"sum"`: an *amount done* ("ran 12 km", "3 more calls"). `current_value` is
+    `base_value` plus every check-in.
+  The server recomputes `current_value` either way - never add it up yourself.
 - A metric can go down on purpose (response time 12h → 2h: target below base).
 - Progress = `(current - base) / (target - base)`, and a goal's progress is the
   mean of its root metrics' (`parent` null) - sub-metrics don't count toward it.
@@ -32,10 +35,14 @@ If they're missing, the MCP server isn't connected: point the user to
    - Several: ask which one, listing `goal → metric (current / target unit)`.
    - None: say so and offer to create the metric (`metrics_create` with `goal`,
      `name`, `unit`, `base_value`, `target_value`), after confirming the numbers.
-2. **Work out the value to record.**
-   - A total or reading ("we're at 420", "rating is 4.3"): record it as is.
-   - An increment ("12 more signups", "ran another 8 km this week" on a weekly
-     total): add it to `current_value` and say so, e.g. "353 + 12 = 365".
+2. **Work out the value to record** - it depends on the metric's `aggregation`.
+   - `"sum"` metric: send the amount done ("ran 12 km" → `12`). If the user gives
+     a new total instead ("I'm at 60 km"), send the difference from
+     `current_value` and say so, e.g. "60 − 48 = 12".
+   - `"latest"` metric, a total or reading ("we're at 420", "rating is 4.3"):
+     record it as is.
+   - `"latest"` metric, an increment ("12 more signups"): add it to
+     `current_value` and say so, e.g. "353 + 12 = 365".
    - If it could be either, ask.
    - Units: convert when the metric's `unit` clearly differs (e.g. minutes →
      hours), and show the conversion.
@@ -44,8 +51,11 @@ If they're missing, the MCP server isn't connected: point the user to
    A backdated check-in only becomes `current_value` if it's the latest one.
 4. **Create it** with `check_ins_create`: `metric` (id), `value`, and optional
    `note` (the user's own words, briefly) and `checked_in_at`.
-5. **Confirm** in one line: metric, old → new value, progress %, and whether the
-   metric is now at or past its target. For several updates in one message,
+5. **Confirm** in one line: metric, old → new value (the `current_value` the
+   server returns on `metrics_get`), the metric's progress %, and whether it's now
+   at or past its target. The goal's own `progress` averages all its root
+   metrics, so it differs from this one's; mention its `health` if it's
+   `at_risk` or `off_track`. For several updates in one message,
    log each one and confirm them as a short list.
 
 Don't delete or edit earlier check-ins unless the user asks. A correction is a

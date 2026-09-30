@@ -1,5 +1,5 @@
 import { type RouteConfig, index, layout } from "@react-router/dev/routes";
-import { createDashboardRoutes, createGoalsRoutes } from "goalnexa-frontend";
+import { createDashboardRoutes, createGoalsRoutes, createMetricsRoutes, createRemindersRoutes } from "goalnexa-frontend";
 import { createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
 import { createCrudRoutes } from "platform-core";
 import { createMcpRoutes } from "platform-mcp-frontend";
@@ -55,8 +55,11 @@ export default [
     // Goals: the generic pages too, but a goal's page adds who it's
     // shared with - goalnexa-frontend's builder swaps in that one file.
     ...createGoalsRoutes(),
-    ...createCrudRoutes("/api/v1/metrics"),
+    // Metrics likewise: a metric's page adds its automatic check-ins.
+    ...createMetricsRoutes(),
     ...createCrudRoutes("/api/v1/check-ins"),
+    // Where check-in reminders go, and what's due (goalnexa).
+    ...createRemindersRoutes("reminders"),
     // Personal access tokens + how to connect an AI client to the MCP
     // server (platform-mcp) - one page, /mcp.
     ...createMcpRoutes("mcp"),

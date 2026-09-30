@@ -20,11 +20,12 @@
  * files, wired in via `createCrudRoutes`'s `editFile`) just to show
  * those inline; the detail screen replaced them. A goal's page adds one
  * thing to it - who the goal is shared with (`GoalSharingPanel`), hence
- * `createGoalsRoutes()` instead of a bare `createCrudRoutes`.
+ * `createGoalsRoutes()` instead of a bare `createCrudRoutes`. A metric's
+ * page likewise adds its automatic check-ins (`createMetricsRoutes()`).
  */
-export type { Goal, GoalStatus, GoalVisibility } from "./lib/api/goals";
+export type { Goal, GoalHealth, GoalStatus, GoalVisibility } from "./lib/api/goals";
 
-export type { Metric } from "./lib/api/metrics";
+export type { CheckInCadence, Metric, MetricAggregation } from "./lib/api/metrics";
 
 export type { CheckIn } from "./lib/api/checkIns";
 
@@ -32,6 +33,18 @@ export type { CheckIn } from "./lib/api/checkIns";
 export { createGoalsRoutes } from "./goalsRoutes";
 export { default as GoalSharingPanel } from "./screens/GoalSharingPanel";
 export type { GoalSharingPanelProps } from "./screens/GoalSharingPanel";
+
+// Metrics: the generic CRUD pages, with automatic check-ins (ingest
+// token) on a metric's page.
+export { createMetricsRoutes } from "./metricsRoutes";
+export { default as MetricIngestPanel } from "./screens/MetricIngestPanel";
+export type { MetricIngestPanelProps } from "./screens/MetricIngestPanel";
+
+// Check-in reminders: where they go, and what's due -
+// `createRemindersRoutes(basePath)` is what a host mounts.
+export { default as RemindersScreen } from "./screens/RemindersScreen";
+export type { RemindersScreenProps } from "./screens/RemindersScreen";
+export { createRemindersRoutes } from "./remindersRoutes";
 
 // Dashboard: org + goals filters, progress-over-time / current-progress
 // charts. `createDashboardRoutes(basePath)` is what a host mounts.

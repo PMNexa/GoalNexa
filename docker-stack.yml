@@ -53,7 +53,7 @@ services:
   main-backend:
     image: ${REGISTRY:?set REGISTRY}/goalnexa:backend-${IMAGE_TAG:?set IMAGE_TAG}
     logging: *logging
-    environment:
+    environment: &backend-env
       DJANGO_DEBUG: "false"
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
@@ -73,6 +73,8 @@ services:
       # Required - a wrong value silently puts every client under one
       # rate limit.
       TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:?set TRUSTED_PROXY_COUNT}
+      GOALNEXA_INGEST_RATE: ${GOALNEXA_INGEST_RATE:-60/min}
+      GOALNEXA_PUBLIC_URL: ${GOALNEXA_PUBLIC_URL:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import os, urllib.request; host = os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip().lstrip('.'); urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/admin/login/', headers={'Host': host}))"]
       interval: 5s
@@ -84,6 +86,20 @@ services:
     deploy:
       <<: *rolling
       replicas: ${BACKEND_REPLICAS:-2}
+
+  # goalnexa's time-driven jobs: check-in reminders, and the health of
+  # goals whose target date passed. One replica is enough; a second one
+  # (e.g. mid-update) is harmless - each reminder is claimed before it's
+  # sent.
+  main-scheduler:
+    image: ${REGISTRY}/goalnexa:backend-${IMAGE_TAG}
+    logging: *logging
+    environment: *backend-env
+    command: ["python", "manage.py", "goalnexa_jobs", "--loop", "300"]
+    networks: [goalnexa]
+    deploy:
+      <<: *rolling
+      replicas: 1
 
   main-frontend:
     image: ${REGISTRY}/goalnexa:frontend-${IMAGE_TAG}

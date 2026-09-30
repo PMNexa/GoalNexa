@@ -1,4 +1,4 @@
-import type { Goal } from "./api/goals";
+import type { Goal, GoalHealth } from "./api/goals";
 import type { Metric } from "./api/metrics";
 import type { CheckIn } from "./api/checkIns";
 
@@ -12,6 +12,11 @@ import type { CheckIn } from "./api/checkIns";
  * base are skipped - there's no distance to measure. A goal with no
  * usable metrics has no progress at all (`current: null`, empty series),
  * not 0%.
+ *
+ * A metric's value over time replays its check-ins: each one IS the new
+ * value, or - for a `sum` metric - adds to a running total that starts
+ * at `base_value`. The backend's `goalnexa/progress.py` implements the
+ * same rules (it stores each goal's progress/health) - keep them in step.
  */
 export interface ProgressPoint {
   /** Epoch ms of the check-in that produced this point. */
@@ -41,6 +46,11 @@ function metricPct(value: string | number, metric: Metric): number {
 
 function mean(values: number[]): number {
   return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+/** The metric's value once `checkIn` is applied to `previous` (its value so far). */
+function applyCheckIn(metric: Metric, previous: number, checkIn: CheckIn): number {
+  return metric.aggregation === "sum" ? previous + Number(checkIn.value) : Number(checkIn.value);
 }
 
 /**
@@ -73,7 +83,7 @@ export function computeGoalProgress(goals: Goal[], metrics: Metric[], checkIns: 
     for (const checkIn of sortedCheckIns) {
       const metric = metricById.get(checkIn.metric);
       if (!metric || metric.goal !== goal.id || !values.has(metric.id)) continue;
-      values.set(metric.id, Number(checkIn.value));
+      values.set(metric.id, applyCheckIn(metric, values.get(metric.id) ?? Number(metric.base_value), checkIn));
       series.push({
         t: Date.parse(checkIn.checked_in_at),
         pct: mean(usable.map((m) => metricPct(values.get(m.id) ?? Number(m.base_value), m))),
@@ -93,18 +103,18 @@ export function computeGoalProgress(goals: Goal[], metrics: Metric[], checkIns: 
 /**
  * One metric's own progress over time: its progress from base toward
  * target (see the top of this file) at each of its check-ins, oldest
- * first. Empty for a metric whose target equals its base.
+ * first - `value` is the metric's value then (a running total for `sum`). Empty for a metric whose target equals its base.
  */
 export function computeMetricSeries(metric: Metric, checkIns: CheckIn[]): ProgressPoint[] {
   if (!isUsable(metric)) return [];
+  let value = Number(metric.base_value);
   return checkIns
     .filter((checkIn) => checkIn.metric === metric.id)
-    .map((checkIn) => ({
-      t: Date.parse(checkIn.checked_in_at),
-      pct: metricPct(checkIn.value, metric),
-      value: Number(checkIn.value),
-    }))
-    .sort((a, b) => a.t - b.t);
+    .sort((a, b) => Date.parse(a.checked_in_at) - Date.parse(b.checked_in_at))
+    .map((checkIn) => {
+      value = applyCheckIn(metric, value, checkIn);
+      return { t: Date.parse(checkIn.checked_in_at), pct: metricPct(value, metric), value };
+    });
 }
 
 /** A goal's `target_date` ("YYYY-MM-DD") as local midnight epoch ms, or null. */
@@ -153,4 +163,29 @@ export function projectGoal(goal: Goal, metrics: Metric[], checkIns: CheckIn[], 
   const projected = usable.map((m) => projectMetric(m, checkIns, targetT));
   if (projected.every((p) => p === null)) return null;
   return mean(usable.map((m, i) => projected[i]?.pct ?? metricPct(m.current_value, m)));
+}
+
+/** Projected % at or above this (under 100) is at risk; below, off track. Same as the backend's `AT_RISK_FLOOR`. */
+export const AT_RISK_FLOOR = 80;
+
+/**
+ * Where a goal is heading - the backend's `goal_health`, over the
+ * dashboard's own numbers (so it matches the % and projection shown next
+ * to it, hidden metrics left out): achieved at 100%+; otherwise, with a
+ * target date, off track once it's passed, else from the projection.
+ */
+export function goalHealth(current: number | null, projected: number | null, targetT: number | null, now: number): GoalHealth {
+  if (current === null) return "unknown";
+  if (current >= 100) return "achieved";
+  if (targetT === null) return "unknown";
+  // The target is the START of its day - past it once that day is over.
+  if (now >= targetT + 24 * 60 * 60 * 1000) return "off_track";
+  if (projected === null) return "unknown";
+  if (projected >= 100) return "on_track";
+  return projected >= AT_RISK_FLOOR ? "at_risk" : "off_track";
+}
+
+/** Whether the metric's scheduled check-in is due (server-kept `check_in_due_at`). */
+export function isCheckInDue(metric: Metric, now: number): boolean {
+  return metric.check_in_due_at !== null && Date.parse(metric.check_in_due_at) <= now;
 }

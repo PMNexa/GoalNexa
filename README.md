@@ -31,6 +31,12 @@ costs, weight), and progress is still measured correctly. Forgot to log on
 Friday? Backdate the check-in; the current value always follows the latest
 reading.
 
+**Goals that don't go stale.** Give a metric a check-in schedule and GoalNexa
+flags it when it's overdue and reminds you by email, ntfy, Telegram, Slack,
+Discord or a webhook. Or skip typing entirely: every metric can take check-ins
+from a script, cron job, Home Assistant or n8n through its own token. Each goal
+shows whether it's on track, from its projected progress at the target date.
+
 **Personal and team, in one place.** Keep your half-marathon plan private and
 your team's OKRs in a shared organization, then switch between them with one
 dropdown.
@@ -157,8 +163,10 @@ MCP tools. Registering it in the frontend is one line:
 **Progress math** (`apps/goalnexa/frontend/src/lib/progress.ts`): metric progress
 is `(current − base) / (target − base)`, so metrics that should go down work
 too, and a goal's progress is the mean of its metrics'. `Metric.current_value`
-is the value of the latest check-in by `checked_in_at` (user-set, backdatable)
-and is recomputed on every check-in change.
+is the value of the latest check-in by `checked_in_at` (user-set, backdatable),
+or for a `sum` metric its base plus every check-in, and is recomputed on every
+check-in change. The server keeps the same math in `goalnexa/progress.py` and
+stores each goal's progress, projection and health.
 
 ### MCP server, OAuth and personal access tokens
 

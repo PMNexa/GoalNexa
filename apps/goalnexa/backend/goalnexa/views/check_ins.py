@@ -4,11 +4,13 @@ sideload field on `CheckInSerializer`, resolved here from the request
 body's `metric` id.
 
 `Metric.current_value` = the value of that metric's LATEST check-in by
-`checked_in_at` (see `Metric`'s own docstring on why it's stored rather
-than derived on read). Since `checked_in_at` is user-editable (a reading
-can be logged after the fact), "latest" isn't necessarily the check-in
-just written - so every write (create/update/delete) recomputes it from
-the metric's own check-ins instead of copying the new value over.
+`checked_in_at` (or, for a SUM metric, base + all of them - see
+`Metric`'s own docstring on why it's stored rather than derived on read).
+Since `checked_in_at` is user-editable (a reading can be logged after the
+fact), "latest" isn't necessarily the check-in just written - so every
+write (create/update/delete) recomputes it from the metric's own
+check-ins instead of copying the new value over, along with the metric's
+schedule and its goal's progress/health (`goalnexa.progress`).
 """
 
 from django.shortcuts import get_object_or_404
@@ -18,18 +20,8 @@ from rest_framework.permissions import IsAuthenticated
 from core_api.viewsets import BaseViewSet
 from goalnexa.access import visible_goals
 from goalnexa.models import CheckIn, Metric
+from goalnexa.progress import refresh_metric_and_goal
 from goalnexa.serializers import CheckInSerializer
-
-
-def sync_current_value(metric_id) -> None:
-    """Sets the metric's `current_value` to its latest check-in's value.
-    Leaves it untouched if the metric has no check-ins left (it may have
-    been set directly on the metric instead)."""
-    latest = (
-        CheckIn.objects.filter(metric_id=metric_id).order_by("-checked_in_at", "-created_at").values("value").first()
-    )
-    if latest is not None:
-        Metric.objects.filter(id=metric_id).update(current_value=latest["value"])
 
 
 class CheckInViewSet(BaseViewSet):
@@ -56,7 +48,7 @@ class CheckInViewSet(BaseViewSet):
 
     def perform_create(self, serializer):
         check_in = serializer.save(metric=self._resolve_metric())
-        sync_current_value(check_in.metric_id)
+        refresh_metric_and_goal(check_in.metric_id)
 
     def perform_update(self, serializer):
         # Only `metric` is reassignable (presence-based, same rule as
@@ -67,11 +59,11 @@ class CheckInViewSet(BaseViewSet):
         old_metric_id = instance.metric_id
         metric = self._resolve_metric() if "metric" in self.request.data else instance.metric
         check_in = serializer.save(metric=metric)
-        sync_current_value(check_in.metric_id)
+        refresh_metric_and_goal(check_in.metric_id)
         if old_metric_id != check_in.metric_id:
-            sync_current_value(old_metric_id)
+            refresh_metric_and_goal(old_metric_id)
 
     def perform_destroy(self, instance):
         metric_id = instance.metric_id
         instance.delete()
-        sync_current_value(metric_id)
+        refresh_metric_and_goal(metric_id)

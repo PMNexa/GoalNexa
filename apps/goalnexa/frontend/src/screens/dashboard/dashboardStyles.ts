@@ -238,6 +238,52 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   color: var(--gn-text-secondary);
   font-variant-numeric: tabular-nums;
 }
+/* A goal's health, next to its projection: a status dot + label (never color alone). */
+.gn-health {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--gn-text-secondary);
+  white-space: nowrap;
+}
+.gn-health::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gn-health, var(--gn-grid));
+}
+.gn-health.is-on_track,
+.gn-health.is-achieved {
+  --gn-health: var(--tblr-success, #2fb344);
+}
+.gn-health.is-at_risk {
+  --gn-health: var(--tblr-warning, #f76707);
+}
+.gn-health.is-off_track {
+  --gn-health: var(--tblr-danger, #d63939);
+}
+/* A metric's scheduled check-in is due: a clock after its name - checks in. */
+.gn-due {
+  display: inline-flex;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tblr-warning, #f76707);
+  cursor: pointer;
+}
+.gn-due svg {
+  width: 14px;
+  height: 14px;
+}
+.gn-due:focus-visible {
+  outline: 2px solid var(--tblr-primary, #206bc4);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
 .gn-goal-pct {
   padding: 0 0.5rem;
   border-radius: 999px;

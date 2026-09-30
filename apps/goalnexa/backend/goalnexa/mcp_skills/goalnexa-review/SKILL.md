@@ -1,6 +1,6 @@
 ---
 name: goalnexa-review
-description: Review progress on GoalNexa goals (weekly review, stand-up, "how are my goals doing?", "what's behind?"). Computes progress and pace against target dates, flags at-risk goals and stale metrics, and suggests next steps.
+description: Review progress on GoalNexa goals (weekly review, stand-up, "how are my goals doing?", "what's behind?"). Reports progress, projection and health against target dates, flags at-risk goals and overdue metrics, and suggests next steps.
 ---
 
 # Review GoalNexa goals
@@ -22,30 +22,36 @@ Leave out `archived` (and, unless asked, `completed`) goals. Add
 
 ## Numbers
 
-- Metric progress = `(current_value - base_value) / (target_value - base_value)`.
-  It works for metrics meant to go down too. Clamp to 0–100% for display, but
-  mention a metric that's past its target.
-- Goal progress = the mean of its ROOT metrics' progress (`parent` is null).
-  Sub-metrics break a root metric down; they don't count toward the goal.
-- **Pace** (for goals with a `target_date`): find the goal's start, which is the
-  earliest check-in of any of its metrics (`check_ins_list`,
-  `filter: {"metric": "<id>"}`, `sort: "checked_in_at"`, `page_size: 1`). Then
-  expected = elapsed time ÷ (target_date − start). A goal is **at risk** when
-  progress is more than 15 points below expected, or its target date has passed
-  without reaching 100%.
-- **Stale metric**: no check-in in the last 14 days (latest check-in:
-  `sort: "-checked_in_at"`, `page_size: 1`).
+The server keeps these up to date on every goal - read them, don't recompute:
 
-Keep the tool calls lean. Fetch check-ins only for goals with a target date, and
-only the one or two rows you need per metric.
+- `progress`: the mean progress of the goal's ROOT metrics (`parent` null), in %.
+  A metric's own progress is
+  `(current_value - base_value) / (target_value - base_value)` (it works for
+  metrics meant to go down too). Clamp to 0–100% for display, but mention one
+  that's past its target.
+- `projected_progress`: where the goal lands by its `target_date` if each metric
+  keeps its check-in trend (null without a target date or a trend).
+- `health`: `on_track` (projected ≥ 100%), `at_risk` (≥ 80%), `off_track` (less,
+  or the target date passed), `achieved`, or `unknown` (no metrics, no target
+  date, or fewer than two check-ins to trend from).
+
+**Overdue metrics**: a metric with a schedule (`check_in_every`) has
+`check_in_due_at`; it's overdue once that's passed -
+`metrics_list` with `filter: {"check_in_due_at.lte": "<now, ISO 8601>"}` and
+`include: ["goal"]`. A metric with no schedule is stale when
+`last_checked_in_at` is more than 14 days ago (or null while the goal is in
+progress).
+
+Keep the tool calls lean: one `goals_list` with `include: ["metrics"]` has
+everything above.
 
 ## Output
 
 1. One line: how many goals, and how many are on track or at risk.
-2. A table: goal · due · progress · pace (expected %) · status (on track /
-   at risk / done / no date). Order it at risk first, then by due date.
+2. A table: goal · due · progress · projected · health. Order it off track and
+   at risk first, then by due date.
 3. For at-risk goals, the weakest metric with `current / target unit`.
-4. Stale metrics, as a short list.
+4. Overdue and stale metrics, as a short list.
 5. At most three concrete suggestions (e.g. "log this week's reading for
    Subscribers", "the hiring goal needs 2 more hires in 9 weeks"). Suggestions
    only: change nothing unless the user asks.

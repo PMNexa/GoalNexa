@@ -19,7 +19,8 @@ function formatAmount(value: string): string {
 
 /**
  * Log a check-in for one metric from the dashboard, in platform-core's
- * `Modal`. A blank time is left out so the server default (now) applies. The form's
+ * `Modal`. For a `sum` metric the value is an amount to add, and the form
+ * says so (with the total it makes). A blank time is left out so the server default (now) applies. The form's
  * fields reset each time it opens (`key` on the inner form).
  */
 function CheckInModal({ accessToken, metric, goalTitle, onSaved, onClose }: CheckInModalProps) {
@@ -63,6 +64,7 @@ function CheckInForm({
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const adds = metric.aggregation === "sum";
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -96,7 +98,8 @@ function CheckInForm({
       </p>
       <div className="mb-3">
         <FormLabel htmlFor="dashboard-check-in-value" required>
-          Value{metric.unit ? ` (${metric.unit})` : ""}
+          {adds ? "Amount to add" : "Value"}
+          {metric.unit ? ` (${metric.unit})` : ""}
         </FormLabel>
         <FormControl
           id="dashboard-check-in-value"
@@ -107,6 +110,15 @@ function CheckInForm({
           value={value}
           onChange={(event) => setValue(event.target.value)}
         />
+        {adds && (
+          <small className="form-hint">
+            Adds to the total
+            {value !== "" && Number.isFinite(Number(value))
+              ? ` - new total ${formatAmount(String(Number(metric.current_value) + Number(value)))}`
+              : ""}
+            .
+          </small>
+        )}
       </div>
       <div className="mb-3">
         <FormLabel htmlFor="dashboard-check-in-when">When</FormLabel>

@@ -35,6 +35,7 @@ const NAV_ITEMS: NavEntry[] = [
       { label: "Goals", to: "/goals" },
       { label: "Metrics", to: "/metrics" },
       { label: "Check-ins", to: "/check-ins" },
+      { label: "Reminders", to: "/reminders" },
     ],
   },
   ...createOrgsNavItems("platform-org"),

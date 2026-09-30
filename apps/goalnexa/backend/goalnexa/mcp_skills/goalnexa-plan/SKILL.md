@@ -30,6 +30,13 @@ From what the user said, propose:
   - A metric that should go down gets a target below its base ("Median response
     time 12 → 2 hours").
   - Avoid yes/no metrics. If you need one, use 0 → 1.
+  - A metric built up from amounts done ("run 100 km", "make 50 calls") gets
+    `aggregation: "sum"`: each check-in is then the amount done, not the new
+    total. Readings (weight, revenue to date, a score) keep the default,
+    `"latest"`.
+  - Suggest a check-in schedule, `check_in_every`: `"daily"`, `"weekly"` or
+    `"monthly"` (default none). An overdue metric is flagged on the dashboard and
+    reminded, if the user set up reminders at {{app_url}}/reminders.
 
 Before creating anything, check for duplicates: `goals_list` with
 `filter: {"title.icontains": "<keyword>"}`. If there's a close match, ask
