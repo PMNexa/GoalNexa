@@ -5,7 +5,12 @@ what no request triggers:
   (`goalnexa.progress` - an on-track goal past its date is off track);
 - overdue check-in reminders go out (`goalnexa.reminders`);
 - every goal gets its daily snapshot, and due digests go out
-  (`goalnexa.digest`).
+  (`goalnexa.digest`);
+- the platform's own jobs run (`core_api.system.run_system_jobs`:
+  retrying queued email).
+
+Each run reports a heartbeat - the admin's Status page shows when the
+scheduler last ran and whether it failed.
 
 Once, or forever with `--loop` (the `scheduler` service in the compose
 and stack files). Safe to run more than once at a time.
@@ -18,6 +23,7 @@ from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 from django.utils import timezone
 
+from core_api.system import heartbeat, run_system_jobs
 from goalnexa.digest import send_due_digests, snapshot_goals
 from goalnexa.models import Goal, GoalHealth
 from goalnexa.progress import refresh_goal
@@ -38,6 +44,8 @@ def run_once() -> dict:
         "users_reminded": send_due_reminders(),
         "snapshots": snapshot_goals(today),
         "digests": send_due_digests(),
+        # The platform's own periodic work (retrying queued email).
+        **run_system_jobs(),
     }
 
 
@@ -51,9 +59,11 @@ class Command(BaseCommand):
         while True:
             try:
                 result = run_once()
+                heartbeat("goalnexa_jobs", result=result)
                 if any(result.values()) or not loop:
                     self.stdout.write(f"{timezone.now().isoformat()} {result}")
-            except Exception:
+            except Exception as exc:
+                heartbeat("goalnexa_jobs", ok=False, error=f"{type(exc).__name__}: {exc}")
                 if not loop:
                     raise
                 logger.exception("goalnexa_jobs run failed")

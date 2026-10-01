@@ -28,6 +28,8 @@ class ReminderSettings(TimestampedModel):
     user_id = models.UUIDField(unique=True)
     enabled = models.BooleanField(default=True)
     urls = models.TextField(blank=True, default="")
+    # Also send to the account's email, through the instance's mail server.
+    email = models.BooleanField(default=False, db_default=False)
     app_url = models.CharField(max_length=255, blank=True, default="")
     digest = models.CharField(
         max_length=8, choices=DigestFrequency.choices, default=DigestFrequency.WEEKLY, db_default=DigestFrequency.WEEKLY

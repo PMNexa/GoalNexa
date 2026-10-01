@@ -13,7 +13,8 @@ from rest_framework.permissions import IsAuthenticated
 from core_api.viewsets import BaseViewSet
 from goalnexa.access import visible_cycles, visible_goals
 from goalnexa.activity import changes, record, snapshot
-from goalnexa.models import ActivityVerb, Cycle, CycleStatus, Goal
+from core_api.system import check_org_limit
+from goalnexa.models import ActivityVerb, Cycle, CycleStatus, Goal, GoalStatus
 from goalnexa.progress import refresh_goal
 from goalnexa.serializers import GoalSerializer
 
@@ -73,7 +74,11 @@ class GoalViewSet(BaseViewSet):
         return cycle
 
     def perform_create(self, serializer):
-        cycle = self._resolve_cycle(serializer.validated_data.get("org_id"))
+        org_id = serializer.validated_data.get("org_id")
+        if org_id:
+            current = Goal.objects.filter(org_id=org_id).exclude(status=GoalStatus.ARCHIVED).count()
+            check_org_limit(org_id, "max_goals", current, "goals")
+        cycle = self._resolve_cycle(org_id)
         goal = serializer.save(owner_id=self.request.user.id, parent=self._resolve_parent(), cycle=cycle)
         record(goal.id, ActivityVerb.GOAL_CREATED, self.request.user.id, title=goal.title)
 

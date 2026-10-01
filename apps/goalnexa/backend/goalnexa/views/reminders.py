@@ -19,7 +19,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from goalnexa.models import DigestFrequency, ReminderSettings
-from goalnexa.reminders import allowed_schemes, send, validate_urls
+from core_api.system import email_configured
+from goalnexa.reminders import allowed_schemes, deliver, has_channel, validate_urls
 
 
 def _app_url(request) -> str:
@@ -32,6 +33,8 @@ def _payload(reminder_settings: ReminderSettings | None) -> dict:
     return {
         "enabled": row.enabled,
         "urls": row.urls,
+        "email": row.email,
+        "email_available": email_configured(),
         "digest": row.digest,
         "digest_weekday": row.digest_weekday,
         "digest_hour": row.digest_hour,
@@ -65,6 +68,11 @@ def _digest_fields(data) -> dict:
     return fields
 
 
+def reminder_settings_email(request) -> bool:
+    row = ReminderSettings.objects.filter(user_id=request.user.id).first()
+    return row.email if row else False
+
+
 class ReminderSettingsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -84,6 +92,7 @@ class ReminderSettingsView(APIView):
             defaults={
                 "urls": urls,
                 "enabled": bool(request.data.get("enabled", True)),
+                "email": bool(request.data.get("email", reminder_settings_email(request))),
                 "app_url": _app_url(request),
                 **_digest_fields(request.data),
             },
@@ -96,13 +105,9 @@ class ReminderTestView(APIView):
 
     def post(self, request):
         reminder_settings = ReminderSettings.objects.filter(user_id=request.user.id).first()
-        urls = reminder_settings.url_list() if reminder_settings else []
-        if not urls:
-            raise ValidationError({"urls": ["Save at least one URL first."]})
-        try:
-            ok = send(urls, "GoalNexa test reminder", "Check-in reminders will arrive here.")
-        except Exception as exc:
-            raise ValidationError({"urls": [f"Sending failed: {exc}"]}) from exc
+        if reminder_settings is None or not has_channel(reminder_settings):
+            raise ValidationError({"urls": ["Save at least one URL, or turn on email, first."]})
+        ok = deliver(reminder_settings, "GoalNexa test reminder", "Check-in reminders will arrive here.", kind="test_reminder")
         if not ok:
             raise ValidationError({"urls": ["Sending failed - check the URLs (the server log has details)."]})
         return Response({"sent": True})

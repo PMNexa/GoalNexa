@@ -75,6 +75,9 @@ services:
       TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:?set TRUSTED_PROXY_COUNT}
       GOALNEXA_INGEST_RATE: ${GOALNEXA_INGEST_RATE:-60/min}
       GOALNEXA_PUBLIC_URL: ${GOALNEXA_PUBLIC_URL:-}
+      # Outgoing email (see .env.sample); unset = not configured.
+      EMAIL_URL: ${EMAIL_URL:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import os, urllib.request; host = os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip().lstrip('.'); urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/admin/login/', headers={'Host': host}))"]
       interval: 5s

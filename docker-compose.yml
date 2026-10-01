@@ -28,6 +28,9 @@ services:
       TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-2}
       GOALNEXA_INGEST_RATE: ${GOALNEXA_INGEST_RATE:-60/min}
       GOALNEXA_PUBLIC_URL: ${GOALNEXA_PUBLIC_URL:-}
+      # Outgoing email (see .env.sample); unset = not configured.
+      EMAIL_URL: ${EMAIL_URL:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
       # Without this, Python buffers stdout and `docker compose logs`
       # shows NOTHING even while the server is running fine - confirmed
       # directly during development (had to exec in and check /proc to
@@ -80,6 +83,9 @@ services:
       GOALNEXA_EXTENSIONS: ${GOALNEXA_EXTENSIONS:-}
       GOALNEXA_EXTENSION_SETTINGS: ${GOALNEXA_EXTENSION_SETTINGS:-}
       GOALNEXA_PUBLIC_URL: ${GOALNEXA_PUBLIC_URL:-}
+      # Outgoing email (see .env.sample); unset = not configured.
+      EMAIL_URL: ${EMAIL_URL:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
       PYTHONUNBUFFERED: "1"
     volumes:
       - ./apps:/apps

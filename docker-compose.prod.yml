@@ -31,6 +31,9 @@ x-backend: &backend
     TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-1}
     GOALNEXA_INGEST_RATE: ${GOALNEXA_INGEST_RATE:-60/min}
     GOALNEXA_PUBLIC_URL: ${GOALNEXA_PUBLIC_URL:-}
+    # Outgoing email (see .env.sample); unset = not configured.
+    EMAIL_URL: ${EMAIL_URL:-}
+    EMAIL_FROM: ${EMAIL_FROM:-}
 
 services:
   db:

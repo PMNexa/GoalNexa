@@ -43,6 +43,15 @@ with a click. Every goal has an activity feed and comments, each check-in shows
 whether a person, an AI agent or a script logged it, and a daily or weekly
 digest tells everyone what moved and what needs attention.
 
+**Run it like a product.** A System section for admins: settings you can
+change from the browser (sign-up policy, allowed domains, email verification,
+limits per organization, an announcement banner) next to the ones the
+deployment fixes (database, mail server, secrets - read-only); a status page
+for the background jobs and deliveries; an audit log; every organization;
+and for each user - invite, disable, password link, where they're signed in,
+read-only "view as", export and delete. Users can download or delete their
+own data.
+
 **Personal and team, in one place.** Keep your half-marathon plan private and
 your team's OKRs in a shared organization, then switch between them with one
 dropdown.

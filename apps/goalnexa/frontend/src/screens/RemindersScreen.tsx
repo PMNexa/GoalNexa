@@ -30,7 +30,7 @@ function browserTimeZone(): string {
 }
 
 function formFrom(row: ReminderSettings): ReminderSettingsInput {
-  const { allowed_schemes: _schemes, ...form } = row;
+  const { allowed_schemes: _schemes, email_available: _available, ...form } = row;
   return form;
 }
 
@@ -110,7 +110,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
     settings !== null &&
     form !== null &&
     (Object.keys(form) as (keyof ReminderSettingsInput)[]).some((key) => key !== "timezone" && form[key] !== settings[key]);
-  const zoneChanged = settings !== null && settings.urls !== "" && settings.timezone !== browserTimeZone();
+  const zoneChanged = settings !== null && (settings.urls !== "" || settings.email) && settings.timezone !== browserTimeZone();
 
   return (
     <div className="row g-3">
@@ -137,7 +137,18 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                   />
                   <span className="form-check-label">Send me reminders</span>
                 </label>
-                <FormLabel htmlFor="reminder-urls">Send to</FormLabel>
+                {settings.email_available && (
+                  <label className="form-check mb-3">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      checked={form.email}
+                      onChange={(event) => update("email", event.target.checked)}
+                    />
+                    <span className="form-check-label">Email them to my account address</span>
+                  </label>
+                )}
+                <FormLabel htmlFor="reminder-urls">{settings.email_available ? "Also send to" : "Send to"}</FormLabel>
                 <textarea
                   id="reminder-urls"
                   className="form-control font-monospace"
@@ -223,7 +234,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
               <Button
                 variant="secondary"
                 outline
-                disabled={busy || dirty || !settings.urls.trim()}
+                disabled={busy || dirty || (!settings.urls.trim() && !settings.email)}
                 title={dirty ? "Save first" : undefined}
                 onClick={() => void act(() => sendTestReminder(accessToken), "Test message sent.")}
               >

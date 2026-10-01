@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link as RouterLink, Outlet, useLocation } from "react-router";
-import { AppShell } from "platform-core";
+import { AnnouncementBanner, AppShell, createSystemNavItems } from "platform-core";
 import type { LinkComponentProps, NavEntry } from "platform-core";
-import { createRbacNavItems, filterNavByPermissions, getSession, logout, subscribeSession, useMyPermissions } from "platform-auth-frontend";
+import {
+  createRbacNavItems,
+  endImpersonation,
+  filterNavByPermissions,
+  getSession,
+  logout,
+  subscribeSession,
+  useMyPermissions,
+} from "platform-auth-frontend";
 import { createMcpNavItems } from "platform-mcp-frontend";
-import { createOrgsNavItems } from "platform-org-frontend";
+import { createOrgAdminNavItem, createOrgsNavItems } from "platform-org-frontend";
 import { createExtensionNavItems } from "../extensions";
 import { DashboardIcon, GoalsIcon } from "../lib/navIcons";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
@@ -41,6 +49,7 @@ const NAV_ITEMS: NavEntry[] = [
   },
   ...createOrgsNavItems("platform-org"),
   ...createRbacNavItems("platform-auth"),
+  ...createSystemNavItems("system", [createOrgAdminNavItem("system")]),
   ...createMcpNavItems("mcp"),
   ...createExtensionNavItems(),
 ];
@@ -94,6 +103,17 @@ export default function AppShellLayout() {
       userMenu={userMenu.items}
       onUserMenuOpen={userMenu.refresh}
     >
+      {session?.user.impersonated_by && (
+        <div className="alert alert-warning d-flex align-items-center gap-3 mb-3" role="status">
+          <div>
+            Viewing as <strong>{session.user.name}</strong> ({session.user.email}) - read-only, ends in 15 minutes.
+          </div>
+          <button type="button" className="btn btn-sm btn-warning ms-auto" onClick={endImpersonation}>
+            Stop viewing
+          </button>
+        </div>
+      )}
+      <AnnouncementBanner accessToken={accessToken} />
       <Outlet context={accessToken} />
     </AppShell>
   );

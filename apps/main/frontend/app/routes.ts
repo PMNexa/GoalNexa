@@ -6,10 +6,10 @@ import {
   createMetricsRoutes,
   createRemindersRoutes,
 } from "goalnexa-frontend";
-import { createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
-import { createCrudRoutes } from "platform-core";
+import { createAccountRoutes, createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
+import { createCrudRoutes, createSystemRoutes } from "platform-core";
 import { createMcpRoutes } from "platform-mcp-frontend";
-import { createOrgsPublicRoutes, createOrgsRoutes } from "platform-org-frontend";
+import { createOrgAdminRoutes, createOrgsPublicRoutes, createOrgsRoutes } from "platform-org-frontend";
 import { createExtensionPublicRoutes, createExtensionRoutes } from "./extensions";
 
 // A downstream build's public pages (see app/extensions/index.ts); one of
@@ -74,6 +74,13 @@ export default [
     // Role-based access control (platform-auth): users, roles, role
     // assignments, permissions under /platform-auth/.
     ...createRbacRoutes("platform-auth"),
+    // System administration (platform-core): settings, audit log, email
+    // log - admins only (RBAC).
+    ...createSystemRoutes("system"),
+    // Every organization, for the system admin (platform-org).
+    ...createOrgAdminRoutes("system"),
+    // The signed-in user's own account: download my data, delete my account.
+    ...createAccountRoutes("account"),
     // A downstream build's own pages (e.g. hosted billing) - none in the
     // self-hosted build. See app/extensions/index.ts.
     ...createExtensionRoutes(),

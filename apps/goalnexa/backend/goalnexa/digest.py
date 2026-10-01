@@ -24,7 +24,7 @@ from rest_framework.test import force_authenticate
 from goalnexa.access import visible_goals
 from goalnexa.authentication import ActorStub
 from goalnexa.models import DigestFrequency, Goal, GoalHealth, GoalSnapshot, GoalStatus, Metric, ReminderSettings
-from goalnexa.reminders import send
+from goalnexa.reminders import deliver, has_channel
 
 logger = logging.getLogger(__name__)
 
@@ -147,9 +147,8 @@ def send_due_digests(now=None) -> int:
     """Sends every digest that's due; returns how many went out."""
     now = now or timezone.now()
     sent = 0
-    for settings in ReminderSettings.objects.filter(enabled=True).exclude(digest=DigestFrequency.OFF).exclude(urls=""):
-        urls = settings.url_list()
-        if not urls or not is_due(settings, now):
+    for settings in ReminderSettings.objects.filter(enabled=True).exclude(digest=DigestFrequency.OFF):
+        if not has_channel(settings) or not is_due(settings, now):
             continue
         # Claim it first (the previous value must still be there), so two
         # schedulers never both send it.
@@ -161,11 +160,8 @@ def send_due_digests(now=None) -> int:
         message = compose(settings.user_id, settings.digest, now, settings.app_url)
         if message is None:
             continue
-        try:
-            if send(urls, *message):
-                sent += 1
-            else:
-                logger.warning("Digest to user %s was not delivered", settings.user_id)
-        except Exception:
-            logger.exception("Digest to user %s failed", settings.user_id)
+        if deliver(settings, *message, kind="digest"):
+            sent += 1
+        else:
+            logger.warning("Digest to user %s was not delivered", settings.user_id)
     return sent

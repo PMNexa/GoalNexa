@@ -10,6 +10,10 @@ export type DigestFrequency = "off" | "daily" | "weekly";
 export interface ReminderSettings {
   enabled: boolean;
   urls: string;
+  /** Also send to the account's email, through the instance's mail server. */
+  email: boolean;
+  /** Whether this instance can send email at all. */
+  email_available: boolean;
   /** The goals digest: how often, on which weekday (0 = Monday) and at which local hour, in `timezone` (IANA). */
   digest: DigestFrequency;
   digest_weekday: number;
@@ -23,7 +27,7 @@ export function fetchReminderSettings(accessToken: string): Promise<ReminderSett
   return apiRequest<ReminderSettings>("/api/v1/reminder-settings", accessToken);
 }
 
-export type ReminderSettingsInput = Omit<ReminderSettings, "allowed_schemes">;
+export type ReminderSettingsInput = Omit<ReminderSettings, "allowed_schemes" | "email_available">;
 
 export function saveReminderSettings(accessToken: string, data: ReminderSettingsInput): Promise<ReminderSettings> {
   return apiRequest<ReminderSettings>("/api/v1/reminder-settings", accessToken, { method: "PUT", data });

@@ -1,6 +1,8 @@
-"""platform-org's user directory (`PLATFORM_ORG_USER_DIRECTORY`,
-`PLATFORM_ORG_ACCOUNT_EXISTS`) - main is the one place that knows both
-modules, so the glue lives here."""
+"""User lookups other modules need from platform-auth - platform-org's
+(`PLATFORM_ORG_USER_DIRECTORY`, `PLATFORM_ORG_ACCOUNT_EXISTS`), goalnexa's
+(`GOALNEXA_USER_DIRECTORY`, for emailing reminders) - and platform-auth's
+own from platform-org (`PLATFORM_AUTH_IS_INVITED`). Main is the one place
+that knows the modules, so the glue lives here."""
 
 from platform_auth.models import User
 
@@ -14,3 +16,15 @@ def lookup_users(user_ids) -> dict[str, dict]:
 
 def account_exists(email: str) -> bool:
     return User.objects.filter(email=email.strip().lower()).exists()
+
+
+def has_pending_invitation(email: str) -> bool:
+    """platform-auth's invite-only signup (`PLATFORM_AUTH_IS_INVITED`): an
+    email with an open platform-org invitation may sign up."""
+    from django.utils import timezone
+
+    from platform_org.models import OrgInvitation, OrgInvitationStatus
+
+    return OrgInvitation.objects.filter(
+        email=email.strip().lower(), status=OrgInvitationStatus.PENDING, expires_at__gt=timezone.now()
+    ).exists()

@@ -244,6 +244,64 @@ in chart tooltips and the feed. New resources get RBAC by adding their
 patterns to main's `RBAC_DEFAULT_ROLES`: platform-auth's `sync_catalog`
 adds NEW permissions to existing roles whose patterns match.
 
+**System administration** (platform-core's `platform_system` app behind
+`core_api.system`, plus platform-auth/-org/-mcp and goalnexa hooks;
+pages under `/system/*`, admins only via RBAC - Member's patterns don't
+include `system-settings`, `audit-events`, `outgoing-emails`,
+`delivery-attempts`, `all-orgs`).
+- **Settings**: a module declares each with `register_setting(SettingDef(
+  key, label, type, default, env=...))` in its AppConfig.ready and reads
+  `get_setting(key)`. Value = its env var if set (shown "Set by X",
+  locked), else saved on System > Settings (`SystemSetting`), else main's
+  `SYSTEM_SETTING_DEFAULTS`, else the default. Secrets and infrastructure
+  (DB, SMTP, secret keys) are never settings - `platform_system/info.py`
+  shows them read-only, secrets only as set/missing. Without
+  `platform_system` installed (a module's standalone deploy, its tests)
+  the facade falls back: env/default settings, no-op audit, direct email.
+- **Email**: `EMAIL_URL` (smtp://, smtps://, console://) + `EMAIL_FROM`,
+  parsed in settings.py (`core_api.email_url`). `send_email` queues to
+  `OutgoingEmail` and sends on commit; the scheduler retries
+  (`run_system_jobs`, called from `goalnexa_jobs`). Unset = nothing sent,
+  logged as failed - and email verification isn't enforced, so an
+  instance without mail never locks people out.
+- **Audit**: `audit(action, request=..., target=...)` - logins (and
+  failures, with IP), signup, resets, user/role/settings/org changes,
+  impersonation. CSV export on the settings page.
+- **Accounts** (platform-auth): signup policy open/invite_only/closed
+  (`PLATFORM_AUTH_IS_INVITED` = main's "has a pending org invitation"),
+  allowed domains, email verification (saas default on); signed links
+  with no table (`tokens.py`: verify carries the email, reset a
+  password-hash fingerprint = single use); `User.is_active` checked by
+  `ActorAuthentication` on every request; admin actions on a user's page
+  (`UserAdminPanel`): invite (no password, set-password link), disable,
+  password link, sessions + "sign out everywhere" (refresh tokens +
+  `SessionProvider`s, e.g. MCP tokens), view-as, export, delete. The last
+  app-wide admin can't be disabled, deleted or lose that role.
+- **Deleting a user/org** sends `user_removed(user_id, transfer_to)` /
+  `org_removed(org_id)` first; every module cleans up what it holds by
+  bare id (goalnexa goals/cycles, platform-org memberships - an ownerless
+  org promotes its oldest admin, an empty one is deleted -, platform-mcp
+  tokens). Add a receiver for any new user- or org-owned data.
+- **Status** (`/system/status`): `heartbeat()` from `goalnexa_jobs` (a job
+  silent 20 min = "Not running"), deliveries in 24h (email outbox,
+  `log_delivery` for Apprise - scheme only, never URLs), and every
+  module's `register_usage_provider` numbers. **Announcement**: two
+  settings, `/api/v1/announcement`, `AnnouncementBanner` in the app shell.
+- **All organizations** (`/system/all-orgs`, a proxy model so it's its
+  own RBAC resource): members, transfer owner, delete, and per-org
+  `limits` overriding `limits.max_members`/`limits.max_goals`
+  (`org_limit`/`check_org_limit` -> 403 `limit_reached`). The hosted fork
+  sets these per plan.
+- **View as** (`POST users/<id>/impersonate`): a 15-minute JWT with an
+  `imp` claim; `ActorAuthentication` refuses every non-GET with it. The
+  admin's page opens `/auth/view-as#<token>` in a new tab, which keeps it
+  in sessionStorage and never refreshes (the cookie is the admin's);
+  logout there only ends the view.
+- **Personal data**: `register_export_provider` per module;
+  `GET auth/me/export`, `GET users/<id>/export`, `POST auth/me/delete`
+  (password) - the "My account" page in the user menu.
+Tests: `apps/main/backend/tests/test_admin.py`.
+
 **Check-in time is `CheckIn.checked_in_at`**, not `created_at`. It's
 user-set and defaults to now when left blank (the form omits the key and
 the model default applies). `Metric.current_value` = the value of the

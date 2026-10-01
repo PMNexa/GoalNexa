@@ -12,10 +12,13 @@ deploy) can't both send it. A user with no reminder settings yet isn't
 marked, so setting them up later still reminds them of what's overdue.
 Completed and archived goals are skipped.
 
-`GOALNEXA_REMINDER_SCHEMES` (settings) limits which Apprise schemes a
-user may save - on a shared (SaaS) instance, leave out ones that reach
-the server's own network or files (`json`, `xml`, `form`, `syslog`, ...).
-Unset = any.
+The `reminders.allowed_schemes` system setting (editable by an admin;
+default from the host's `GOALNEXA_REMINDER_SCHEMES`) limits which Apprise
+schemes a user may save - on a shared (SaaS) instance, leave out ones that
+reach the server's own network or files (`json`, `xml`, `form`,
+`syslog`, ...). Empty = any. A user can also turn on `email`: reminders
+then go to their account email through the instance's own mail server
+(`core_api.system.send_email`) - safe on any instance.
 """
 
 from __future__ import annotations
@@ -25,16 +28,19 @@ from collections import defaultdict
 from urllib.parse import urlsplit
 
 from django.conf import settings
+from django.utils.module_loading import import_string
 from django.utils import timezone
 
+from core_api.system import get_setting, log_delivery, send_email
 from goalnexa.models import GoalStatus, Metric, ReminderSettings
 
 logger = logging.getLogger(__name__)
 
 
 def allowed_schemes() -> set[str] | None:
-    schemes = getattr(settings, "GOALNEXA_REMINDER_SCHEMES", None)
-    return None if schemes is None else {s.lower() for s in schemes}
+    """The `reminders.allowed_schemes` system setting; empty = any."""
+    schemes = get_setting("reminders.allowed_schemes")
+    return {s.lower() for s in schemes} if schemes else None
 
 
 def validate_urls(urls: list[str]) -> list[str]:
@@ -61,6 +67,45 @@ def send(urls: list[str], title: str, body: str) -> bool:
     for url in urls:
         notifier.add(url)
     return bool(notifier.notify(title=title, body=body))
+
+
+def user_email(user_id) -> str:
+    """The user's email, from the host's user directory
+    (`GOALNEXA_USER_DIRECTORY`, a dotted path to `fn(ids) -> {id: {"email"}}`)."""
+    path = getattr(settings, "GOALNEXA_USER_DIRECTORY", None)
+    if not path:
+        return ""
+    return (import_string(path)([user_id]).get(str(user_id)) or {}).get("email") or ""
+
+
+def has_channel(reminder_settings: ReminderSettings) -> bool:
+    return bool(reminder_settings.url_list()) or reminder_settings.email
+
+
+def deliver(reminder_settings: ReminderSettings, title: str, body: str, kind: str = "reminder") -> bool:
+    """Sends a message on every channel the user set up: their Apprise URLs,
+    and their account email (through the instance's outbox) when `email`
+    is on. True when at least one took it."""
+    ok = False
+    urls = reminder_settings.url_list()
+    if urls:
+        error = ""
+        try:
+            sent = send(urls, title, body)
+        except Exception as exc:
+            logger.exception("Apprise delivery to user %s failed", reminder_settings.user_id)
+            sent, error = False, str(exc)
+        # Only the services, never the URLs - they carry tokens.
+        services = ", ".join(sorted({urlsplit(url).scheme for url in urls}))
+        log_delivery("apprise", kind, user_id=reminder_settings.user_id, target=services, ok=sent,
+                     error=error or ("" if sent else "Apprise reported a failure - check the URLs."))
+        ok = sent or ok
+    if reminder_settings.email:
+        address = user_email(reminder_settings.user_id)
+        if address:
+            send_email(address, title, body, kind=kind, user_id=reminder_settings.user_id)
+            ok = True
+    return ok
 
 
 def overdue_metrics(now=None):
@@ -107,8 +152,7 @@ def send_due_reminders(now=None) -> int:
     sent = 0
     for owner_id, metrics in by_owner.items():
         reminder_settings = settings_by_user.get(owner_id)
-        urls = reminder_settings.url_list() if reminder_settings else []
-        if not urls:
+        if reminder_settings is None or not has_channel(reminder_settings):
             continue
         claimed = [
             m
@@ -118,11 +162,7 @@ def send_due_reminders(now=None) -> int:
         if not claimed:
             continue
         title, body = _message(claimed, reminder_settings.app_url, now)
-        try:
-            ok = send(urls, title, body)
-        except Exception:  # a broken URL must not stop everyone else's reminders
-            logger.exception("Reminder to user %s failed", owner_id)
-            ok = False
+        ok = deliver(reminder_settings, title, body)
         if ok:
             sent += 1
         else:

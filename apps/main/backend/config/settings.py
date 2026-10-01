@@ -17,6 +17,8 @@ from pathlib import Path
 
 import dj_database_url
 
+from core_api.email_url import email_settings
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -80,6 +82,9 @@ INSTALLED_APPS = [
     # importable Django app (packaged via that module's own
     # pyproject.toml, editable-installed here) rather than a copy - see
     # root AGENTS.md. Login/User/RefreshToken all come from this app.
+    # System settings, audit log, email outbox (platform-core's) - see
+    # core_api.system. Before the modules that register settings with it.
+    'platform_system',
     'platform_auth',
     # Organization/OrgMembership. Its own JWTBearerAuthentication is
     # unused here - main's own DEFAULT_AUTHENTICATION_CLASSES
@@ -270,6 +275,20 @@ RBAC_DEFAULT_ROLES = [
     },
 ]
 
+# --- Outgoing email (platform_system's outbox) ---
+# EMAIL_URL: smtp://user:pass@host:587, smtps://...:465, or console://
+# (development). Unset: nothing is sent - password reset and email
+# verification can't work. EMAIL_FROM: the sender address; its display
+# name is a system setting ("Sender name").
+globals().update(email_settings(os.environ.get("EMAIL_URL"), os.environ.get("EMAIL_FROM")))
+
+# Defaults for system settings (core_api.system) - what a setting reads
+# until an admin saves one, or its env variable locks it. Hosted, new
+# accounts must verify their email.
+SYSTEM_SETTING_DEFAULTS = {
+    "auth.require_email_verification": DEPLOYMENT_MODE == "saas",
+}
+
 # --- goalnexa app config (all optional) ---
 # Check-ins posted by scripts/webhooks with a metric's ingest token
 # (goalnexa/views/ingest.py), per metric.
@@ -294,6 +313,12 @@ PLATFORM_ORG_USER_DIRECTORY = "config.user_directory.lookup_users"
 # (platform-auth's page, mounted at /auth in routes.ts), else to log in.
 PLATFORM_ORG_ACCOUNT_EXISTS = "config.user_directory.account_exists"
 PLATFORM_ORG_SIGNUP_PAGE = "/auth/signup"
+# The invitation link emailed to an invitee (createOrgsPublicRoutes' page).
+PLATFORM_ORG_INVITATION_PAGE = "/platform-org/invitations/{token}"
+# Invite-only signup (a system setting): who counts as invited.
+PLATFORM_AUTH_IS_INVITED = "config.user_directory.has_pending_invitation"
+# Reminders and digests can go to the user's email (goalnexa).
+GOALNEXA_USER_DIRECTORY = "config.user_directory.lookup_users"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["platform_auth.authentication.ActorAuthentication"],

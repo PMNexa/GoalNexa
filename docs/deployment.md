@@ -101,10 +101,16 @@ DEPLOYMENT_MODE=self_hosted
 WEB_CONCURRENCY=3
 BACKEND_REPLICAS=2
 FRONTEND_REPLICAS=2
+# Outgoing email: password reset, email verification (on by default in
+# saas mode - enforced only once this is set), invitations, reminders.
+EMAIL_URL=smtp://<user>:<password>@<smtp-host>:587
+EMAIL_FROM=GoalNexa <noreply@<app.yourdomain.com>>
 ```
 
 Keep a copy in a password manager. Changing `JWT_SECRET` logs everyone
-out. `TRUSTED_PROXY_COUNT` = proxies appending to `X-Forwarded-For`:
+out. Everything else (sign-up policy, limits, announcement) is set by an
+admin on the app's System > Settings page; a variable listed in
+`.env.sample` (e.g. `AUTH_SIGNUP_POLICY`) locks it instead. `TRUSTED_PROXY_COUNT` = proxies appending to `X-Forwarded-For`:
 caddy + nginx = 2; one more for Cloudflare or a DO load balancer in
 front.
 

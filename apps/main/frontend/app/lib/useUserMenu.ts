@@ -51,5 +51,7 @@ export function useUserMenu(accessToken: string | null, permissions: string[] | 
       { label: "Manage organizations", to: "/platform-org/orgs" },
     );
   }
+  // Everyone's own account page: download my data, delete my account.
+  items.push(...(items.length ? [{ divider: true as const }] : []), { label: "My account", to: "/account" });
   return { items, refresh };
 }

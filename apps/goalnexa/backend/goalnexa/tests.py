@@ -314,7 +314,7 @@ class ReminderTests(ApiTestCase):
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(self.client.get("/api/v1/reminder-settings").data["urls"], "json://example.com/hook\n# a comment")
 
-    @override_settings(GOALNEXA_REMINDER_SCHEMES=["tgram"])
+    @override_settings(SYSTEM_SETTING_DEFAULTS={"reminders.allowed_schemes": ["tgram"]})
     def test_settings_respect_allowed_schemes(self):
         self.assertEqual(self.save_settings("json://example.com/hook").status_code, 400)
 
@@ -352,7 +352,7 @@ class ReminderTests(ApiTestCase):
     def test_test_message(self):
         self.assertEqual(self.post("reminder-settings/test").status_code, 400)
         self.save_settings()
-        with mock.patch("goalnexa.views.reminders.send", return_value=True):
+        with mock.patch("goalnexa.reminders.send", return_value=True):
             self.assertEqual(self.post("reminder-settings/test").status_code, 200)
         self.assertEqual(ReminderSettings.objects.get().user_id, self.actor.id)
 
@@ -548,7 +548,7 @@ class DigestTests(ApiTestCase):
 
     def test_sent_once_per_period(self):
         now = timezone.datetime(2026, 10, 5, 2, 0, tzinfo=dt_timezone.utc)
-        with mock.patch("goalnexa.digest.send", return_value=True) as send:
+        with mock.patch("goalnexa.reminders.send", return_value=True) as send:
             self.assertEqual(send_due_digests(now), 1)
             self.assertEqual(send_due_digests(now + timedelta(hours=1)), 0)
         self.assertIn("weekly digest", send.call_args.args[1])
