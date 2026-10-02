@@ -1,6 +1,6 @@
 import { useState, type PointerEvent } from "react";
 import type { ProgressPoint } from "../../lib/progress";
-import { DAY, fitDomain, formatPct, pctTicks, seriesColor, truncate, useElementWidth, type ChartDomain } from "./chartUtils";
+import { DAY, fitDomain, formatPct, pctTicks, seriesColor, seriesDash, seriesKey, truncate, useElementWidth, type ChartDomain } from "./chartUtils";
 
 export interface LineSeries {
   id: string;
@@ -34,7 +34,8 @@ function linePath(points: ProgressPoint[], x: (t: number) => number, y: (pct: nu
  * straight segments, a single % axis. Hover snaps a crosshair to the
  * nearest check-in time and lists every series' latest reading as of then;
  * the hover dot only marks series with a check-in AT that time, since a
- * held value between two check-ins sits off the diagonal. <= 4 series also get direct end
+ * held value between two check-ins sits off the diagonal. A slot past the
+ * palette's 8 colors reuses them with a dotted / dash-dot line. <= 4 series also get direct end
  * labels; the legend above is always there for >= 2. A series' `projection`
  * continues it as a dashed segment; hovering at or past its time shows the
  * projected reading, marked as such.
@@ -150,7 +151,7 @@ function ProgressLineChart({
         <div className="gn-legend" aria-hidden="true">
           {drawn.map((s) => (
             <span key={s.id} className="gn-legend-item">
-              <span className="gn-key" style={{ background: seriesColor(s.slot) }} />
+              <span className="gn-key" style={{ background: seriesKey(s.slot) }} />
               <span>{s.label}</span>
             </span>
           ))}
@@ -226,6 +227,7 @@ function ProgressLineChart({
                 fill="none"
                 stroke={seriesColor(s.slot)}
                 strokeWidth={2}
+                strokeDasharray={seriesDash(s.slot)}
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
@@ -325,7 +327,7 @@ function ProgressLineChart({
             return (
               <div key={s.id} className="gn-tooltip-item">
                 <div className="gn-tooltip-row">
-                  <span className="gn-key" style={{ background: seriesColor(s.slot) }} />
+                  <span className="gn-key" style={{ background: seriesKey(s.slot) }} />
                   <span className="gn-name">
                     {s.label}
                     {projected && <span className="gn-projected"> · projected</span>}

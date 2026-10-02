@@ -1,9 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import type { ProgressPoint } from "../../lib/progress";
 
-/** A goal's fixed color slot (1-8) - assigned at selection time and kept while selected, so a filter change never repaints the survivors. */
+/** Validated categorical colors in the palette (`dashboardStyles.ts`). */
+const PALETTE_SIZE = 8;
+
+/**
+ * A series' color. A goal's slot is 1-8 (assigned at selection time and
+ * kept while selected, so a filter change never repaints the survivors);
+ * a metric's can run past 8 - the colors then repeat, told apart by line
+ * style (`seriesDash`).
+ */
 export function seriesColor(slot: number): string {
-  return `var(--gn-series-${slot})`;
+  return `var(--gn-series-${((slot - 1) % PALETTE_SIZE) + 1})`;
+}
+
+/** Line style for slots past the palette: 1-8 solid, 9-16 dotted, 17-24 dash-dot (then repeating). */
+export function seriesDash(slot: number): string | undefined {
+  return [undefined, "1 5", "9 4 1 4"][Math.floor((slot - 1) / PALETTE_SIZE) % 3];
+}
+
+/** Background of a series' legend key (`.gn-key`) - its color, broken up like its line. */
+export function seriesKey(slot: number): string {
+  const color = seriesColor(slot);
+  const round = Math.floor((slot - 1) / PALETTE_SIZE) % 3;
+  if (round === 1) return `repeating-linear-gradient(90deg, ${color} 0 2px, transparent 2px 4px)`;
+  if (round === 2) return `linear-gradient(90deg, ${color} 0 5px, transparent 5px 7px, ${color} 7px 9px, transparent 9px 10px, ${color} 10px)`;
+  return color;
 }
 
 export function formatPct(pct: number): string {

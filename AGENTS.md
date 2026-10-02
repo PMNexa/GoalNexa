@@ -142,13 +142,14 @@ date, drawn as a dashed segment ending in a hollow dot (hover shows it
 as "projected"); the goal's is the mean of those, a metric with no trend
 (< 2 check-ins) held at its current %, shown as "→ 62% by Oct 31" in
 the panel header - not in the goal tree (tried, too busy). None once
-the target date has passed. A single chart could need more lines than the palette has colors.
+the target date has passed.
 A metric's line color is its position among its goal's metrics (by
-name), so it stays put when other metrics are hidden. The palette has
-8 slots and one chart never repeats a color, so a goal's metrics are
-charted 8 per chart: its 9th-16th go on a second chart in the same
-panel ("Metrics 9-12 of 12"), reusing the slots, sharing the panel's %
-ceiling. Every metric is charted. The goal tree shows each
+name), so it stays put when other metrics are hidden. Every metric of a
+goal is on that goal's ONE chart (asked for; an earlier version split
+them 8 per chart). The palette has 8 slots, so the 9th-16th reuse the
+colors with a dotted line and the 17th-24th with a dash-dot one
+(`seriesDash`/`seriesKey` in `chartUtils.ts` - never a generated
+color). The goal tree shows each
 metric's color key, so it doubles as the panels' legend. A goal's progress = the mean of its
 ROOT metrics' `(value - base_value) / (target_value - base_value)` (so a
 metric meant to go down works too); sub-metrics break a root down and
@@ -299,7 +300,9 @@ include `system-settings`, `audit-events`, `outgoing-emails`,
   logout there only ends the view.
 - **Personal data**: `register_export_provider` per module;
   `GET auth/me/export`, `GET users/<id>/export`, `POST auth/me/delete`
-  (password) - the "My account" page in the user menu.
+  (password) - the "My account" page in the user menu, which also
+  changes the password (`POST auth/me/password`: needs the current one,
+  ends every other session, answers with a new session for this one).
 Tests: `apps/main/backend/tests/test_admin.py`.
 
 **Check-in time is `CheckIn.checked_in_at`**, not `created_at`. It's

@@ -383,6 +383,25 @@ class SupportTests(AdminTestCase):
         self.assertIn("user.data_exported", self.actions())
         self.assertTrue(org)
 
+    def test_change_my_password(self):
+        other_session = self.login("bob@example.com")
+        url = f"{API}/auth/me/password"
+        wrong = self.bob.post(url, {"current_password": "wrong", "new_password": "a-new-password"}, format="json")
+        self.assertEqual(wrong.json()["code"], "wrong_password")
+        self.assertEqual(self.bob.post(url, {"current_password": PASSWORD, "new_password": "short"}, format="json").status_code, 400)
+        self.assertEqual(self.anon.post(url, {"current_password": PASSWORD, "new_password": "a-new-password"}, format="json").status_code, 403)
+        changed = self.bob.post(url, {"current_password": PASSWORD, "new_password": "a-new-password"}, format="json")
+        self.assertEqual(changed.status_code, 200, changed.content)
+        self.assertEqual(self.login("bob@example.com").status_code, 401)
+        self.assertEqual(self.login("bob@example.com", "a-new-password").status_code, 200)
+        # Every other session ended; this one got a new refresh cookie.
+        refresh = APIClient()
+        refresh.cookies["refresh_token"] = other_session.cookies["refresh_token"].value
+        self.assertEqual(refresh.post(f"{API}/auth/refresh").status_code, 401)
+        refresh.cookies["refresh_token"] = changed.cookies["refresh_token"].value
+        self.assertEqual(refresh.post(f"{API}/auth/refresh").status_code, 200)
+        self.assertIn("auth.password_changed", self.actions())
+
     def test_delete_my_account(self):
         self.bob.post(f"{API}/goals", {"title": "Gone soon"}, format="json")
         self.assertEqual(self.bob.post(f"{API}/auth/me/delete", {"password": "wrong"}, format="json").json()["code"], "wrong_password")

@@ -1,7 +1,7 @@
 import type { Goal } from "../../lib/api/goals";
 import type { Metric } from "../../lib/api/metrics";
 import { isCheckInDue } from "../../lib/progress";
-import { formatPct, seriesColor } from "./chartUtils";
+import { formatPct, seriesColor, seriesKey } from "./chartUtils";
 import RowMenu from "./RowMenu";
 
 export interface GoalFilterListProps {
@@ -192,7 +192,7 @@ function GoalFilterList({
             {/* The tree doubles as the panels' legend: the metric's line color. */}
             <span
               className="gn-key"
-              style={{ background: metricShown && slot !== undefined ? seriesColor(slot) : "var(--gn-grid)" }}
+              style={{ background: metricShown && slot !== undefined ? seriesKey(slot) : "var(--gn-grid)" }}
             />
             <button
               type="button"
