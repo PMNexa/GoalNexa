@@ -565,3 +565,63 @@ class DigestTests(ApiTestCase):
         self.assertEqual((response.data["digest"], response.data["digest_hour"], response.data["timezone"]), ("daily", 7, "Europe/Berlin"))
         for bad in ({"digest": "hourly"}, {"digest_hour": 24}, {"timezone": "Mars/Base"}):
             self.assertEqual(self.client.put("/api/v1/reminder-settings", {"urls": "", **bad}, format="json").status_code, 400)
+
+
+@without_access_policy
+class AgentPathTests(ApiTestCase):
+    """What the MCP tools in `mcp_tools.py` call."""
+
+    def test_chart_is_each_metrics_readings_over_time(self):
+        goal = self.goal(target_date=timezone.localdate() + timedelta(days=10))
+        km = Metric.objects.create(goal=goal, name="km", unit="km", target_value=100, aggregation="sum")
+        Metric.objects.create(goal=goal, name="long runs", target_value=4, parent=km)
+        self.check_in(km, 10, days_ago=2)
+        self.check_in(km, 15)
+        data = self.client.get(f"/api/v1/goals/{goal.id}/chart").data
+        self.assertEqual(data["goal"]["progress"], Decimal("25.00"))
+        self.assertTrue(data["url"].endswith(f"/dashboard?goal={goal.id}"))
+        by_name = {m["name"]: m for m in data["metrics"]}
+        # A sum metric's points are its running total.
+        self.assertEqual([(p["value"], p["progress"]) for p in by_name["km"]["points"]], [(10.0, 10.0), (25.0, 25.0)])
+        self.assertTrue(by_name["km"]["counts_toward_goal"])
+        self.assertFalse(by_name["long runs"]["counts_toward_goal"])
+        self.assertEqual(by_name["long runs"]["points"], [])
+
+    def test_chart_of_someone_elses_goal_is_404(self):
+        goal = Goal.objects.create(title="Theirs", owner_id=uuid.uuid4())
+        self.assertEqual(self.client.get(f"/api/v1/goals/{goal.id}/chart").status_code, 404)
+
+    def test_patch_changes_only_the_reminder_fields_sent(self):
+        url = "/api/v1/reminder-settings"
+        # Works before anything was saved.
+        self.assertEqual(self.client.patch(url, {"digest": "daily"}, format="json").status_code, 200)
+        self.client.put(url, {"urls": "json://example.com/hook", "digest": "off"}, format="json")
+        response = self.client.patch(url, {"digest_hour": 7, "timezone": "Asia/Ho_Chi_Minh"}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(
+            (response.data["urls"], response.data["digest"], response.data["digest_hour"], response.data["timezone"]),
+            ("json://example.com/hook", "off", 7, "Asia/Ho_Chi_Minh"),
+        )
+        self.assertEqual(self.client.patch(url, {"urls": "nope://x"}, format="json").status_code, 400)
+        self.assertEqual(self.client.patch(url, {"enabled": False}, format="json").data["enabled"], False)
+        self.assertEqual(ReminderSettings.objects.filter(user_id=self.actor.id).count(), 1)
+
+    def test_status_shows_who_checked_in(self):
+        from goalnexa.accounts import usage
+
+        metric = Metric.objects.create(goal=self.goal(), name="km", target_value=100)
+        self.check_in(metric, 1)
+        CheckIn.objects.create(metric=metric, value=2, source="agent")
+        CheckIn.objects.create(metric=metric, value=3, source="agent")
+        rows = {row["label"]: row for row in usage()}
+        self.assertEqual(rows["Check-ins, last 30 days"]["value"], 3)
+        self.assertEqual(rows["Check-ins, last 7 days"]["hint"], "web 1 (33%) · agent 2 (67%) · ingest 0 (0%)")
+
+    def test_mcp_tools_point_at_real_endpoints(self):
+        from django.urls import resolve
+
+        from goalnexa.mcp_tools import TOOLS
+
+        for tool in TOOLS:
+            with self.subTest(tool=tool["name"]):
+                resolve(tool["path"].replace("{id}", "1"))  # raises Resolver404 if the path is wrong

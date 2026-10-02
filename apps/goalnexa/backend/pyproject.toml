@@ -34,4 +34,4 @@ include = ["goalnexa*"]
 # Agent skills (SKILL.md folders) - served to AI clients by platform-mcp,
 # which discovers `mcp_skills/` in every installed app.
 [tool.setuptools.package-data]
-goalnexa = ["mcp_skills/**/*"]
+goalnexa = ["mcp_skills/**/*", "mcp_instructions.md"]

@@ -9,6 +9,9 @@ Review goals through the **{{server_name}}** MCP server (`{{mcp_url}}`).
 Tools are named `<resource>_<action>` (e.g. `goals_list`), possibly with a
 client prefix. If they're missing, point the user to {{tokens_url}} and stop.
 
+Answer in the language the user writes in; keep titles, names and notes in
+their own words.
+
 ## Scope
 
 - **An organization's goals**: find it with `orgs_list` (`q` = name), then
@@ -64,5 +67,13 @@ everything above.
 5. At most three concrete suggestions (e.g. "log this week's reading for
    Subscribers", "the hiring goal needs 2 more hires in 9 weeks"). Suggestions
    only: change nothing unless the user asks.
+6. The link to look at it: {{app_url}}/dashboard, or
+   `{{app_url}}/dashboard?goal=<goal id>` for one goal. For a trend or a chart
+   of one goal, `goals_chart` returns its readings over time: draw it if you
+   can.
+
+If an organization's goal has had no check-in from anyone but the user, you may
+suggest once that they invite the teammate who owns the number
+(`org_invitations_create`).
 
 Be brief, and don't restate the method unless asked.

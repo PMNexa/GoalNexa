@@ -149,6 +149,32 @@ class VerificationAndResetTests(AdminTestCase):
         # Existing accounts count as verified.
         self.assertEqual(self.login("bob@example.com").status_code, 200)
 
+    def test_confirmation_link_returns_to_where_the_signup_was_heading(self):
+        """Someone connecting an AI client with no account: signup, confirm,
+        and back on the consent page - not the dashboard."""
+        self.set_setting("auth.require_email_verification", True)
+        heading_to = "/mcp/authorize?client_id=abc123&state=xyz"
+        body = {"name": "Eve", "email": "eve@example.com", "password": "a-long-password", "next": heading_to, "ref": "claude"}
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(self.anon.post(f"{API}/auth/signup", body, format="json").status_code, 201)
+        self.assertIn("next=%2Fmcp%2Fauthorize%3Fclient_id%3Dabc123%26state%3Dxyz", mail.outbox[-1].body)
+        # A resend keeps it too.
+        with self.captureOnCommitCallbacks(execute=True):
+            self.anon.post(f"{API}/auth/resend-verification", {"email": "eve@example.com", "next": heading_to}, format="json")
+        self.assertIn("next=%2Fmcp%2Fauthorize", mail.outbox[-1].body)
+        # The audit event says where the signup came from - the path, the client, the ref; not the query.
+        event = self.admin.get(f"{API}/audit-events?filter{{action}}=auth.signup&sort=-created_at").json()["items"][0]
+        self.assertEqual(
+            {k: event["data"].get(k) for k in ("next", "client_id", "ref")},
+            {"next": "/mcp/authorize", "client_id": "abc123", "ref": "claude"},
+        )
+        # Another site is never put in the link.
+        for bad in ("https://evil.example/x", "//evil.example/x", "/\\evil.example"):
+            body = {"name": "Mal", "email": f"mal{len(mail.outbox)}@example.com", "password": "a-long-password", "next": bad}
+            with self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(self.anon.post(f"{API}/auth/signup", body, format="json").status_code, 201)
+            self.assertNotIn("next=", mail.outbox[-1].body)
+
     @override_settings(EMAIL_CONFIGURED=False)
     def test_verification_needs_email_to_be_enforced(self):
         self.set_setting("auth.require_email_verification", True)

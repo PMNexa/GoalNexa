@@ -7,6 +7,8 @@ list of other people's settings to browse, filter or grant roles on.
   allowed_schemes}` (defaults before first save).
 - `PUT` - the same fields: `urls` one Apprise URL per line, each checked
   (`validate_urls`); the digest ones optional (`goalnexa.digest`).
+- `PATCH` - only the fields sent change (what an AI agent uses, through
+  `mcp_tools.py`: it shouldn't have to resend the URLs to move the digest).
 - `POST .../test` - sends a test message to the saved URLs.
 """
 
@@ -98,6 +100,25 @@ class ReminderSettingsView(APIView):
             },
         )
         return Response(_payload(reminder_settings))
+
+    def patch(self, request):
+        row = ReminderSettings.objects.filter(user_id=request.user.id).first() or ReminderSettings(user_id=request.user.id)
+        if "urls" in request.data:
+            urls = request.data["urls"]
+            if not isinstance(urls, str):
+                raise ValidationError({"urls": ["One URL per line, as text."]})
+            errors = validate_urls(ReminderSettings(urls=urls).url_list())
+            if errors:
+                raise ValidationError({"urls": errors})
+            row.urls = urls
+        for name in ("enabled", "email"):
+            if name in request.data:
+                setattr(row, name, bool(request.data[name]))
+        for name, value in _digest_fields(request.data).items():
+            setattr(row, name, value)
+        row.app_url = _app_url(request)
+        row.save()
+        return Response(_payload(row))
 
 
 class ReminderTestView(APIView):

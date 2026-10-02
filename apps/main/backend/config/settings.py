@@ -234,12 +234,38 @@ URL_PREFIX = ""
 # own admin comes from `manage.py grant_role <email> Admin`.
 AUTH_FIRST_RUN_SETUP = DEPLOYMENT_MODE != "saas"
 
+# --- Single sign-on (platform_auth/sso.py): one OpenID Connect provider.
+# All three set = "Sign in with ..." on the login page. The redirect URI
+# to register at the provider: <this app's address>/api/v1/auth/sso/callback.
+OIDC_ISSUER = os.environ.get("OIDC_ISSUER", "")
+OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID", "")
+OIDC_CLIENT_SECRET = os.environ.get("OIDC_CLIENT_SECRET", "")
+OIDC_SCOPES = os.environ.get("OIDC_SCOPES") or "openid email profile"
+# Treat the provider's email as verified when it sends no `email_verified`
+# claim (Microsoft Entra ID). Only for a provider you run or trust.
+OIDC_TRUST_EMAIL = (os.environ.get("OIDC_TRUST_EMAIL") or "").lower() in ("1", "true", "yes")
+# Only when the address Django sees isn't the public one.
+OIDC_REDIRECT_URI = os.environ.get("OIDC_REDIRECT_URI", "")
+
 # --- platform_mcp app config (all optional) ---
 # The MCP server's serverInfo name.
 MCP_SERVER_NAME = "goalnexa"
 # What every personal access token starts with - makes a leaked one
 # recognizable (e.g. to secret scanners) and tells it apart from a JWT.
 MCP_TOKEN_PREFIX = "gnx_"
+# The resources an AI client gets tools for: what tracking goals takes,
+# not the administration (users, roles, system settings - those stay in
+# the web app). `MCP_RESOURCES=*` in the environment exposes every
+# resource; a comma-separated list replaces this one.
+MCP_RESOURCES = [
+    "orgs", "org-members", "org-invitations",
+    "goals", "goal-members", "metrics", "check-ins",
+    "cycles", "goal-scores", "activities", "goal-comments",
+]
+if os.environ.get("MCP_RESOURCES", "").strip() == "*":
+    MCP_RESOURCES = None
+elif os.environ.get("MCP_RESOURCES"):
+    MCP_RESOURCES = [name.strip() for name in os.environ["MCP_RESOURCES"].split(",") if name.strip()]
 
 # RBAC (platform_auth.rbac) on every BaseViewSet resource, via
 # platform-core's access-policy hook - see platform-auth's AGENTS.md.

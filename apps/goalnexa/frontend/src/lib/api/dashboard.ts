@@ -44,6 +44,11 @@ export function fetchGoals(accessToken: string, orgId: string | null): Promise<G
   return fetchAll<Goal>(`/api/v1/goals?${filter}&sort=title`, accessToken);
 }
 
+/** One goal the caller can see, or `null` (gone, or not theirs). */
+export function fetchGoal(accessToken: string, goalId: string): Promise<Goal | null> {
+  return apiRequest<Goal>(`/api/v1/goals/${encodeURIComponent(goalId)}`, accessToken).catch(() => null);
+}
+
 export function fetchMetrics(accessToken: string, goalIds: string[]): Promise<Metric[]> {
   return fetchAll<Metric>(`/api/v1/metrics?filter{goal.in}=${goalIds.join(",")}`, accessToken);
 }

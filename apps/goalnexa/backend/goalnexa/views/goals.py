@@ -6,16 +6,19 @@ ModelViewSet actions plus everything BaseViewSet wires in for free
 sub-goals instead of leaving those fields off.
 """
 
+from django.conf import settings
 from django.shortcuts import get_object_or_404
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from core_api.viewsets import BaseViewSet
 from goalnexa.access import visible_cycles, visible_goals
 from goalnexa.activity import changes, record, snapshot
 from core_api.system import check_org_limit
-from goalnexa.models import ActivityVerb, Cycle, CycleStatus, Goal, GoalStatus
-from goalnexa.progress import refresh_goal
+from goalnexa.models import ActivityVerb, CheckIn, Cycle, CycleStatus, Goal, GoalStatus, Metric
+from goalnexa.progress import metric_pct, metric_readings, refresh_goal, root_metrics
 from goalnexa.serializers import GoalSerializer
 
 
@@ -117,3 +120,53 @@ class GoalViewSet(BaseViewSet):
         diff = changes(before, goal, FEED_FIELDS)
         if diff:
             record(goal.id, ActivityVerb.GOAL_CHANGED, self.request.user.id, changes=diff)
+
+    @action(detail=True, methods=["get"])
+    def chart(self, request, pk=None):
+        """`GET goals/<id>/chart` - what the dashboard draws for one goal,
+        as data: each metric's readings over time (value and % of the way
+        from base to target, a sum metric as its running total), plus the
+        goal's own numbers and its dashboard link. For a client that draws
+        the chart itself - an AI agent, through `mcp_tools.py`."""
+        goal = self.get_object()
+        metrics = sorted(Metric.objects.filter(goal=goal), key=lambda m: m.name.lower())
+        check_ins: dict = {}
+        for check_in in CheckIn.objects.filter(metric__goal=goal):
+            check_ins.setdefault(check_in.metric_id, []).append(check_in)
+        roots = {m.id for m in root_metrics(metrics)}
+
+        def pct(value, metric):
+            value = metric_pct(value, metric)
+            return None if value is None else round(value, 2)
+
+        app_url = (getattr(settings, "GOALNEXA_PUBLIC_URL", "") or request.build_absolute_uri("/")).rstrip("/")
+        return Response({
+            "goal": {
+                "id": str(goal.id),
+                "title": goal.title,
+                "target_date": goal.target_date,
+                "progress": goal.progress,
+                "projected_progress": goal.projected_progress,
+                "health": goal.health,
+            },
+            "url": f"{app_url}/dashboard?goal={goal.id}",
+            "metrics": [
+                {
+                    "id": str(metric.id),
+                    "name": metric.name,
+                    "unit": metric.unit,
+                    "aggregation": metric.aggregation,
+                    "counts_toward_goal": metric.id in roots,
+                    "base_value": float(metric.base_value),
+                    "target_value": float(metric.target_value),
+                    "current_value": float(metric.current_value),
+                    "progress": pct(metric.current_value, metric),
+                    "started_at": metric.created_at,
+                    "points": [
+                        {"at": when, "value": value, "progress": pct(value, metric)}
+                        for when, value in metric_readings(metric, check_ins.get(metric.id, []))
+                    ],
+                }
+                for metric in metrics
+            ],
+        })

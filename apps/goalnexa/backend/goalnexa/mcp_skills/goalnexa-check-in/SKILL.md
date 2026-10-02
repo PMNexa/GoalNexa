@@ -11,6 +11,9 @@ Record progress on a metric through the **{{server_name}}** MCP server
 If they're missing, the MCP server isn't connected: point the user to
 {{tokens_url}} and stop.
 
+Answer in the language the user writes in; keep titles, names and notes in
+their own words.
+
 ## How GoalNexa models progress
 
 - A **goal** has one or more **metrics**. A metric has `base_value` (where it
@@ -57,6 +60,12 @@ If they're missing, the MCP server isn't connected: point the user to
    metrics, so it differs from this one's; mention its `health` if it's
    `at_risk` or `off_track`. For several updates in one message,
    log each one and confirm them as a short list.
+6. **Say what's next**, briefly: days left to the goal's `target_date`, and one
+   or two actions sized to what's left ("18 km to go in 9 days: about 2 km a
+   day") - not general advice. End with the goal's link,
+   `{{app_url}}/dashboard?goal=<goal id>`, where its chart is. If the user asks
+   for the chart itself, `goals_chart` returns the readings over time: draw it
+   if you can.
 
 Don't delete or edit earlier check-ins unless the user asks. A correction is a
 new check-in, or `check_ins_update` on the one they point to.

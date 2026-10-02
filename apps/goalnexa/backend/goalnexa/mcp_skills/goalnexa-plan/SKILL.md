@@ -11,6 +11,9 @@ possibly with a client prefix. If they're missing, point the user to
 {{tokens_url}} and stop. Call `goals_schema` / `metrics_schema` once if you're
 unsure of a field.
 
+Answer in the language the user writes in; keep titles, names and notes in
+their own words.
+
 ## 1. Draft
 
 From what the user said, propose:
@@ -41,7 +44,7 @@ From what the user said, propose:
     `"latest"`.
   - Suggest a check-in schedule, `check_in_every`: `"daily"`, `"weekly"` or
     `"monthly"` (default none). An overdue metric is flagged on the dashboard and
-    reminded, if the user set up reminders at {{app_url}}/reminders.
+    reminded, if the user has reminders set up (step 4).
 
 Before creating anything, check for duplicates: `goals_list` with
 `filter: {"title.icontains": "<keyword>"}`. If there's a close match, ask
@@ -62,5 +65,21 @@ anything before the user says yes.
 ## 4. Wrap up
 
 Confirm what was created (goal, due date, metrics as `base → target unit`) and
-say where to see it: the dashboard at {{app_url}}/dashboard. Offer to log a first
+say where to see it: `{{app_url}}/dashboard?goal=<goal id>`. Offer to log a first
 check-in if the user already has a current number that differs from the base.
+
+Then, once each and only if it applies:
+
+- **Reminders.** If a metric got a schedule, call `reminder_settings_get`. If
+  `urls` is empty and `email` is off, nothing will remind the user: ask where
+  reminders should go - email (when `email_available`), or a service from
+  `allowed_schemes` (null = any Apprise service), e.g. Telegram
+  `tgram://<bot token>/<chat id>` or `ntfy://<topic>` - and save it with
+  `reminder_settings_update` (`urls` replaces the whole list, so send the
+  existing lines too). `reminder_settings_test` sends a test message. Without
+  those tools, point to {{app_url}}/reminders.
+- **Teammates.** For an organization goal, offer to invite the people who
+  should see or update it: `org_invitations_create` (see
+  `org_invitations_schema`). The reply's `token` makes the link,
+  `{{app_url}}/platform-org/invitations/<token>`: give it to the user to pass
+  on, in case no email went out.

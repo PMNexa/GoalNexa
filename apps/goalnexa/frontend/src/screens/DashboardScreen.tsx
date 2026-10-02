@@ -16,6 +16,7 @@ import MetricIngestPanel from "./MetricIngestPanel";
 import type { Metric } from "../lib/api/metrics";
 import {
   fetchCheckIns,
+  fetchGoal,
   fetchGoals,
   fetchMetrics,
   fetchOrgs,
@@ -118,6 +119,19 @@ function toError(thrown: unknown): Error {
   return thrown instanceof Error ? thrown : new Error(String(thrown));
 }
 
+/**
+ * `?goal=<id>` - the link an AI agent's reply (or a reminder) ends with:
+ * the dashboard opens on that goal's organization, showing just it. Read
+ * from `window.location` (no router in this package), once per page load.
+ */
+function goalFromUrl(): string | null {
+  try {
+    return new URLSearchParams(window.location.search).get("goal");
+  } catch {
+    return null;
+  }
+}
+
 /** Lowest color slot (1-8) not already held by a selected goal. */
 function freeSlot(slots: Map<string, number>): number {
   const taken = new Set(slots.values());
@@ -138,7 +152,7 @@ function freeSlot(slots: Map<string, number>): number {
  * math lives in `lib/progress.ts` - including each panel's health badge
  * (on track / at risk / off track / achieved, from its projection) and the
  * tree's "check-in due" clocks; charts are plain SVG
- * (`dashboard/`), no chart library. A user with no organization gets the
+ * (`dashboard/`), no chart library. A user with no organization and no goals gets the
  * onboarding wizard (`onboarding/`) instead, until they finish or skip it. Self-contained like every screen in
  * this package - `accessToken` in, no router dependency.
  */
@@ -172,14 +186,28 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
   const [onboarding, setOnboarding] = useState(false);
   // Bumped after onboarding creates an org - reloads the org list.
   const [orgsVersion, setOrgsVersion] = useState(0);
+  // The goal a `?goal=` link asked for, until it has been shown (or isn't found).
+  const focusGoalRef = useRef<string | null | undefined>(undefined);
+  if (focusGoalRef.current === undefined) focusGoalRef.current = typeof window === "undefined" ? null : goalFromUrl();
 
   useEffect(() => {
     let cancelled = false;
-    fetchOrgs(accessToken)
-      .then((items) => {
+    const focusId = focusGoalRef.current;
+    Promise.all([fetchOrgs(accessToken), focusId ? fetchGoal(accessToken, focusId) : null])
+      .then(async ([items, focusGoal]) => {
+        // No organization doesn't mean new: someone who started by chat
+        // has personal goals already, and gets the dashboard, not the wizard.
+        const isNew =
+          items.length === 0 && !focusGoal && !onboardingSkipped() && (await fetchGoals(accessToken, null)).length === 0;
         if (cancelled) return;
         setOrgs(items);
-        setOnboarding(items.length === 0 && !onboardingSkipped());
+        setOnboarding(isNew);
+        if (focusGoal) {
+          // A linked goal picks its own organization.
+          setOrgKey(focusGoal.org_id ?? PERSONAL_ORG);
+          return;
+        }
+        focusGoalRef.current = null;
         // The last pick, if it's still one of this user's orgs.
         const stored = getCurrentOrg();
         const valid = stored === PERSONAL_ORG || items.some((org) => org.id === stored);
@@ -212,8 +240,11 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
         if (cancelled) return;
         setGoals(items);
         setCycles(orgCycles);
-        // Open on the cycle running today, if there is one.
-        setCycleKey(currentCycle(orgCycles)?.id ?? ALL_CYCLES);
+        // Open on the cycle running today, if there is one - unless a
+        // linked goal isn't in it.
+        const focus = items.find((goal) => goal.id === focusGoalRef.current);
+        const running = currentCycle(orgCycles)?.id;
+        setCycleKey(focus && focus.cycle !== (running ?? null) ? ALL_CYCLES : (running ?? ALL_CYCLES));
         setGoalsLoaded((n) => n + 1);
       })
       .catch((thrown: unknown) => !cancelled && setError(toError(thrown)));
@@ -233,6 +264,14 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
 
   // A new org or cycle starts with its first few goals selected, so the page opens on a chart.
   useEffect(() => {
+    const focusId = focusGoalRef.current;
+    if (focusId && goals !== null) {
+      focusGoalRef.current = null;
+      if (shownGoals.some((goal) => goal.id === focusId)) {
+        setSelected(new Map([[focusId, 1]]));
+        return;
+      }
+    }
     setSelected(new Map(shownGoals.slice(0, MAX_GOALS).map((goal, i) => [goal.id, i + 1])));
     // Not on every `shownGoals` change: creating a goal mustn't reset the selection.
     // eslint-disable-next-line react-hooks/exhaustive-deps

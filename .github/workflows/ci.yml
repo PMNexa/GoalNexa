@@ -80,6 +80,45 @@ jobs:
         working-directory: apps/main/frontend
         run: npm run build
 
+  # An install of the oldest supported release (.github/upgrade-from),
+  # with the demo data in it, upgraded to this commit on Postgres: its
+  # migrations apply, the data comes through unchanged, the suite passes
+  # (scripts/upgrade_test.sh; docs/upgrading.md).
+  upgrade:
+    if: github.repository == 'PMNexa/GoalNexa'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: goalnexa
+          POSTGRES_USER: goalnexa
+          POSTGRES_PASSWORD: goalnexa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U goalnexa" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Which release to upgrade from
+        id: from
+        run: echo "ref=$(cat .github/upgrade-from)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.from.outputs.ref }}
+          submodules: recursive
+          path: upgrade-from
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Upgrade ${{ steps.from.outputs.ref }} to this commit
+        run: scripts/upgrade_test.sh upgrade-from .
+        env:
+          DATABASE_URL: postgres://goalnexa:goalnexa@localhost:5432/goalnexa
+
   # The production images (docker-compose.prod.yml) still build.
   images:
     if: github.repository == 'PMNexa/GoalNexa'

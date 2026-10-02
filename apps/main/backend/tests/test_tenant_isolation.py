@@ -242,6 +242,31 @@ class TenantIsolationTests(TestCase):
         self.assertNotIn(self.goal["id"], text)
         self.assertTrue(self.mcp(self.bob, "check_ins_create", metric=self.metric["id"], value=1)[0])
 
+    def test_mcp_custom_tools_stay_scoped(self):
+        # The chart: Alice's goal is hers (and her org's), not Bob's.
+        error, text = self.mcp(self.alice, "goals_chart", id=self.goal["id"])
+        self.assertFalse(error, text)
+        self.assertIn(self.metric["id"], text)
+        self.assertTrue(self.mcp(self.bob, "goals_chart", id=self.goal["id"])[0])
+        # Reminder settings: each caller's own row.
+        error, text = self.mcp(self.alice, "reminder_settings_update", timezone="Asia/Ho_Chi_Minh", digest="daily")
+        self.assertFalse(error, text)
+        self.assertIn("Asia/Ho_Chi_Minh", self.mcp(self.alice, "reminder_settings_get")[1])
+        self.assertNotIn("Asia/Ho_Chi_Minh", self.mcp(self.bob, "reminder_settings_get")[1])
+
+    def test_mcp_offers_goal_tracking_not_administration(self):
+        response = self.alice.post(f"{API}/mcp", {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, format="json")
+        names = {tool["name"] for tool in response.json()["result"]["tools"]}
+        for expected in ("goals_list", "check_ins_create", "org_invitations_create", "goals_chart", "reminder_settings_update"):
+            self.assertIn(expected, names)
+        for prefix in ("users_", "roles_", "permissions_", "role_assignments_", "system_settings_", "audit_events_"):
+            self.assertFalse([name for name in names if name.startswith(prefix)], prefix)
+        instructions = self.alice.post(
+            f"{API}/mcp", {"jsonrpc": "2.0", "id": 1, "method": "initialize"}, format="json"
+        ).json()["result"]["instructions"]
+        self.assertIn("/dashboard?goal=", instructions)
+        self.assertNotIn("{{", instructions)
+
     def test_cycles_comments_and_feeds_stay_scoped(self):
         # Bob can't file a goal under Alice's cycle, close it, or comment on her goal.
         self.assertIn(self.bob.post(f"{API}/goals", {"title": "x", "cycle": self.cycle["id"]}, format="json").status_code, (400, 404))

@@ -52,14 +52,24 @@ def usage() -> list[dict]:
     now = timezone.now()
     live = Goal.objects.exclude(status__in=[GoalStatus.COMPLETED, GoalStatus.ARCHIVED])
     health = dict(live.values_list("health").annotate(n=Count("id")))
-    week = CheckIn.objects.filter(created_at__gte=now - timedelta(days=7))
-    sources = dict(week.values_list("source").annotate(n=Count("id")))
+
+    def check_ins(days: int) -> dict:
+        """Who logged the check-ins of the last `days` days: web, AI agent, ingest."""
+        rows = CheckIn.objects.filter(created_at__gte=now - timedelta(days=days))
+        sources = dict(rows.values_list("source").annotate(n=Count("id")))
+        total = sum(sources.values())
+        shares = (
+            f"{source} {sources.get(source, 0)} ({round(sources.get(source, 0) * 100 / total) if total else 0}%)"
+            for source in ("web", "agent", "ingest")
+        )
+        return {"label": f"Check-ins, last {days} days", "value": total, "hint": " · ".join(shares)}
+
     return [
         {"label": "Goals in progress", "value": live.count()},
         {"label": "On track / at risk / off track", "value": " / ".join(
             str(health.get(h, 0)) for h in (GoalHealth.ON_TRACK, GoalHealth.AT_RISK, GoalHealth.OFF_TRACK))},
-        {"label": "Check-ins, last 7 days", "value": week.count(),
-         "hint": f"web {sources.get('web', 0)} · agent {sources.get('agent', 0)} · ingest {sources.get('ingest', 0)}"},
+        check_ins(7),
+        check_ins(30),
         {"label": "Metrics overdue", "value": Metric.objects.filter(check_in_due_at__lte=now).exclude(
             goal__status__in=[GoalStatus.COMPLETED, GoalStatus.ARCHIVED]).count()},
         {"label": "Active cycles", "value": Cycle.objects.filter(status="active").count()},

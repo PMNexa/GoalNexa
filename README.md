@@ -255,6 +255,10 @@ the sibling `apps/*` directories (the submodules) must be checked out.
 | platform-mcp backend | `cd apps/platform-mcp/backend && python manage.py test tests --settings=config.test_settings` |
 | main frontend types | `cd apps/main/frontend && npm run typecheck` |
 
+**Upgrading and releases**: [`docs/upgrading.md`](docs/upgrading.md),
+[`CHANGELOG.md`](CHANGELOG.md). **Single sign-on**: [`docs/sso.md`](docs/sso.md).
+**What's planned**: [`docs/roadmap.md`](docs/roadmap.md).
+
 **Adding a module** (a new resource, a new screen, a new Django app): see
 [`AGENTS.md`](AGENTS.md), the source of truth for conventions and the gotchas
 already hit. Each module has its own `AGENTS.md` too.

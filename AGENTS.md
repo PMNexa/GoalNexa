@@ -197,7 +197,7 @@ a right-hand `Drawer` (closing it refreshes the charts). The picked org
 is remembered in localStorage (`goalnexa:dashboard-org`). There is no
 table view - charts only. The color tokens live on the `.gn-dashboard` root, not just on
 `.gn-viz`, because the filter card's color keys sit outside the charts.
-A user with no organization gets the onboarding wizard instead
+A user with no organization and no goals gets the onboarding wizard instead
 (`screens/onboarding/OnboardingWizard.tsx`). It first asks how they'll
 use GoalNexa, and each answer has its own steps. **Website**: org name →
 goals (optional target date) → metrics per goal (start → target, must
@@ -278,6 +278,27 @@ include `system-settings`, `audit-events`, `outgoing-emails`,
   password link, sessions + "sign out everywhere" (refresh tokens +
   `SessionProvider`s, e.g. MCP tokens), view-as, export, delete. The last
   app-wide admin can't be disabled, deleted or lose that role.
+- **Account security** (platform-auth; `tests/test_auth_security.py`):
+  **lockout** - `auth.lockout_attempts` wrong passwords in a row (0 =
+  never) lock the account for `auth.lockout_minutes`
+  (`User.failed_login_count`/`locked_until`, `lockout.py`); while locked
+  even the right password is refused; a login, a password reset or the
+  admin's Unlock (`POST users/<id>/unlock`) clears it. **Password rules**
+  (`passwords.py`, on every password SET, never at login):
+  `auth.password_min_length`, `auth.password_reject_common`.
+  **Single sign-on** (`sso.py`, `views/sso.py`): one OpenID Connect
+  provider from the environment (`OIDC_ISSUER`/`OIDC_CLIENT_ID`/
+  `OIDC_CLIENT_SECRET` - a secret, so not a system setting; every
+  compose/stack file passes them through). `GET auth/sso/start` ->
+  provider -> `GET auth/sso/callback` sets the refresh cookie and
+  redirects to `/auth/sso`, which trades it for a session like a reload
+  does. An account is matched by `SsoIdentity` (issuer + `sub`), else
+  linked by the provider's VERIFIED email, else created under the signup
+  policy; never the first account (setup). `auth.password_login` off =
+  SSO only (login, signup, reset refused) - only while SSO is
+  configured, and `AUTH_PASSWORD_LOGIN=true` in the environment is the
+  way back in. The pages read `GET auth/config`. Setup guide:
+  `docs/sso.md`.
 - **Deleting a user/org** sends `user_removed(user_id, transfer_to)` /
   `org_removed(org_id)` first; every module cleans up what it holds by
   bare id (goalnexa goals/cycles, platform-org memberships - an ownerless
@@ -704,6 +725,37 @@ Desktop config, Codex, Cursor, VS Code, Gemini CLI, Windsurf):
 connector reaches the server from Anthropic's cloud, so it needs the
 public HTTPS deployment, not a localhost one. Mechanics: platform-mcp's AGENTS.md.
 
+**The agent path** - someone who connects an assistant and never opens
+the website again (what the first users do: set up on the web, then
+check in by chat from a phone). What keeps that working:
+- `MCP_RESOURCES` (main's settings; env: a list, or `*` for all) limits
+  the tools to goal tracking - orgs, members, invitations, goals,
+  metrics, check-ins, cycles, scores, activity, comments. No users,
+  roles or system resources: a new `BaseViewSet` is NOT an MCP tool
+  until it's added there.
+- `goalnexa/mcp_instructions.md` is the server's own instructions (how
+  to check in, plan, review; answer in the user's language; end with the
+  goal's link; relay a limit refusal) - what a client with no skills
+  has. Keep it in step with the three skills.
+- `goalnexa/mcp_tools.py` declares the tools that aren't resources:
+  `goals_chart` (`GET goals/<id>/chart` - each metric's readings over
+  time, for an assistant to draw) and `reminder_settings_get/_update/
+  _test` (`PATCH reminder-settings` changes only the fields sent; `PUT`
+  still replaces).
+- The reply link is `/dashboard?goal=<id>`: the dashboard opens on that
+  goal's organization with just it selected (`goalFromUrl`, read once).
+  A user with goals but no organization gets the dashboard, not the
+  wizard.
+- Connecting with no account: `/mcp/authorize` -> login -> signup, and
+  the confirmation email's link carries `next` back to the consent page
+  (platform-auth: signup's `next`, `safe_next`). The signup's audit
+  event records where it came from (`next` path, OAuth `client_id`,
+  `ref` from the signup link's `?ref=`).
+- Status shows check-ins by source over 7 and 30 days (`accounts.usage`).
+Tests: `AgentPathTests` (goalnexa), `test_mcp_custom_tools_stay_scoped` /
+`test_mcp_offers_goal_tracking_not_administration` (main), and
+`test_confirmation_link_returns_to_where_the_signup_was_heading`.
+
 **Agent skills**: goalnexa ships `goalnexa-check-in`/`-review`/`-plan`
 as `apps/goalnexa/backend/goalnexa/mcp_skills/<name>/SKILL.md`
 (package data in its pyproject). platform-mcp discovers `mcp_skills/`
@@ -786,6 +838,18 @@ repo has its own `ci.yml` for its standalone suite, checked out next to
 platform-core's main. Tests that send `Host: localhost` need
 `DJANGO_ALLOWED_HOSTS=localhost,testserver` outside compose. The job is
 skipped outside `PMNexa/GoalNexa`, so the hosted fork doesn't re-run it.
+
+**Roadmap and releases**: `docs/roadmap.md` lists every planned item
+with a status; build one only when its status is `Approved`, then mark
+it `Done` there (and add it to `CHANGELOG.md`'s "Unreleased"). Releases
+are tags; `docs/upgrading.md` has the upgrade steps and the release
+checklist. CI's `upgrade` job (`scripts/upgrade_test.sh` +
+`scripts/upgrade_check.py`) installs the release in
+`.github/upgrade-from`, seeds it, upgrades it to the commit on Postgres,
+checks the data through the API and runs the suite - so a migration
+that can't apply to an older install, or changes what a user entered,
+fails there. `upgrade_check.py`'s `RESOURCES` lists the user-entered
+fields per resource: add a new resource's.
 
 **Demo data / README media**: `scripts/seed_demo.py` (REST API only,
 `--reset` to start over) seeds the account behind `docs/media/`. Re-shoot

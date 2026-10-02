@@ -31,9 +31,19 @@ x-backend: &backend
     TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-1}
     GOALNEXA_INGEST_RATE: ${GOALNEXA_INGEST_RATE:-60/min}
     GOALNEXA_PUBLIC_URL: ${GOALNEXA_PUBLIC_URL:-}
+    MCP_RESOURCES: ${MCP_RESOURCES:-}
     # Outgoing email (see .env.sample); unset = not configured.
     EMAIL_URL: ${EMAIL_URL:-}
     EMAIL_FROM: ${EMAIL_FROM:-}
+    # Single sign-on (OpenID Connect) - see .env.sample; unset = off.
+    OIDC_ISSUER: ${OIDC_ISSUER:-}
+    OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+    OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+    OIDC_SCOPES: ${OIDC_SCOPES:-}
+    OIDC_TRUST_EMAIL: ${OIDC_TRUST_EMAIL:-}
+    OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
+    OIDC_LABEL: ${OIDC_LABEL:-}
+    AUTH_PASSWORD_LOGIN: ${AUTH_PASSWORD_LOGIN:-}
 
 services:
   db:
