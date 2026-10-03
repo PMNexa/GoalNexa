@@ -261,6 +261,12 @@ class TenantIsolationTests(TestCase):
             self.assertIn(expected, names)
         for prefix in ("users_", "roles_", "permissions_", "role_assignments_", "system_settings_", "audit_events_"):
             self.assertFalse([name for name in names if name.startswith(prefix)], prefix)
+        # What the Claude connectors directory requires of every tool.
+        for tool in response.json()["result"]["tools"]:
+            annotations = tool.get("annotations", {})
+            self.assertTrue(tool.get("title") and annotations.get("title"), tool["name"])
+            self.assertIsInstance(annotations.get("readOnlyHint"), bool, tool["name"])
+            self.assertIsInstance(annotations.get("destructiveHint"), bool, tool["name"])
         instructions = self.alice.post(
             f"{API}/mcp", {"jsonrpc": "2.0", "id": 1, "method": "initialize"}, format="json"
         ).json()["result"]["instructions"]

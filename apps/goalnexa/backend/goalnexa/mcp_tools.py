@@ -17,18 +17,20 @@ def _schema(properties: dict, required=()) -> dict:
 TOOLS = [
     {
         "name": "goals_chart",
+        "title": "Get goal progress chart",
         "description": (
             "A goal's progress over time, as data to draw or summarize: per metric, its readings "
             "(`at`, `value`, `progress` in % from base to target), plus the goal's progress, projection, "
             "health and `url` - the goal on the dashboard."
         ),
         "inputSchema": _schema({"id": _ID}, ["id"]),
-        "annotations": {"readOnlyHint": True},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False},
         "method": "GET",
         "path": "/api/v1/goals/{id}/chart",
     },
     {
         "name": "reminder_settings_get",
+        "title": "Get reminder settings",
         "description": (
             "The user's own check-in reminder and digest settings: `enabled`, `urls` (one Apprise URL per "
             "line), `email`, `digest` (off/daily/weekly), `digest_weekday` (0 = Monday), `digest_hour`, "
@@ -36,12 +38,13 @@ TOOLS = [
             "`email_available` says whether it can send email."
         ),
         "inputSchema": _schema({}),
-        "annotations": {"readOnlyHint": True},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False},
         "method": "GET",
         "path": "/api/v1/reminder-settings",
     },
     {
         "name": "reminder_settings_update",
+        "title": "Update reminder settings",
         "description": (
             "Change the user's own reminder settings - only the fields given change. `urls` replaces the "
             "whole list (one Apprise URL per line, e.g. `tgram://<bot token>/<chat id>`, `ntfy://<topic>`): "
@@ -56,13 +59,16 @@ TOOLS = [
             "digest_hour": {"type": "integer", "minimum": 0, "maximum": 23, "description": "In `timezone`."},
             "timezone": {"type": "string", "description": "IANA name, e.g. Asia/Ho_Chi_Minh."},
         }),
+        "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True},
         "method": "PATCH",
         "path": "/api/v1/reminder-settings",
     },
     {
         "name": "reminder_settings_test",
+        "title": "Send a test reminder",
         "description": "Send a test message to the user's saved reminder channels.",
         "inputSchema": _schema({}),
+        "annotations": {"readOnlyHint": False, "destructiveHint": False},
         "method": "POST",
         "path": "/api/v1/reminder-settings/test",
     },
