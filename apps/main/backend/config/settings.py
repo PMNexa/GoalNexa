@@ -234,7 +234,7 @@ URL_PREFIX = ""
 # own admin comes from `manage.py grant_role <email> Admin`.
 AUTH_FIRST_RUN_SETUP = DEPLOYMENT_MODE != "saas"
 
-# --- Single sign-on (platform_auth/sso.py): one OpenID Connect provider.
+# --- Single sign-on (platform_auth/sso.py): OpenID Connect providers.
 # All three set = "Sign in with ..." on the login page. The redirect URI
 # to register at the provider: <this app's address>/api/v1/auth/sso/callback.
 OIDC_ISSUER = os.environ.get("OIDC_ISSUER", "")
@@ -246,6 +246,10 @@ OIDC_SCOPES = os.environ.get("OIDC_SCOPES") or "openid email profile"
 OIDC_TRUST_EMAIL = (os.environ.get("OIDC_TRUST_EMAIL") or "").lower() in ("1", "true", "yes")
 # Only when the address Django sees isn't the public one.
 OIDC_REDIRECT_URI = os.environ.get("OIDC_REDIRECT_URI", "")
+# More providers, each with its own button: a JSON list of {"id", "label",
+# "issuer", "client_id", "client_secret"} (optional "scopes",
+# "trust_email"). Same redirect URI as above.
+OIDC_PROVIDERS = json.loads(os.environ.get("OIDC_PROVIDERS") or "[]")
 
 # --- platform_mcp app config (all optional) ---
 # The MCP server's serverInfo name.

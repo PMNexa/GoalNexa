@@ -40,6 +40,7 @@ services:
       OIDC_TRUST_EMAIL: ${OIDC_TRUST_EMAIL:-}
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
       OIDC_LABEL: ${OIDC_LABEL:-}
+      OIDC_PROVIDERS: ${OIDC_PROVIDERS:-}
       AUTH_PASSWORD_LOGIN: ${AUTH_PASSWORD_LOGIN:-}
       # Without this, Python buffers stdout and `docker compose logs`
       # shows NOTHING even while the server is running fine - confirmed

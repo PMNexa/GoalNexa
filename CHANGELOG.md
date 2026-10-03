@@ -18,9 +18,11 @@ of you beyond the usual upgrade steps.
   minimum length (a setting, default 8) and may not be one of the 20,000
   most common ones (a setting, on by default). Existing passwords keep
   working.
-- **Single sign-on (OpenID Connect).** "Sign in with ..." for one
+- **Single sign-on (OpenID Connect).** "Sign in with ..." for a
   provider - Google, Authentik, Keycloak, Microsoft Entra ID, ... - set
-  with `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`. Links to an
+  with `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`; more than
+  one (a button each, with Google's and Microsoft's logos) with
+  `OIDC_PROVIDERS`. Links to an
   existing account by verified email; new people get an account under
   the same signup policy as the signup form. "Allow email + password
   login" can be turned off to make it the only way in. See

@@ -87,6 +87,7 @@ services:
       OIDC_TRUST_EMAIL: ${OIDC_TRUST_EMAIL:-}
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
       OIDC_LABEL: ${OIDC_LABEL:-}
+      OIDC_PROVIDERS: ${OIDC_PROVIDERS:-}
       AUTH_PASSWORD_LOGIN: ${AUTH_PASSWORD_LOGIN:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import os, urllib.request; host = os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip().lstrip('.'); urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/admin/login/', headers={'Host': host}))"]

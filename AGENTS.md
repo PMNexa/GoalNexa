@@ -286,10 +286,12 @@ include `system-settings`, `audit-events`, `outgoing-emails`,
   admin's Unlock (`POST users/<id>/unlock`) clears it. **Password rules**
   (`passwords.py`, on every password SET, never at login):
   `auth.password_min_length`, `auth.password_reject_common`.
-  **Single sign-on** (`sso.py`, `views/sso.py`): one OpenID Connect
-  provider from the environment (`OIDC_ISSUER`/`OIDC_CLIENT_ID`/
-  `OIDC_CLIENT_SECRET` - a secret, so not a system setting; every
-  compose/stack file passes them through). `GET auth/sso/start` ->
+  **Single sign-on** (`sso.py`, `views/sso.py`): OpenID Connect
+  providers from the environment - one with `OIDC_ISSUER`/
+  `OIDC_CLIENT_ID`/`OIDC_CLIENT_SECRET`, more (a button each) with
+  `OIDC_PROVIDERS`, one line of JSON (secrets, so not system settings;
+  every compose/stack file passes them through). They share one redirect
+  URI. `GET auth/sso/start?provider=<id>` ->
   provider -> `GET auth/sso/callback` sets the refresh cookie and
   redirects to `/auth/sso`, which trades it for a session like a reload
   does. An account is matched by `SsoIdentity` (issuer + `sub`), else

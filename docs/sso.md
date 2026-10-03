@@ -1,10 +1,10 @@
 # Single sign-on (OpenID Connect)
 
-GoalNexa can sign people in through one OpenID Connect provider - Google,
+GoalNexa can sign people in through OpenID Connect providers - Google,
 Authentik, Keycloak, Microsoft Entra ID, Okta, or anything else that
 publishes `/.well-known/openid-configuration`. The login and signup pages
 then show "Sign in with <label>" next to (or instead of) the password
-form.
+form - one button per provider.
 
 ## Set it up
 
@@ -42,6 +42,34 @@ form.
 Optional keys: `OIDC_SCOPES` (default `openid email profile`),
 `OIDC_REDIRECT_URI` (only if the address Django sees isn't the public
 one), `OIDC_TRUST_EMAIL` (below).
+
+## More than one provider
+
+The keys above set up one provider. Add others with `OIDC_PROVIDERS` -
+one line of JSON, in single quotes:
+
+```sh
+OIDC_PROVIDERS='[{"id":"microsoft","label":"Microsoft","issuer":"https://login.microsoftonline.com/<tenant id>/v2.0","client_id":"...","client_secret":"...","trust_email":true},{"id":"okta","label":"Acme","issuer":"https://acme.okta.com","client_id":"...","client_secret":"..."}]'
+```
+
+| Key | |
+| --- | --- |
+| `id` | lowercase letters, digits, dashes; unique; not `default` (that's the provider from `OIDC_ISSUER`). Don't change it later for no reason - it's in the audit log. |
+| `label` | the button: "Sign in with <label>" |
+| `issuer`, `client_id`, `client_secret` | as above |
+| `scopes`, `trust_email` | optional, same meaning as `OIDC_SCOPES` / `OIDC_TRUST_EMAIL` |
+
+- Register the **same redirect URI** at every provider.
+- Buttons appear in order: the `OIDC_ISSUER` provider first, then the
+  list. `OIDC_PROVIDERS` works on its own too - leave the `OIDC_ISSUER`
+  keys empty.
+- A mistake in the list (bad JSON, a missing key, a repeated id) stops
+  the backend at startup with a message saying which - it never quietly
+  drops a provider.
+- Someone who signs in through two providers with the same email gets
+  one account, linked to both.
+- **Every provider you list can sign in as any account whose email it
+  reports as verified.** List only providers you trust with that.
 
 ## Who gets in
 
@@ -85,8 +113,9 @@ reason is in the backend log (`SSO sign-in failed (...)`).
 
 | Message / log | Cause |
 | --- | --- |
-| "can't be reached" / `provider_unreachable` | `OIDC_ISSUER` wrong, or the backend container can't reach it |
-| `provider_misconfigured` | the issuer in the provider's discovery document isn't exactly `OIDC_ISSUER` (check a trailing path) |
+| "can't be reached" / `provider_unreachable` | the issuer is wrong, or the backend container can't reach it |
+| `provider_misconfigured` | the issuer in the provider's discovery document isn't exactly the configured one (check a trailing path) |
+| backend won't start: `OIDC_PROVIDERS: ...` | the list has a mistake - the message names it |
 | `exchange_failed` | wrong client secret, or the redirect URI isn't registered exactly as above (http vs https, port) |
 | `invalid_token` | client ID mismatch, or the server's clock is off by more than a minute |
 | "took too long or was started in another browser" | cookies blocked, or more than 10 minutes at the provider |

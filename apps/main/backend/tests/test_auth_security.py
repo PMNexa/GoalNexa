@@ -15,6 +15,7 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from django.core import mail
 from django.core.cache import cache
+from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -27,6 +28,11 @@ from .test_admin import API, PASSWORD, AdminTestCase, link_token
 
 ISSUER = "https://idp.example.com"
 CLIENT_ID = "goalnexa"
+# A second provider, listed in OIDC_PROVIDERS.
+OTHER_ISSUER = "https://other.example.com"
+OTHER_CLIENT_ID = "goalnexa-at-other"
+OTHER = {"id": "other", "label": "Other Co", "issuer": OTHER_ISSUER + "/", "client_id": OTHER_CLIENT_ID,
+         "client_secret": "0ther-s3cret"}
 
 
 class SecurityTestCase(AdminTestCase):
@@ -179,9 +185,13 @@ class FakeProvider:
         "id_token_signing_alg_values_supported": ["RS256"],
     }
 
+    client_ids = {ISSUER: CLIENT_ID, OTHER_ISSUER: OTHER_CLIENT_ID}
+
     def fetch_json(self, url, *, bearer=None):
         if url.endswith("/.well-known/openid-configuration"):
-            return self.discovery
+            # Any issuer asked for answers as itself.
+            issuer = url.removesuffix("/.well-known/openid-configuration")
+            return {k: v.replace(ISSUER, issuer) if isinstance(v, str) else v for k, v in self.discovery.items()}
         if url.endswith("/userinfo"):
             return {k: self.person[k] for k in ("sub", "email", "email_verified", "name") if k in self.person}
         raise OSError(f"unexpected {url}")
@@ -189,7 +199,8 @@ class FakeProvider:
     def post_form(self, url, form, *, basic=None):
         self.token_requests.append({"form": form, "basic": basic})
         now = int(time.time())
-        claims = {"iss": ISSUER, "aud": CLIENT_ID, "iat": now, "exp": now + 300, "nonce": self.nonce, **self.person,
+        issuer = url.removesuffix("/token")
+        claims = {"iss": issuer, "aud": self.client_ids[issuer], "iat": now, "exp": now + 300, "nonce": self.nonce, **self.person,
                   **self.id_token_overrides}
         claims = {k: v for k, v in claims.items() if v is not None}
         return {"access_token": "at", "id_token": jwt.encode(claims, self.signing_key, algorithm=self.algorithm)}
@@ -210,17 +221,18 @@ class SsoTests(SecurityTestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def start(self, browser, next_path=None):
-        response = browser.get(f"{API}/auth/sso/start", {"next": next_path} if next_path else {})
+    def start(self, browser, next_path=None, provider=None):
+        params = {**({"next": next_path} if next_path else {}), **({"provider": provider} if provider else {})}
+        response = browser.get(f"{API}/auth/sso/start", params)
         self.assertEqual(response.status_code, 302, response.content)
         query = parse_qs(urlparse(response["Location"]).query)
         self.idp.nonce = query["nonce"][0]
         return response, query
 
-    def sign_in(self, next_path=None, browser=None):
+    def sign_in(self, next_path=None, browser=None, provider=None):
         """The whole round trip; returns (the browser, the callback's response)."""
         browser = browser or APIClient()
-        _, query = self.start(browser, next_path)
+        _, query = self.start(browser, next_path, provider)
         return browser, browser.get(f"{API}/auth/sso/callback", {"code": "abc", "state": query["state"][0]})
 
     def error(self, response):
@@ -231,13 +243,69 @@ class SsoTests(SecurityTestCase):
 
     def test_config_tells_the_login_page(self):
         config = self.anon.get(f"{API}/auth/config").json()
-        self.assertEqual(config["sso"], {"label": "SSO", "start_url": "/api/v1/auth/sso/start"})
+        self.assertEqual(config["sso"], [{"id": "default", "label": "SSO", "icon": "", "start_url": "/api/v1/auth/sso/start?provider=default"}])
         self.assertTrue(config["password_login"])
         self.set_setting("auth.sso_label", "Acme")
-        self.assertEqual(self.anon.get(f"{API}/auth/config").json()["sso"]["label"], "Acme")
+        self.assertEqual(self.anon.get(f"{API}/auth/config").json()["sso"][0]["label"], "Acme")
         with override_settings(OIDC_CLIENT_SECRET=""):
-            self.assertIsNone(self.anon.get(f"{API}/auth/config").json()["sso"])
+            self.assertEqual(self.anon.get(f"{API}/auth/config").json()["sso"], [])
             self.assertEqual(self.anon.get(f"{API}/auth/sso/start").status_code, 404)
+
+    @override_settings(OIDC_PROVIDERS=[OTHER])
+    def test_several_providers_each_get_a_button_and_sign_in(self):
+        buttons = self.anon.get(f"{API}/auth/config").json()["sso"]
+        self.assertEqual([(b["id"], b["label"]) for b in buttons], [("default", "SSO"), ("other", "Other Co")])
+        self.assertEqual(buttons[1]["start_url"], "/api/v1/auth/sso/start?provider=other")
+        # A known provider's button shows its logo.
+        with override_settings(OIDC_PROVIDERS=[{**OTHER, "issuer": "https://accounts.google.com"}]):
+            self.assertEqual(self.anon.get(f"{API}/auth/config").json()["sso"][1]["icon"], "google")
+        self.assertEqual(self.anon.get(f"{API}/auth/sso/start", {"provider": "nope"}).status_code, 404)
+
+        response, query = self.start(APIClient(), provider="other")
+        self.assertTrue(response["Location"].startswith(f"{OTHER_ISSUER}/authorize?"))
+        self.assertEqual(query["client_id"], [OTHER_CLIENT_ID])
+        # One redirect URI for every provider.
+        self.assertEqual(query["redirect_uri"], ["http://testserver/api/v1/auth/sso/callback"])
+
+        self.assertEqual(self.sign_in(provider="other")[1]["Location"], "http://testserver/auth/sso")
+        self.assertEqual(self.idp.token_requests[-1]["basic"], (OTHER_CLIENT_ID, "0ther-s3cret"))
+        dana = User.objects.get(email="dana@example.com")
+        self.assertEqual(SsoIdentity.objects.get(user=dana).issuer, OTHER_ISSUER)
+        self.assertEqual(AuditEvent.objects.filter(action="auth.login", data__provider="other").count(), 1)
+        # The same person through the first provider: the same account, a second link.
+        self.assertEqual(self.sign_in()[1]["Location"], "http://testserver/auth/sso")
+        self.assertEqual(User.objects.filter(email="dana@example.com").count(), 1)
+        self.assertEqual(set(SsoIdentity.objects.filter(user=dana).values_list("issuer", flat=True)), {ISSUER, OTHER_ISSUER})
+
+        self.set_setting("auth.password_login", False)
+        self.assertIn("SSO or Other Co", self.login("bob@example.com").json()["message"])
+
+    @override_settings(OIDC_ISSUER="", OIDC_PROVIDERS=[OTHER])
+    def test_listed_providers_work_without_the_single_one(self):
+        self.assertEqual([b["id"] for b in self.anon.get(f"{API}/auth/config").json()["sso"]], ["other"])
+        # No provider named: the first one.
+        self.assertTrue(self.start(APIClient())[0]["Location"].startswith(f"{OTHER_ISSUER}/authorize?"))
+        self.assertEqual(self.sign_in()[1]["Location"], "http://testserver/auth/sso")
+
+    @override_settings(OIDC_PROVIDERS=[OTHER])
+    def test_the_callback_belongs_to_the_provider_it_started_with(self):
+        browser = APIClient()
+        _, query = self.start(browser, provider="other")
+        # Another provider answering at the shared address (RFC 9207's `iss`).
+        mixed = browser.get(f"{API}/auth/sso/callback", {"code": "abc", "state": query["state"][0], "iss": ISSUER})
+        self.assertEqual(self.error(mixed), "expired")
+        self.assertEqual(self.idp.token_requests, [])
+        # A provider taken out of the configuration mid sign-in.
+        _, query = self.start(browser, provider="other")
+        with override_settings(OIDC_PROVIDERS=[]):
+            gone = browser.get(f"{API}/auth/sso/callback", {"code": "abc", "state": query["state"][0]})
+        self.assertEqual(self.error(gone), "expired")
+
+    def test_a_bad_provider_list_stops_the_app(self):
+        for bad in ("not a list", [{**OTHER, "id": "Not A Slug"}], [{**OTHER, "id": "default"}], [OTHER, OTHER],
+                    [{**OTHER, "client_secret": ""}], [{**OTHER, "issuer": "idp.example.com"}]):
+            with override_settings(OIDC_PROVIDERS=bad), self.assertRaises(ImproperlyConfigured):
+                sso.check_config()
 
     def test_start_sends_the_browser_to_the_provider_with_pkce(self):
         response, query = self.start(APIClient(), "/goals")
