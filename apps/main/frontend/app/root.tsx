@@ -8,6 +8,7 @@ import {
   ScrollRestoration,
 } from "react-router";
 import { AuthScreenProvider, initSession } from "platform-auth-frontend";
+import { BrandHome } from "./lib/brand";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -69,9 +70,9 @@ export default function App() {
   }, []);
 
   // The login/signup pages are platform-auth's own route modules - this
-  // is how they get this app's name as their heading.
+  // is how they get this app's logo and name, linking home, as their heading.
   return (
-    <AuthScreenProvider title="GoalNexa">
+    <AuthScreenProvider title={<BrandHome />}>
       <Outlet />
     </AuthScreenProvider>
   );
