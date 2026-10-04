@@ -270,11 +270,14 @@ if os.environ.get("MCP_RESOURCES", "").strip() == "*":
     MCP_RESOURCES = None
 elif os.environ.get("MCP_RESOURCES"):
     MCP_RESOURCES = [name.strip() for name in os.environ["MCP_RESOURCES"].split(",") if name.strip()]
-# Hints a directory review wants on tools that reach other people:
-# sharing a goal and inviting someone affect accounts outside the caller's.
+# Every write is open-world: what it changes is shared with other people
+# (an org's goals, metrics, check-ins and comments are its members', an
+# invitation reaches an email address) - which is how ChatGPT's tool review
+# reads `openWorldHint` ("reaches outside the current user's account").
 MCP_TOOL_ANNOTATIONS = {
-    "goal_members_create": {"openWorldHint": True},
-    "org_invitations_create": {"openWorldHint": True},
+    f"{resource}_{verb}": {"openWorldHint": True}
+    for resource in ("orgs", "org_members", "org_invitations", "goals", "goal_members", "metrics", "check_ins", "cycles", "goal_comments")
+    for verb in ("create", "update", "delete", "link", "unlink")
 }
 # ChatGPT's domain verification token (platform_mcp.wellknown_urls).
 MCP_OPENAI_APPS_CHALLENGE = os.environ.get("MCP_OPENAI_APPS_CHALLENGE", "")

@@ -10,8 +10,8 @@ of you beyond the usual upgrade steps.
 ### Added
 
 - **Ready for the ChatGPT app directory.** Every MCP tool states
-  `openWorldHint` too (true for sharing a goal, inviting someone and
-  the reminder settings and test - `MCP_TOOL_ANNOTATIONS` corrects a
+  `openWorldHint` too (true for every write - what it changes is
+  shared with an organization's members - `MCP_TOOL_ANNOTATIONS` corrects a
   resource tool's hints), and `MCP_OPENAI_APPS_CHALLENGE` serves OpenAI's
   domain-verification token at `/.well-known/openai-apps-challenge`
   (unset = 404). If you run your own nginx config, route that path to the
