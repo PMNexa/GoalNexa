@@ -32,6 +32,7 @@ x-backend: &backend
     GOALNEXA_INGEST_RATE: ${GOALNEXA_INGEST_RATE:-60/min}
     GOALNEXA_PUBLIC_URL: ${GOALNEXA_PUBLIC_URL:-}
     MCP_RESOURCES: ${MCP_RESOURCES:-}
+    MCP_OPENAI_APPS_CHALLENGE: ${MCP_OPENAI_APPS_CHALLENGE:-}
     # Outgoing email (see .env.sample); unset = not configured.
     EMAIL_URL: ${EMAIL_URL:-}
     EMAIL_FROM: ${EMAIL_FROM:-}

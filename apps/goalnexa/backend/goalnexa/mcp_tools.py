@@ -68,7 +68,8 @@ TOOLS = [
         "title": "Send a test reminder",
         "description": "Send a test message to the user's saved reminder channels.",
         "inputSchema": _schema({}),
-        "annotations": {"readOnlyHint": False, "destructiveHint": False},
+        # Reaches outside services (Telegram, email, ...).
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": True},
         "method": "POST",
         "path": "/api/v1/reminder-settings/test",
     },

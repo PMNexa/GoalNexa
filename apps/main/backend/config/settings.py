@@ -270,6 +270,8 @@ if os.environ.get("MCP_RESOURCES", "").strip() == "*":
     MCP_RESOURCES = None
 elif os.environ.get("MCP_RESOURCES"):
     MCP_RESOURCES = [name.strip() for name in os.environ["MCP_RESOURCES"].split(",") if name.strip()]
+# ChatGPT's domain verification token (platform_mcp.wellknown_urls).
+MCP_OPENAI_APPS_CHALLENGE = os.environ.get("MCP_OPENAI_APPS_CHALLENGE", "")
 
 # RBAC (platform_auth.rbac) on every BaseViewSet resource, via
 # platform-core's access-policy hook - see platform-auth's AGENTS.md.

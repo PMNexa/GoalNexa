@@ -9,6 +9,12 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Ready for the ChatGPT app directory.** Every MCP tool states
+  `openWorldHint` too (only "Send a test reminder" reaches outside
+  services), and `MCP_OPENAI_APPS_CHALLENGE` serves OpenAI's
+  domain-verification token at `/.well-known/openai-apps-challenge`
+  (unset = 404). If you run your own nginx config, route that path to the
+  backend like `/.well-known/oauth-*`.
 - **Account lockout.** An account locks for 15 minutes after 10 wrong
   passwords in a row (System > Settings: "Lock an account after failed
   logins", "Lock it for"; 0 attempts = never). The owner gets an email;
