@@ -270,6 +270,12 @@ if os.environ.get("MCP_RESOURCES", "").strip() == "*":
     MCP_RESOURCES = None
 elif os.environ.get("MCP_RESOURCES"):
     MCP_RESOURCES = [name.strip() for name in os.environ["MCP_RESOURCES"].split(",") if name.strip()]
+# Hints a directory review wants on tools that reach other people:
+# sharing a goal and inviting someone affect accounts outside the caller's.
+MCP_TOOL_ANNOTATIONS = {
+    "goal_members_create": {"openWorldHint": True},
+    "org_invitations_create": {"openWorldHint": True},
+}
 # ChatGPT's domain verification token (platform_mcp.wellknown_urls).
 MCP_OPENAI_APPS_CHALLENGE = os.environ.get("MCP_OPENAI_APPS_CHALLENGE", "")
 

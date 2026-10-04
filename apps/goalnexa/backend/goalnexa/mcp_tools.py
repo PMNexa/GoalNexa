@@ -59,7 +59,8 @@ TOOLS = [
             "digest_hour": {"type": "integer", "minimum": 0, "maximum": 23, "description": "In `timezone`."},
             "timezone": {"type": "string", "description": "IANA name, e.g. Asia/Ho_Chi_Minh."},
         }),
-        "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True},
+        # Saves where reminders go: outside services (Telegram, email, ...).
+        "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True},
         "method": "PATCH",
         "path": "/api/v1/reminder-settings",
     },

@@ -268,6 +268,8 @@ class TenantIsolationTests(TestCase):
             self.assertIsInstance(annotations.get("readOnlyHint"), bool, tool["name"])
             self.assertIsInstance(annotations.get("openWorldHint"), bool, tool["name"])
             self.assertIsInstance(annotations.get("destructiveHint"), bool, tool["name"])
+        open_world = {tool["name"] for tool in response.json()["result"]["tools"] if tool["annotations"]["openWorldHint"]}
+        self.assertEqual(open_world, {"goal_members_create", "org_invitations_create", "reminder_settings_update", "reminder_settings_test"})
         instructions = self.alice.post(
             f"{API}/mcp", {"jsonrpc": "2.0", "id": 1, "method": "initialize"}, format="json"
         ).json()["result"]["instructions"]
