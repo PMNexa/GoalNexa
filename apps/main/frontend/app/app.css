@@ -4,7 +4,7 @@ body {
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
-/* Logo + name above the auth cards, a link home (lib/brand.tsx). */
+/* Logo + name above the auth cards, a link home where there is a landing page (lib/brand.tsx). */
 .gn-brand-home {
   display: inline-flex;
   align-items: center;
@@ -13,7 +13,7 @@ body {
   text-decoration: none;
   border-radius: 8px;
 }
-.gn-brand-home:hover {
+a.gn-brand-home:hover {
   color: inherit;
   text-decoration: none;
   opacity: 0.85;

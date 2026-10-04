@@ -1,5 +1,7 @@
 import { Link } from "react-router";
 
+import { createExtensionPublicRoutes } from "../extensions";
+
 /** The app icon: a progress ring around a target (same as the marketing site's). */
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
@@ -24,10 +26,20 @@ export function LogoMark({ size = 32 }: { size?: number }) {
 
 /**
  * Logo + name above the login/signup/reset cards (platform-auth's
- * `AuthScreenProvider` title), linking home: `/` is the landing page
- * where an extension provides one, else the dashboard.
+ * `AuthScreenProvider` title). It links home only where an extension
+ * provides a landing page at `/`: without one, `/` redirects to the
+ * dashboard, whose login gate sends a signed-out visitor straight back here.
  */
 export function BrandHome() {
+  const hasLanding = createExtensionPublicRoutes().some((route) => route.index);
+  if (!hasLanding) {
+    return (
+      <span className="gn-brand-home">
+        <LogoMark />
+        GoalNexa
+      </span>
+    );
+  }
   return (
     <Link to="/" className="gn-brand-home" aria-label="GoalNexa home">
       <LogoMark />
