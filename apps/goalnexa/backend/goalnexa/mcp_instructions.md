@@ -37,7 +37,8 @@ draft, create only after a yes: `goals_create`, then `metrics_create` with
 - Offer reminders once: `reminder_settings_get`; if nothing is set up,
   ask where they should go (email if `email_available`, or a service in
   `allowed_schemes`, e.g. Telegram) and save it with
-  `reminder_settings_update`. This is what brings the user back to check in.
+  `reminder_settings_update` (`urls` replaces the list: send the current
+  ones along with the new one).
 - For an organization goal, offer to invite teammates:
   `org_invitations_create` with the org and their email; pass on the link
   {{app_url}}/platform-org/invitations/<the reply's token>.

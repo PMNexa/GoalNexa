@@ -47,8 +47,7 @@ TOOLS = [
         "title": "Update reminder settings",
         "description": (
             "Change the user's own reminder settings - only the fields given change. `urls` replaces the "
-            "whole list (one Apprise URL per line, e.g. `tgram://<bot token>/<chat id>`, `ntfy://<topic>`): "
-            "read the current ones first and send them back with the new one."
+            "whole list (one Apprise URL per line, e.g. `tgram://<bot token>/<chat id>`, `ntfy://<topic>`)."
         ),
         "inputSchema": _schema({
             "enabled": {"type": "boolean", "description": "Send reminders for overdue check-ins."},
