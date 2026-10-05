@@ -59,7 +59,10 @@ export { createRemindersRoutes } from "./remindersRoutes";
 // charts. `createDashboardRoutes(basePath)` is what a host mounts.
 export { default as DashboardScreen } from "./screens/DashboardScreen";
 export type { DashboardScreenProps } from "./screens/DashboardScreen";
-export { createDashboardRoutes } from "./dashboardRoutes";
+export { createDashboardRoutes, createSharedDashboardRoutes } from "./dashboardRoutes";
+// What a public dashboard link shows - mounted outside the app shell.
+export { default as SharedDashboardScreen } from "./screens/SharedDashboardScreen";
+export type { SharedDashboardScreenProps } from "./screens/SharedDashboardScreen";
 
 // The org being worked in - the dashboard's org filter, which a host's
 // header can switch too (`setCurrentOrg`); `fetchOrgs` lists the choices.

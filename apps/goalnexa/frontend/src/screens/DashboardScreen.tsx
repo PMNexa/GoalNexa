@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Button,
   Card,
   CardBody,
   CardHeader,
@@ -7,9 +8,10 @@ import {
   CrudDetailScreen,
   Drawer,
   FormLabel,
+  Icon,
   type LinkComponent,
 } from "platform-core";
-import type { Goal, GoalHealth } from "../lib/api/goals";
+import type { Goal } from "../lib/api/goals";
 import GoalActivityPanel from "./GoalActivityPanel";
 import GoalSharingPanel from "./GoalSharingPanel";
 import MetricIngestPanel from "./MetricIngestPanel";
@@ -24,47 +26,15 @@ import {
 } from "../lib/api/dashboard";
 import type { CheckIn } from "../lib/api/checkIns";
 import { fetchCycles, type Cycle } from "../lib/api/cycles";
-import {
-  computeGoalProgress,
-  computeMetricSeries,
-  goalHealth,
-  goalTargetTime,
-  projectGoal,
-  projectMetric,
-  rootMetrics,
-  type ProgressPoint,
-} from "../lib/progress";
-import ProgressBarChart from "./dashboard/ProgressBarChart";
 import CheckInModal from "./dashboard/CheckInModal";
 import CreateRecordModal, { type CreateTarget } from "./dashboard/CreateRecordModal";
+import DashboardCharts from "./dashboard/DashboardCharts";
 import GoalFilterList from "./dashboard/GoalFilterList";
-import ProgressLineChart, { type ChartMarker } from "./dashboard/ProgressLineChart";
-import { fitDomain } from "./dashboard/chartUtils";
-import { formatPct, pctDomainMax } from "./dashboard/chartUtils";
+import ShareDashboardModal from "./dashboard/ShareDashboardModal";
+import { MAX_GOALS, useDashboardCharts } from "./dashboard/useDashboardCharts";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
 import OnboardingWizard from "./onboarding/OnboardingWizard";
 import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../lib/currentOrg";
-
-const markerDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-
-/** A check-in's source, in a chart tooltip ("via AI agent"); web check-ins say nothing. */
-const SOURCE_LABELS = { web: "the web app", agent: "AI agent", ingest: "ingest URL" } as const;
-
-const HEALTH_LABELS: Record<Exclude<GoalHealth, "unknown">, string> = {
-  on_track: "On track",
-  at_risk: "At risk",
-  off_track: "Off track",
-  achieved: "Achieved",
-};
-
-/** Vertical lines on a goal's panel: now, and its target date if it has one. */
-function goalMarkers(goal: Goal, now: number): ChartMarker[] {
-  const target = goalTargetTime(goal);
-  return [
-    { t: now, label: "Now", kind: "now" },
-    ...(target === null ? [] : [{ t: target, label: `Target ${markerDate.format(target)}`, kind: "target" as const }]),
-  ];
-}
 
 export interface DashboardScreenProps {
   accessToken: string;
@@ -72,6 +42,8 @@ export interface DashboardScreenProps {
   linkComponent?: LinkComponent;
   /** Where each resource's pages are mounted - same as `CrudDetailScreen`'s. */
   resourcePath?: (endpoint: string) => string | null;
+  /** The full URL a public link's token opens (the host mounts that page); without it there's no "Share". */
+  shareUrl?: (token: string) => string;
 }
 
 /** What the details drawer shows: a goal or a metric, by its API base URL. */
@@ -90,8 +62,6 @@ function currentCycle(cycles: Cycle[]): Cycle | undefined {
   return cycles.find((c) => c.status === "active" && c.starts_on <= today && today <= c.ends_on);
 }
 
-/** Palette has 8 validated categorical slots - a 9th series would need a generated hue, so selection stops at 8. */
-const MAX_GOALS = 8;
 /** Set once a user without an org skips the onboarding wizard - not asked again in this browser. */
 const ONBOARDING_SKIPPED_KEY = "goalnexa:onboarding-skipped";
 
@@ -109,10 +79,6 @@ function skipOnboarding() {
   } catch {
     // Asked again next time - harmless.
   }
-}
-
-function formatAmount(value: string | number): string {
-  return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function toError(thrown: unknown): Error {
@@ -156,7 +122,7 @@ function freeSlot(slots: Map<string, number>): number {
  * onboarding wizard (`onboarding/`) instead, until they finish or skip it. Self-contained like every screen in
  * this package - `accessToken` in, no router dependency.
  */
-function DashboardScreen({ accessToken, linkComponent, resourcePath }: DashboardScreenProps) {
+function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }: DashboardScreenProps) {
   const [orgs, setOrgs] = useState<OrgOption[] | null>(null);
   const [orgKey, setOrgKey] = useState<string | null>(null);
   const [goals, setGoals] = useState<Goal[] | null>(null);
@@ -175,6 +141,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
   const [disabledMetrics, setDisabledMetrics] = useState<Set<string>>(new Set());
   const [checkInFor, setCheckInFor] = useState<string | null>(null);
   const [createTarget, setCreateTarget] = useState<CreateTarget | null>(null);
+  const [sharing, setSharing] = useState(false);
   // Bumped after an inline check-in - refetches metrics/check-ins without
   // flashing the charts back to "Loading…" (see the effect below).
   const [seriesVersion, setSeriesVersion] = useState(0);
@@ -305,104 +272,8 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, selectedKey, seriesVersion]);
 
-  // What a goal's % averages: its root metrics (sub-metrics break a root
-  // down, they don't count), minus hidden ones.
-  const countedMetrics = useMemo(
-    () => rootMetrics(metrics).filter((metric) => !disabledMetrics.has(metric.id)),
-    [metrics, disabledMetrics],
-  );
-
-  const progress = useMemo(() => {
-    const selectedGoals = (goals ?? []).filter((goal) => selected.has(goal.id));
-    return computeGoalProgress(selectedGoals, countedMetrics, checkIns);
-  }, [goals, selected, countedMetrics, checkIns]);
-
-  const metricsByGoal = useMemo(() => {
-    const byGoal = new Map<string, Metric[]>();
-    for (const metric of [...metrics].sort((a, b) => a.name.localeCompare(b.name))) {
-      byGoal.set(metric.goal, [...(byGoal.get(metric.goal) ?? []), metric]);
-    }
-    return byGoal;
-  }, [metrics]);
-
-  // A metric's line = its position among its goal's metrics (by name) -
-  // stable while other metrics are shown/hidden. All of a goal's metrics
-  // share one chart; the palette has 8 validated colors, so the 9th+
-  // reuse them with another line style (`seriesDash`) - never a
-  // generated color.
-  const metricSlot = useMemo(() => {
-    const metricSlot = new Map<string, number>();
-    for (const goalMetrics of metricsByGoal.values()) {
-      goalMetrics.forEach((metric, i) => metricSlot.set(metric.id, i + 1));
-    }
-    return metricSlot;
-  }, [metricsByGoal]);
-
-  // Linear projections to each shown goal's target date (none without
-  // one): every metric's, and the goal's over its enabled metrics (like
-  // its current %).
-  const projections = useMemo(() => {
-    const byGoal = new Map<string, ProgressPoint>();
-    const byMetric = new Map<string, ProgressPoint>();
-    for (const p of progress) {
-      const target = goalTargetTime(p.goal);
-      if (target === null) continue;
-      for (const metric of metricsByGoal.get(p.goal.id) ?? []) {
-        const projection = projectMetric(metric, checkIns, target);
-        if (projection) byMetric.set(metric.id, projection);
-      }
-      const pct = projectGoal(p.goal, countedMetrics, checkIns, target);
-      if (pct !== null) byGoal.set(p.goal.id, { t: target, pct });
-    }
-    return { byGoal, byMetric };
-  }, [progress, countedMetrics, metricsByGoal, checkIns]);
-
-  // Small multiples: one progress-over-time panel per shown goal, one line
-  // per shown metric.
-  const metricPanels = useMemo(
-    () =>
-      progress.map((p) => {
-        const goalMetrics = metricsByGoal.get(p.goal.id) ?? [];
-        const shownMetrics = goalMetrics.filter((metric) => !disabledMetrics.has(metric.id));
-        const series = shownMetrics.map((metric) => ({
-            id: metric.id,
-            label: metric.name,
-            slot: metricSlot.get(metric.id) as number,
-            points: computeMetricSeries(metric, checkIns),
-            projection: projections.byMetric.get(metric.id) ?? null,
-            formatDetail: (point: ProgressPoint) =>
-              point.value === undefined
-                ? null
-                : `${formatAmount(point.value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}${
-                    point.source && point.source !== "web" ? ` · via ${SOURCE_LABELS[point.source]}` : ""
-                  }`,
-        }));
-        return {
-          progress: p,
-          projected: projections.byGoal.get(p.goal.id) ?? null,
-          series,
-          // Fits this panel's own lines (min 100%) - see the time range, which is shared.
-          yMax: pctDomainMax(
-            series.flatMap((line) => [...line.points, ...(line.projection ? [line.projection] : [])].map((point) => point.pct)),
-          ),
-        };
-      }),
-    [progress, projections, metricsByGoal, disabledMetrics, metricSlot, checkIns],
-  );
-
-  // One shared time range across every panel (each panel fits its own %
-  // ceiling - one goal at 800% would flatten another at 20%), stretched to
-  // reach now and every shown goal's target date so their markers show.
-  // "Now" is re-read whenever the panels change (e.g. after a check-in).
-  const { now, panelDomain } = useMemo(() => {
-    const now = Date.now();
-    const panelDomain =
-      fitDomain(
-        metricPanels.flatMap((panel) => panel.series.flatMap((line) => line.points)),
-        [now, ...metricPanels.flatMap((panel) => goalTargetTime(panel.progress.goal) ?? [])],
-      ) ?? undefined;
-    return { now, panelDomain };
-  }, [metricPanels]);
+  const charts = useDashboardCharts(goals, selected, metrics, checkIns, disabledMetrics);
+  const { progress, metricsByGoal, metricSlot, now } = charts;
 
   const checkInMetric = metrics.find((metric) => metric.id === checkInFor) ?? null;
   const currentByGoal = useMemo(() => new Map(progress.map((p) => [p.goal.id, p.current])), [progress]);
@@ -529,6 +400,25 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
         onCreated={handleCreated}
         onClose={() => setCreateTarget(null)}
       />
+      {shareUrl && (
+        <ShareDashboardModal
+          open={sharing}
+          accessToken={accessToken}
+          shareUrl={shareUrl}
+          // In color-slot order, so the link's page paints each goal the same.
+          goals={[...selected]
+            .sort((a, b) => a[1] - b[1])
+            .flatMap(([id]) => goals?.find((goal) => goal.id === id) ?? [])}
+          hiddenMetrics={metrics.filter((metric) => disabledMetrics.has(metric.id)).map((metric) => metric.id)}
+          defaultTitle={[
+            orgKey === PERSONAL_ORG ? "Personal goals" : orgs?.find((org) => org.id === orgKey)?.name,
+            cycles.find((cycle) => cycle.id === cycleKey)?.name,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          onClose={() => setSharing(false)}
+        />
+      )}
       <Drawer open={detail !== null} title={detail?.endpoint === "/api/v1/metrics" ? "Metric" : "Goal"} onClose={closeDetail}>
         {detail && (
           <CrudDetailScreen
@@ -572,6 +462,18 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
         <Card>
           <CardHeader>
             <CardTitle>Filters</CardTitle>
+            {shareUrl && (
+              <Button
+                variant="secondary"
+                outline
+                className="ms-auto"
+                onClick={() => setSharing(true)}
+                title="A public, read-only link to the goals shown"
+              >
+                <Icon name="link" />
+                Share
+              </Button>
+            )}
           </CardHeader>
           <CardBody>
             <div className="mb-3">
@@ -683,80 +585,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath }: Dashboard
             </CardBody>
           </Card>
         ) : (
-          <div className="d-flex flex-column gap-3">
-            {/* Progress over time: one card per shown goal, one line per
-                shown metric. All cards share one time range (panelDomain)
-                so they line up; each fits its own % scale. */}
-            {loadingSeries ? (
-              <Card>
-                <CardBody>
-                  <div className="text-secondary py-4 text-center">Loading…</div>
-                </CardBody>
-              </Card>
-            ) : (
-              metricPanels.map(({ progress: p, projected, series, yMax }) => (
-                <Card key={p.goal.id}>
-                  <CardHeader>
-                    <CardTitle>
-                      <span className="d-inline-flex align-items-center gap-2">
-                        {p.goal.title}
-                        {p.current !== null && <span className="gn-goal-pct">{formatPct(p.current)}</span>}
-                        {projected !== null && (
-                          <span
-                            className="gn-goal-projection"
-                            title="Linear projection: each metric's check-in trend carried to the target date"
-                          >
-                            → {formatPct(projected.pct)} by {markerDate.format(projected.t)}
-                          </span>
-                        )}
-                        {(() => {
-                          const health = goalHealth(p.current, projected?.pct ?? null, goalTargetTime(p.goal), now);
-                          return health === "unknown" ? null : (
-                            <span className={`gn-health is-${health}`} title="From the projection: on track = 100% by the target date, at risk = 80%+">
-                              {HEALTH_LABELS[health]}
-                            </span>
-                          );
-                        })()}
-                      </span>
-                    </CardTitle>
-                    <span className="card-subtitle ms-auto text-secondary small d-none d-md-inline">
-                      Progress over time · each metric as % of its target
-                    </span>
-                  </CardHeader>
-                  <CardBody>
-                    {series.length === 0 ? (
-                      <p className="text-secondary small mb-0">
-                        {(metricsByGoal.get(p.goal.id)?.length ?? 0) === 0 ? "No metrics yet." : "All metrics hidden."}
-                      </p>
-                    ) : (
-                      <ProgressLineChart
-                        series={series}
-                        // More room once the lines outnumber the palette.
-                        height={series.length > MAX_GOALS ? 300 : 220}
-                        domain={panelDomain && { ...panelDomain, yMax }}
-                        markers={goalMarkers(p.goal, now)}
-                        alwaysLegend
-                        emptyText="No check-ins yet."
-                        ariaLabel={`${p.goal.title}: metric progress over time`}
-                      />
-                    )}
-                  </CardBody>
-                </Card>
-              ))
-            )}
-            <Card>
-              <CardHeader>
-                <CardTitle>Current progress</CardTitle>
-              </CardHeader>
-              <CardBody>
-                {loadingSeries ? (
-                  <div className="text-secondary py-4 text-center">Loading…</div>
-                ) : (
-                  <ProgressBarChart rows={progress.map((p) => ({ progress: p, slot: slotOf(p.goal.id) }))} />
-                )}
-              </CardBody>
-            </Card>
-          </div>
+          <DashboardCharts charts={charts} slotOf={slotOf} loading={loadingSeries} />
         )}
       </div>
     </div>

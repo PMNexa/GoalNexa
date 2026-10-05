@@ -5,16 +5,18 @@
   their goal memberships move to them (unless they already have one);
 - without: their goals (with metrics and check-ins) and personal cycles
   are deleted, org cycles they created stay with the org. Their goal
-  memberships and reminder settings go either way. Comments, check-ins
-  and feed entries by them on other people's goals stay, unattributed
-  when erasing.
+  memberships, reminder settings and public dashboard links go either
+  way. Comments, check-ins and feed entries by them on other people's
+  goals stay, unattributed when erasing.
 """
 
-from goalnexa.models import Activity, CheckIn, Cycle, Goal, GoalComment, GoalMember, ReminderSettings
+from goalnexa.models import Activity, CheckIn, Cycle, DashboardShare, Goal, GoalComment, GoalMember, ReminderSettings
 
 
 def on_user_removed(sender, user_id, transfer_to=None, **kwargs):
     ReminderSettings.objects.filter(user_id=user_id).delete()
+    # A public link speaks for whoever made it - never handed on.
+    DashboardShare.objects.filter(owner_id=user_id).delete()
     if transfer_to:
         Goal.objects.filter(owner_id=user_id).update(owner_id=transfer_to)
         Cycle.objects.filter(owner_id=user_id).update(owner_id=transfer_to)
@@ -96,6 +98,10 @@ def export(user_id: str) -> dict:
         "check_ins_on_other_goals": CheckInSerializer(
             CheckIn.objects.filter(author_id=user_id).exclude(metric__goal__owner_id=user_id), many=True
         ).data,
+        "dashboard_shares": [
+            {"title": s.title, "goals": s.goal_ids, "created_at": s.created_at.isoformat()}
+            for s in DashboardShare.objects.filter(owner_id=user_id)
+        ],
         "reminder_settings": {
             "enabled": reminder.enabled, "urls": reminder.url_list(), "email": reminder.email,
             "digest": reminder.digest, "timezone": reminder.timezone,

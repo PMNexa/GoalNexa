@@ -334,6 +334,8 @@ SYSTEM_SETTING_DEFAULTS = {
 # Check-ins posted by scripts/webhooks with a metric's ingest token
 # (goalnexa/views/ingest.py), per metric.
 GOALNEXA_INGEST_RATE = os.environ.get("GOALNEXA_INGEST_RATE") or "60/min"
+# Public dashboard links (`/api/v1/shared-dashboards/<token>`), per client IP.
+GOALNEXA_SHARED_DASHBOARD_RATE = os.environ.get("GOALNEXA_SHARED_DASHBOARD_RATE") or "120/min"
 # Where reminders link back to; unset = the host each user saved their
 # reminder settings from.
 GOALNEXA_PUBLIC_URL = os.environ.get("GOALNEXA_PUBLIC_URL", "")

@@ -6,11 +6,14 @@ from goalnexa.views.goals import GoalViewSet
 from goalnexa.views.ingest import MetricIngestView
 from goalnexa.views.metrics import MetricViewSet
 from goalnexa.views.reminders import ReminderSettingsView, ReminderTestView
+from goalnexa.views.shares import DashboardShareDetailView, DashboardShareListView, SharedDashboardView
 
 __all__ = [
     "ActivityViewSet",
     "CheckInViewSet",
     "CycleViewSet",
+    "DashboardShareDetailView",
+    "DashboardShareListView",
     "GoalCommentViewSet",
     "GoalMemberViewSet",
     "GoalScoreViewSet",
@@ -19,4 +22,5 @@ __all__ = [
     "MetricViewSet",
     "ReminderSettingsView",
     "ReminderTestView",
+    "SharedDashboardView",
 ]

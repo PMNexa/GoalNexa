@@ -17,3 +17,22 @@ export function createDashboardRoutes(basePath: string): RouteEntry[] {
     },
   ];
 }
+
+/** The route id `routes/dashboard.tsx` looks up to build a public link's URL. */
+export const SHARED_DASHBOARD_ROUTE_ID = "goalnexa-shared-dashboard";
+
+/**
+ * Where a public dashboard link opens (`<basePath>/:token`). The host
+ * mounts it OUTSIDE its app shell - nobody opening a link is signed in.
+ * The dashboard reads this route's path from the manifest, so its "Share"
+ * links follow wherever the host puts it (and there's no "Share" without it).
+ */
+export function createSharedDashboardRoutes(basePath: string): RouteEntry[] {
+  return [
+    {
+      id: SHARED_DASHBOARD_ROUTE_ID,
+      path: `${basePath.replace(/^\/+|\/+$/g, "")}/:token`,
+      file: routeFilePath(import.meta.url, "routes/shared-dashboard.tsx"),
+    },
+  ];
+}

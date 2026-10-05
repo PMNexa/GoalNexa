@@ -211,6 +211,19 @@ org. Nothing is written before the
 last step; a failed create retries without duplicating what went
 through. "Skip for now" sets `goalnexa:onboarding-skipped` in
 localStorage (not asked again in that browser).
+**Public dashboard links**: "Share" (Filters header) opens
+`ShareDashboardModal`: a link to the shown goals, in color-slot order,
+minus unticked metrics (`DashboardShare`, `/api/v1/dashboard-shares`, a
+plain view - no RBAC, the owner's own rows only). It opens
+`/shared/<token>` (`createSharedDashboardRoutes("shared")`, OUTSIDE the
+app shell; the dashboard finds that mount in the route manifest, and
+shows no "Share" without it): `SharedDashboardScreen`, the same
+`DashboardCharts`/`useDashboardCharts` as the dashboard, from
+`GET shared-dashboards/<token>` (no login, rate limited per IP, no notes,
+authors, owner or org ids). Live, and scoped on every view to what the
+link's creator can still see (`as_user`), so leaving an org takes its
+goals off. The token is stored in the clear so it can be copied again;
+revoking deletes the row; deleting the account deletes its links.
 
 **Team rhythm: cycles, digest, feed, comments, attribution** (goalnexa).
 A `Cycle` (`/api/v1/cycles`, org or personal, visible like an org's

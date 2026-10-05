@@ -15,6 +15,7 @@ from goalnexa.models import (
     Activity,
     CheckIn,
     Cycle,
+    DashboardShare,
     Goal,
     GoalComment,
     GoalHealth,
@@ -294,6 +295,68 @@ class IngestTests(ApiTestCase):
     def test_rate_limited_per_metric(self):
         codes = [self.ingest({"value": 1}).status_code for _ in range(3)]
         self.assertEqual(codes, [201, 201, 429])
+
+
+@without_access_policy
+class DashboardShareTests(ApiTestCase):
+    def setUp(self):
+        super().setUp()
+        self.goal_row = self.goal(title="Run 100 km", target_date=date.today() + timedelta(days=30))
+        self.metric = Metric.objects.create(goal=self.goal_row, name="km", target_value=100, aggregation="sum")
+        self.hidden = Metric.objects.create(goal=self.goal_row, name="weight", base_value=80, target_value=70)
+        CheckIn.objects.create(metric=self.metric, value=12, note="private note", author_id=self.actor.id)
+        self.anonymous = APIClient()
+
+    def share(self, goals, **data):
+        return self.post("dashboard-shares", {"title": "Q4", "goals": goals, **data})
+
+    def view(self, token):
+        return self.anonymous.get(f"/api/v1/shared-dashboards/{token}")
+
+    def test_link_shows_progress_without_login_and_nothing_private(self):
+        response = self.share([str(self.goal_row.id)], hidden_metrics=[str(self.hidden.id)])
+        self.assertEqual(response.status_code, 201, response.data)
+        shown = self.view(response.data["token"])
+        self.assertEqual(shown.status_code, 200, shown.data)
+        self.assertEqual(shown.data["title"], "Q4")
+        self.assertEqual([g["title"] for g in shown.data["goals"]], ["Run 100 km"])
+        self.assertEqual({m["name"] for m in shown.data["metrics"]}, {"km", "weight"})
+        self.assertEqual(shown.data["hidden_metrics"], [str(self.hidden.id)])
+        self.assertEqual(shown.data["check_ins"][0]["value"], "12.00")
+        for leak in ("private note", str(self.actor.id)):
+            self.assertNotIn(leak, str(shown.data))
+
+    def test_only_goals_the_caller_can_see(self):
+        stranger = Goal.objects.create(title="Not mine", owner_id=uuid.uuid4())
+        self.assertEqual(self.share([str(stranger.id)]).status_code, 400)
+        self.assertEqual(self.share([]).status_code, 400)
+        self.assertEqual(self.share([str(uuid.uuid4())] * 1 + ["nope"]).status_code, 400)
+        self.assertEqual(self.share([str(uuid.uuid4()) for _ in range(9)]).status_code, 400)
+        self.assertFalse(DashboardShare.objects.exists())
+
+    def test_a_goal_the_owner_loses_drops_off_the_link(self):
+        token = self.share([str(self.goal_row.id)]).data["token"]
+        Goal.objects.filter(id=self.goal_row.id).update(owner_id=uuid.uuid4())
+        shown = self.view(token)
+        self.assertEqual((shown.status_code, shown.data["goals"], shown.data["metrics"]), (200, [], []))
+
+    def test_revoking_ends_the_link_and_only_the_owner_can(self):
+        created = self.share([str(self.goal_row.id)]).data
+        self.assertEqual([s["id"] for s in self.client.get("/api/v1/dashboard-shares").data["items"]], [created["id"]])
+        other = APIClient()
+        other.force_authenticate(user=Actor())
+        self.assertEqual(other.get("/api/v1/dashboard-shares").data["items"], [])
+        self.assertEqual(other.delete(f"/api/v1/dashboard-shares/{created['id']}").status_code, 404)
+        self.assertEqual(self.client.delete(f"/api/v1/dashboard-shares/{created['id']}").status_code, 204)
+        self.assertEqual(self.view(created["token"]).status_code, 404)
+        self.assertEqual(self.view("guess").status_code, 404)
+
+    def test_deleting_the_account_removes_its_links(self):
+        from goalnexa.accounts import on_user_removed
+
+        self.share([str(self.goal_row.id)])
+        on_user_removed(None, user_id=self.actor.id, transfer_to=uuid.uuid4())
+        self.assertFalse(DashboardShare.objects.exists())
 
 
 @without_access_policy

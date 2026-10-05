@@ -7,6 +7,8 @@ from goalnexa.views import (
     ActivityViewSet,
     CheckInViewSet,
     CycleViewSet,
+    DashboardShareDetailView,
+    DashboardShareListView,
     GoalCommentViewSet,
     GoalScoreViewSet,
     GoalMemberViewSet,
@@ -15,6 +17,7 @@ from goalnexa.views import (
     MetricViewSet,
     ReminderSettingsView,
     ReminderTestView,
+    SharedDashboardView,
 )
 
 # trailing_slash=False - same convention platform_org.urls uses (no
@@ -47,5 +50,9 @@ urlpatterns = [
     # The caller's own reminder settings - not a resource (views/reminders.py).
     path("reminder-settings", ReminderSettingsView.as_view(), name="reminder-settings"),
     path("reminder-settings/test", ReminderTestView.as_view(), name="reminder-settings-test"),
+    # Public dashboard links: the owner's list, and what a link shows (views/shares.py).
+    path("dashboard-shares", DashboardShareListView.as_view(), name="dashboard-shares"),
+    path("dashboard-shares/<str:pk>", DashboardShareDetailView.as_view(), name="dashboard-share"),
+    path("shared-dashboards/<str:token>", SharedDashboardView.as_view(), name="shared-dashboard"),
     *router.urls,
 ]

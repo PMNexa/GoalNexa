@@ -186,6 +186,22 @@ class TenantIsolationTests(TestCase):
         moved = self.bob.patch(f"{API}/goals/{self.bob_goal['id']}", {"org_id": self.org["id"]}, format="json")
         self.assertIn(moved.status_code, (400, 403, 404))
 
+    def test_public_dashboard_links_stay_scoped(self):
+        """A link can't be made to someone else's goal, isn't listed or
+        revocable by anyone else, and stops showing a goal once its owner
+        can't see it (Carol, a goal member, leaves the org)."""
+        stolen = self.bob.post(f"{API}/dashboard-shares", {"goals": [self.goal["id"]]}, format="json")
+        self.assertEqual(stolen.status_code, 400)
+        share = self.create(self.alice, "dashboard-shares", goals=[self.goal["id"]])
+        self.assertEqual(self.bob.get(f"{API}/dashboard-shares").json()["items"], [])
+        self.assertEqual(self.bob.delete(f"{API}/dashboard-shares/{share['id']}").status_code, 404)
+        self.assertEqual(len(APIClient().get(f"{API}/shared-dashboards/{share['token']}").json()["goals"]), 1)
+
+        carols = self.create(self.carol, "dashboard-shares", goals=[self.goal["id"]])
+        membership = self.carol.get(f"{API}/org-members?filter{{user_id}}={self.carol.user_id}").json()["items"][0]
+        self.assertEqual(self.carol.delete(f"{API}/org-members/{membership['id']}").status_code, 204)
+        self.assertEqual(APIClient().get(f"{API}/shared-dashboards/{carols['token']}").json()["goals"], [])
+
     # --- accounts and access control -------------------------------------
 
     def test_user_directory_and_rbac_are_closed_to_members(self):

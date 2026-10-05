@@ -1,6 +1,7 @@
 from goalnexa.models.activity import Activity, ActivityVerb
 from goalnexa.models.check_in import CheckIn, CheckInSource
 from goalnexa.models.cycle import Cycle, CycleStatus
+from goalnexa.models.dashboard_share import DashboardShare
 from goalnexa.models.goal import Goal, GoalHealth, GoalStatus, GoalVisibility
 from goalnexa.models.goal_comment import GoalComment
 from goalnexa.models.goal_member import GoalMember
@@ -17,6 +18,7 @@ __all__ = [
     "CheckInSource",
     "Cycle",
     "CycleStatus",
+    "DashboardShare",
     "DigestFrequency",
     "Goal",
     "GoalComment",

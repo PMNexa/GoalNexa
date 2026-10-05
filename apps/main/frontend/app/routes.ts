@@ -2,6 +2,7 @@ import { type RouteConfig, index, layout, route } from "@react-router/dev/routes
 import {
   createCyclesRoutes,
   createDashboardRoutes,
+  createSharedDashboardRoutes,
   createGoalsRoutes,
   createMetricsRoutes,
   createRemindersRoutes,
@@ -29,6 +30,9 @@ export default [
   // Where an invitation link lands (/platform-org/invitations/:token) - signed
   // out too, so outside the app shell; same mount as createOrgsRoutes.
   ...createOrgsPublicRoutes("platform-org"),
+  // A public dashboard link (/shared/:token) - opened by people who aren't
+  // signed in, so outside the app shell too.
+  ...createSharedDashboardRoutes("shared"),
   // AppShell (sidemenu + sticky header) wraps post-login screens only -
   // login/signup stay bare. See
   // routes/app-shell.tsx.

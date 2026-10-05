@@ -18,7 +18,12 @@ of you beyond the usual upgrade steps.
   and `/system/roles` - update any bookmarks.
 - **Health endpoint.** `GET /api/v1/health` answers once the backend
   reaches its database; every compose and stack healthcheck probes it.
-
+- **Share the dashboard by link.** "Share" on the dashboard makes a
+  public, read-only link to the goals shown (`/shared/<token>`): the
+  same charts, live, no sign-in - without check-in notes or who checked
+  in. Each link is listed there and can be revoked; a goal its creator
+  can no longer see (left the org, made private) drops off it. Rate
+  limited per IP (`GOALNEXA_SHARED_DASHBOARD_RATE`, default 120/min).
 - **Ready for the ChatGPT app directory.** Every MCP tool states
   `openWorldHint` too (true for every write - what it changes is
   shared with an organization's members - `MCP_TOOL_ANNOTATIONS` corrects a

@@ -131,6 +131,7 @@ without the website. Listed in priority order; all live in
 | P-23 | Any language by chat             | The skills and server instructions say to answer in the user's language; tested with Vietnamese prompts                                                                                        | Done | 2026-10-02. Rule in the instructions and the three skills; check-in tested in Vietnamese, plan and review not |
 | P-24 | Invite by chat                   | The plan and review skills offer to invite teammates when a goal belongs to an org, through the existing `org-invitations` tools                                                               | Done | 2026-10-02. In the plan and review skills and the instructions; not yet run with a real client |
 | P-25 | Chart in the chat                | A tool returns a goal's progress chart as an image or a data series the assistant can draw                                                                                                     | Done | 2026-10-02. `goals_chart` returns the data series; the assistant draws it. No image |
+| P-26 | Public dashboard link | Share the dashboard's shown goals (up to 8) as a public, read-only, live link - no login, no notes or authors; each link revocable | Done | 2026-10-05. Asked for directly. `/shared/<token>`; goals the sharer can no longer see drop off the link |
 
 
 ### Next - Q1 2027 - Own and share your data

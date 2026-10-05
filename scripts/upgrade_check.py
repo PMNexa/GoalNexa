@@ -30,6 +30,8 @@ RESOURCES = {
     "check-ins": ["value", "note", "checked_in_at"],
     "cycles": ["name", "starts_on", "ends_on"],
     "goal-comments": ["body"],
+    # A shared link must keep working: same token, same goals.
+    "dashboard-shares": ["title", "token", "goals"],
 }
 
 
