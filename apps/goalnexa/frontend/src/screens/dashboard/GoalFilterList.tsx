@@ -21,6 +21,17 @@ export interface GoalFilterListProps {
   currentByGoal: Map<string, number | null>;
   /** Metrics for the current selection are still loading. */
   loading: boolean;
+  /**
+   * The editing callbacks. Without them (a public link's page) the tree is
+   * read-only: no "+" menus, no due clocks, names are plain text - only
+   * the eyes stay.
+   */
+  actions?: GoalFilterActions;
+  /** Epoch ms - what "overdue" is measured against. */
+  now: number;
+}
+
+export interface GoalFilterActions {
   onCheckIn: (metricId: string) => void;
   /** "+" menu: a metric on the goal (`parentMetricId` null = a root metric) or a sub-goal. */
   onAddMetric: (goalId: string, parentMetricId: string | null) => void;
@@ -28,8 +39,19 @@ export interface GoalFilterListProps {
   /** A goal's / metric's name was clicked - the host shows its details. */
   onOpenGoal: (goalId: string) => void;
   onOpenMetric: (metricId: string) => void;
-  /** Epoch ms - what "overdue" is measured against. */
-  now: number;
+}
+
+/** A goal's / metric's name: a button that opens its details, or plain text when read-only. */
+function NameCell({ title, onOpen, children }: { title: string; onOpen?: () => void; children: React.ReactNode }) {
+  return onOpen ? (
+    <button type="button" className="gn-name-btn" title={title} aria-haspopup="dialog" onClick={onOpen}>
+      {children}
+    </button>
+  ) : (
+    <span className="gn-name-btn is-static" title={title}>
+      {children}
+    </span>
+  );
 }
 
 function formatAmount(value: string): string {
@@ -159,7 +181,7 @@ function buildTree<T extends { id: string; parent: string | null }>(items: T[]):
  * sub-goal, so new rows are created right where they hang in the tree. A hidden goal collapses to its muted
  * title; a hidden metric stays in place, dimmed, so it's easy to show
  * again. A goal's or metric's name is a button: the host opens its
- * details. Styles: `dashboardStyles.ts` (`.gn-goal-*`, `.gn-branch*`,
+ * details - unless `actions` is left out, which makes it read-only. Styles: `dashboardStyles.ts` (`.gn-goal-*`, `.gn-branch*`,
  * `.gn-metric*`, `.gn-row-btn`).
  */
 function GoalFilterList({
@@ -174,17 +196,13 @@ function GoalFilterList({
   onToggleMetric,
   currentByGoal,
   loading,
-  onCheckIn,
-  onAddMetric,
-  onAddGoal,
-  onOpenGoal,
-  onOpenMetric,
+  actions,
   now,
 }: GoalFilterListProps) {
   function renderMetric({ item: metric, children }: TreeNode<Metric>) {
     const metricShown = !disabledMetrics.has(metric.id);
     const slot = metricSlot.get(metric.id);
-    const due = isCheckInDue(metric, now);
+    const due = actions !== undefined && isCheckInDue(metric, now);
     return (
       <li key={metric.id} className="gn-branch gn-metric">
         <div className={`gn-metric-row${metricShown ? "" : " is-off"}${children.length > 0 ? " has-branches" : ""}`}>
@@ -194,22 +212,19 @@ function GoalFilterList({
               className="gn-key"
               style={{ background: metricShown && slot !== undefined ? seriesKey(slot) : "var(--gn-grid)" }}
             />
-            <button
-              type="button"
-              className="gn-name-btn"
+            <NameCell
               title={withDescription(metric.name, metric.description)}
-              aria-haspopup="dialog"
-              onClick={() => onOpenMetric(metric.id)}
+              onOpen={actions && (() => actions.onOpenMetric(metric.id))}
             >
               <span className="gn-metric-name">{metric.name}</span>
-            </button>
+            </NameCell>
             {due && (
               <button
                 type="button"
                 className="gn-due"
                 title={`Check-in due since ${DUE_DATE.format(Date.parse(metric.check_in_due_at as string))} - check in now`}
                 aria-label={`${metric.name}: check-in due - check in now`}
-                onClick={() => onCheckIn(metric.id)}
+                onClick={() => actions?.onCheckIn(metric.id)}
               >
                 {ClockIcon}
               </button>
@@ -228,14 +243,18 @@ function GoalFilterList({
               {metric.unit ? ` ${metric.unit}` : ""}
             </span>
           </span>
-          <RowMenu
-            label={`Check in or add to ${metric.name}`}
-            icon={PlusIcon}
-            items={[
-              { label: "Check in", onSelect: () => onCheckIn(metric.id) },
-              { label: "Add sub-metric", onSelect: () => onAddMetric(metric.goal, metric.id) },
-            ]}
-          />
+          {actions ? (
+            <RowMenu
+              label={`Check in or add to ${metric.name}`}
+              icon={PlusIcon}
+              items={[
+                { label: "Check in", onSelect: () => actions.onCheckIn(metric.id) },
+                { label: "Add sub-metric", onSelect: () => actions.onAddMetric(metric.goal, metric.id) },
+              ]}
+            />
+          ) : (
+            <span />
+          )}
           <VisibilityToggle shown={metricShown} name={metric.name} onToggle={() => onToggleMetric(metric.id)} />
         </div>
         {children.length > 0 && <ul className="gn-branches">{children.map(renderMetric)}</ul>}
@@ -257,24 +276,22 @@ function GoalFilterList({
             className={`gn-key gn-goal-key${shown ? "" : " is-empty"}`}
             style={shown ? { background: seriesColor(slot) } : undefined}
           />
-          <button
-            type="button"
-            className="gn-name-btn"
-            title={withDescription(goal.title, goal.description)}
-            aria-haspopup="dialog"
-            onClick={() => onOpenGoal(goal.id)}
-          >
+          <NameCell title={withDescription(goal.title, goal.description)} onOpen={actions && (() => actions.onOpenGoal(goal.id))}>
             <span className="gn-goal-title">{goal.title}</span>
-          </button>
+          </NameCell>
           {shown && !loading ? <span className="gn-goal-pct">{current === null ? "—" : formatPct(current)}</span> : <span />}
-          <RowMenu
-            label={`Add to ${goal.title}`}
-            icon={PlusIcon}
-            items={[
-              { label: "Add metric", onSelect: () => onAddMetric(goal.id, null) },
-              { label: "Add sub-goal", onSelect: () => onAddGoal(goal.id) },
-            ]}
-          />
+          {actions ? (
+            <RowMenu
+              label={`Add to ${goal.title}`}
+              icon={PlusIcon}
+              items={[
+                { label: "Add metric", onSelect: () => actions.onAddMetric(goal.id, null) },
+                { label: "Add sub-goal", onSelect: () => actions.onAddGoal(goal.id) },
+              ]}
+            />
+          ) : (
+            <span />
+          )}
           <VisibilityToggle
             shown={shown}
             name={goal.title}

@@ -225,7 +225,7 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   text-align: start;
   cursor: pointer;
 }
-.gn-name-btn:hover > span {
+.gn-name-btn:not(.is-static):hover > span {
   text-decoration: underline;
 }
 .gn-goal-group:not(.is-shown) > .gn-goal-head .gn-goal-title {

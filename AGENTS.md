@@ -218,7 +218,9 @@ plain view - no RBAC, the owner's own rows only). It opens
 `/shared/<token>` (`createSharedDashboardRoutes("shared")`, OUTSIDE the
 app shell; the dashboard finds that mount in the route manifest, and
 shows no "Share" without it): `SharedDashboardScreen`, the same
-`DashboardCharts`/`useDashboardCharts` as the dashboard, from
+`DashboardCharts`/`useDashboardCharts` as the dashboard, plus the goal
+tree read-only (`GoalFilterList` without `actions`: no menus, clocks or
+drawers; its eyes hide/show for that visit only), from
 `GET shared-dashboards/<token>` (no login, rate limited per IP, no notes,
 authors, owner or org ids). Live, and scoped on every view to what the
 link's creator can still see (`as_user`), so leaving an org takes its

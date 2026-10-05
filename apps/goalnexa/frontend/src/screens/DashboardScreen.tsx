@@ -562,11 +562,13 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
                 onToggleMetric={toggleMetric}
                 currentByGoal={currentByGoal}
                 loading={loadingSeries}
-                onCheckIn={setCheckInFor}
-                onAddMetric={addMetric}
-                onAddGoal={addGoal}
-                onOpenGoal={(id) => setDetail({ endpoint: "/api/v1/goals", id })}
-                onOpenMetric={(id) => setDetail({ endpoint: "/api/v1/metrics", id })}
+                actions={{
+                  onCheckIn: setCheckInFor,
+                  onAddMetric: addMetric,
+                  onAddGoal: addGoal,
+                  onOpenGoal: (id) => setDetail({ endpoint: "/api/v1/goals", id }),
+                  onOpenMetric: (id) => setDetail({ endpoint: "/api/v1/metrics", id }),
+                }}
                 now={now}
               />
             )}
