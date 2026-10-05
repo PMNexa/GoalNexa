@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link as RouterLink, Outlet, useLocation } from "react-router";
-import { AnnouncementBanner, AppShell, createSystemNavItems } from "platform-core";
-import type { LinkComponentProps, NavEntry } from "platform-core";
+import { Outlet, useLocation } from "react-router";
+import { AnnouncementBanner, AppShell } from "platform-core";
+import type { NavEntry } from "platform-core";
 import {
-  createRbacNavItems,
   endImpersonation,
   filterNavByPermissions,
   getSession,
@@ -12,28 +11,23 @@ import {
   useMyPermissions,
 } from "platform-auth-frontend";
 import { createMcpNavItems } from "platform-mcp-frontend";
-import { createOrgAdminNavItem, createOrgsNavItems } from "platform-org-frontend";
+import { createOrgsNavItems } from "platform-org-frontend";
 import { createExtensionNavItems } from "../extensions";
 import { DashboardIcon, GoalsIcon } from "../lib/navIcons";
+import { ShellLink } from "../lib/ShellLink";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
 import { useUserMenu } from "../lib/useUserMenu";
 
-function ShellLink({ to, className, children, ...rest }: LinkComponentProps) {
-  return (
-    <RouterLink to={to} className={className} {...rest}>
-      {children}
-    </RouterLink>
-  );
-}
-
 // Modules with their own route builder bring their own entries
-// (`createOrgsNavItems`, `createRbacNavItems`, `createMcpNavItems`), given
+// (`createOrgsNavItems`, `createMcpNavItems`), given
 // the SAME base path routes.ts mounts them at. Plain literals remain for
 // resources mounted with a bare `createCrudRoutes` (goals, metrics,
 // check-ins). A `permission` link shows only when the user has it
 // (`filterNavByPermissions`) - the API enforces it either way; this just
 // hides pages that would 403. Groups (`children`) collapse; AppShell
-// remembers which are closed. See root AGENTS.md.
+// remembers which are closed. Instance-wide admin pages (users, roles,
+// system) aren't here: they're the system console's (system-shell.tsx),
+// linked from the user menu. See root AGENTS.md.
 const NAV_ITEMS: NavEntry[] = [
   { label: "Dashboard", to: "/dashboard", icon: DashboardIcon },
   {
@@ -48,8 +42,6 @@ const NAV_ITEMS: NavEntry[] = [
     ],
   },
   ...createOrgsNavItems("platform-org"),
-  ...createRbacNavItems("platform-auth"),
-  ...createSystemNavItems("system", [createOrgAdminNavItem("system")]),
   ...createMcpNavItems("mcp"),
   ...createExtensionNavItems(),
 ];

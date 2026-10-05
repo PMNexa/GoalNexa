@@ -1,4 +1,4 @@
-import { type RouteConfig, index, layout } from "@react-router/dev/routes";
+import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
 import {
   createCyclesRoutes,
   createDashboardRoutes,
@@ -10,7 +10,7 @@ import { createAccountRoutes, createAuthRoutes, createRbacRoutes } from "platfor
 import { createCrudRoutes, createSystemRoutes } from "platform-core";
 import { createMcpRoutes } from "platform-mcp-frontend";
 import { createOrgAdminRoutes, createOrgsPublicRoutes, createOrgsRoutes } from "platform-org-frontend";
-import { createExtensionPublicRoutes, createExtensionRoutes } from "./extensions";
+import { createExtensionPublicRoutes, createExtensionRoutes, createExtensionSystemRoutes } from "./extensions";
 
 // A downstream build's public pages (see app/extensions/index.ts); one of
 // them may be `/` itself, replacing the redirect below.
@@ -71,18 +71,26 @@ export default [
     // Personal access tokens + how to connect an AI client to the MCP
     // server (platform-mcp) - one page, /mcp.
     ...createMcpRoutes("mcp"),
-    // Role-based access control (platform-auth): users, roles, role
-    // assignments, permissions under /platform-auth/.
-    ...createRbacRoutes("platform-auth"),
-    // System administration (platform-core): settings, audit log, email
-    // log - admins only (RBAC).
-    ...createSystemRoutes("system"),
-    // Every organization, for the system admin (platform-org).
-    ...createOrgAdminRoutes("system"),
     // The signed-in user's own account: download my data, delete my account.
     ...createAccountRoutes("account"),
     // A downstream build's own pages (e.g. hosted billing) - none in the
     // self-hosted build. See app/extensions/index.ts.
     ...createExtensionRoutes(),
+  ]),
+  // The system console: running the instance, in a shell of its own
+  // (routes/system-shell.tsx) - admins only (RBAC). Its sidebar
+  // (lib/systemNav.ts) uses the same "system" base path.
+  layout("routes/system-shell.tsx", [
+    route("system", "routes/system-index.tsx"),
+    // Status, settings, audit/email/notification logs (platform-core).
+    ...createSystemRoutes("system"),
+    // Every organization (platform-org).
+    ...createOrgAdminRoutes("system"),
+    // Role-based access control (platform-auth): users, roles, role
+    // assignments, permissions.
+    ...createRbacRoutes("system"),
+    // A downstream build's admin pages (e.g. hosted billing) - none in
+    // the self-hosted build.
+    ...createExtensionSystemRoutes(),
   ]),
 ] satisfies RouteConfig;

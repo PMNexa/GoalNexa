@@ -249,7 +249,19 @@ adds NEW permissions to existing roles whose patterns match.
 `core_api.system`, plus platform-auth/-org/-mcp and goalnexa hooks;
 pages under `/system/*`, admins only via RBAC - Member's patterns don't
 include `system-settings`, `audit-events`, `outgoing-emails`,
-`delivery-attempts`, `all-orgs`).
+`delivery-attempts`, `all-orgs`, `users`, `roles`).
+- **The system console**: every one of those pages - and RBAC's users,
+  roles, role assignments and permissions, mounted at `/system/<resource>`
+  too - lives in its own layout, `routes/system-shell.tsx` ("System
+  console" brand, its own sidebar from `lib/systemNav.ts`, a "Back to
+  GoalNexa" link), not in the app shell. The app's sidebar has no admin
+  pages; the user menu shows "System console" to whoever may open one of
+  them (`consoleHome`). The shell sends a user with none of the console's
+  permissions to `/dashboard` - cosmetic, the API enforces RBAC anyway.
+  Operator work happens here, never in the Django admin: a new admin page
+  is a `BaseViewSet` (admin-only through RBAC: Admin `grants_all`, no
+  Member pattern) mounted in the console, plus its link (with a
+  `permission`) in `createSystemConsoleNav`.
 - **Settings**: a module declares each with `register_setting(SettingDef(
   key, label, type, default, env=...))` in its AppConfig.ready and reads
   `get_setting(key)`. Value = its env var if set (shown "Set by X",
@@ -573,10 +585,11 @@ reset conflicts with Tabler's own button/input/card styles.)
 **Sidebar entries come from the module that owns the pages**: a module
 with its own route builder also exports its sidebar entries from `"."`,
 taking the SAME `basePath` - `createOrgsNavItems("platform-org")` next to
-`createOrgsRoutes("platform-org")`, `createRbacNavItems("platform-auth")`
+`createOrgsRoutes("platform-org")`, `createRbacNavItems("system")`
 (the "Access control" group), `createMcpNavItems("mcp")` - so the link can't drift from where
 the routes are mounted, and the module brings its own label and icon.
-Main's `app-shell.tsx` just spreads them into `NAV_ITEMS` (plain literals
+Main's `app-shell.tsx` just spreads them into `NAV_ITEMS` (admin ones
+into the system console's, `lib/systemNav.ts`; plain literals
 remain for resources main mounts itself, e.g.
 `/goals`). An entry may carry `permission` (core's `NavItem`); main runs
 the list through platform-auth's `filterNavByPermissions` (drops links
@@ -791,8 +804,10 @@ files - so the seams it needs live here, doing nothing by default:
 - `apps/main/frontend/app/extensions/index.ts`: `createExtensionRoutes()`
   (mounted in the app-shell layout), `createExtensionPublicRoutes()`
   (outside it - public pages; an `index: true` one replaces the `/`
-  redirect, e.g. a landing page) and `createExtensionNavItems()`, all
-  empty here; the fork replaces that directory. Its three signatures
+  redirect, e.g. a landing page), `createExtensionNavItems()`, and the
+  system console's `createExtensionSystemRoutes()`/
+  `createExtensionSystemNavItems()` (operator pages, e.g. plans), all
+  empty here; the fork replaces that directory. Its five signatures
   are a contract with the fork - change them deliberately.
 Anything a self-hoster could use too (tenant isolation, email
 verification, ...) belongs here, not in the fork.
@@ -874,7 +889,7 @@ was trying to report. Grep every `settings.py` in the platform for
 | Path | What |
 |---|---|
 | `apps/main/` | The host app. `backend/` — Django+DRF, imports `platform_auth` as a pip package (see above); otherwise still empty (no models/apps of its own yet). `frontend/` — `create-react-router` scaffold; owns all routing, imports module packages for screens, loads Tabler. Plain directory, not a submodule. |
-| `apps/platform-auth/` | git submodule. Django+DRF backend (standalone, own Postgres, own `pyproject.toml` packaging its Django app for reuse) + a frontend package (own `package.json`/`exports`). Both halves are also consumed by `apps/main` — see above. Also owns RBAC (roles app-wide or per org, enforced on every `BaseViewSet` through platform-core's access-policy hook; `CORE_API_ACCESS_POLICY`/`RBAC_*` in main's settings, screens under `/platform-auth/`). Own repo, own AGENTS.md. |
+| `apps/platform-auth/` | git submodule. Django+DRF backend (standalone, own Postgres, own `pyproject.toml` packaging its Django app for reuse) + a frontend package (own `package.json`/`exports`). Both halves are also consumed by `apps/main` — see above. Also owns RBAC (roles app-wide or per org, enforced on every `BaseViewSet` through platform-core's access-policy hook; `CORE_API_ACCESS_POLICY`/`RBAC_*` in main's settings, screens in the system console under `/system/`). Own repo, own AGENTS.md. |
 | `apps/platform-org/` | git submodule. Multi-tenant `Organization`/`OrgMembership`, same packaged-both-halves pattern as `platform-auth`. No User table of its own — see the "module with no User table" note above. An org is also an RBAC scope (roles per org - see platform-auth). Own repo, own AGENTS.md. |
 | `apps/platform-core/` | git submodule. Django+DRF kernel (no models) — `core_api`: error contract, pagination, filters, uuid7 utils, and `BaseSerializer`/`BaseViewSet` (dynamic fields + relation sideloading, inspired by dynamic-rest — see "Generic CRUD entities" below). **A real backend dependency of `platform-auth` and `platform-org`** (both used to vendor their own copy of the small stuff; that stopped scaling once `BaseSerializer`/`BaseViewSet` existed) — editable-installed into `apps/main`'s venv alongside them. Its `frontend/` doubles as two things: its own (still-unused) Module Federation shell, not part of the default `docker-compose.yml`, and — as the `platform-core` npm package (`src/index.ts` exporting `AppShell`) — the former `platform-ui` module's sidemenu/sticky-header shell, folded in here since it had no backend of its own to justify a separate repo. See the "App shell" note above. Own repo, own AGENTS.md. |
 | `apps/platform-mcp/` | git submodule. MCP server over every `BaseViewSet` + OAuth sign-in and personal access tokens, and the `platform-mcp-frontend` package with the "MCP access" page. Split out of platform-core. Same packaged-both-halves pattern; own README (client setup guide) and AGENTS.md. |

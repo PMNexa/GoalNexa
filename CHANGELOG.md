@@ -9,6 +9,13 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **System console.** Running the instance now has its own space at
+  `/system`: status, settings, users and roles, all organizations and the
+  logs, with their own sidebar and a "Back to GoalNexa" link. Admins
+  open it from the user menu ("System console"); the app's sidebar no
+  longer lists admin pages. Users and roles moved from
+  `/platform-auth/users` and `/platform-auth/roles` to `/system/users`
+  and `/system/roles` - update any bookmarks.
 - **Ready for the ChatGPT app directory.** Every MCP tool states
   `openWorldHint` too (true for every write - what it changes is
   shared with an organization's members - `MCP_TOOL_ANNOTATIONS` corrects a

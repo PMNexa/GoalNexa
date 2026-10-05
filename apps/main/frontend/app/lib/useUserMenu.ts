@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import type { UserMenuEntry } from "platform-core";
 import { hasPermission } from "platform-auth-frontend";
 import { fetchOrgs, getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg, type OrgOption } from "goalnexa-frontend";
+import { consoleHome } from "./systemNav";
 
 /**
  * The header's user dropdown (above "Log out"): switch organization - the
@@ -11,6 +12,7 @@ import { fetchOrgs, getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrent
  * where an org's page manages members and invitations). The org list is
  * refreshed each time the menu opens (`refresh`), so an org created or
  * joined since shows up. Without `orgs.view` the org section is left out.
+ * Then "My account", and for admins "System console" (system-shell.tsx).
  */
 export function useUserMenu(accessToken: string | null, permissions: string[] | null) {
   const navigate = useNavigate();
@@ -53,5 +55,7 @@ export function useUserMenu(accessToken: string | null, permissions: string[] | 
   }
   // Everyone's own account page: download my data, delete my account.
   items.push(...(items.length ? [{ divider: true as const }] : []), { label: "My account", to: "/account" });
+  const consolePath = consoleHome(permissions);
+  if (consolePath) items.push({ label: "System console", to: consolePath });
   return { items, refresh };
 }
