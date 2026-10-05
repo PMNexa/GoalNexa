@@ -91,7 +91,7 @@ services:
       OIDC_PROVIDERS: ${OIDC_PROVIDERS:-}
       AUTH_PASSWORD_LOGIN: ${AUTH_PASSWORD_LOGIN:-}
     healthcheck:
-      test: ["CMD", "python", "-c", "import os, urllib.request; host = os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip().lstrip('.'); urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/admin/login/', headers={'Host': host}))"]
+      test: ["CMD", "python", "-c", "import os, urllib.request; host = os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip().lstrip('.'); urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/api/v1/health', headers={'Host': host}))"]
       interval: 5s
       timeout: 3s
       retries: 5

@@ -143,7 +143,7 @@ is copied between modules.
 flowchart LR
   browser["Browser"] -->|":55607"| nginx
   ai["AI client<br/>(Claude, Codex, Cursor, ...)"] -->|"POST /api/v1/mcp<br/>Bearer gnx_..."| nginx
-  nginx -->|"/api/*, /admin/*"| backend["apps/main backend<br/>Django + DRF"]
+  nginx -->|"/api/*"| backend["apps/main backend<br/>Django + DRF"]
   nginx -->|"everything else"| frontend["apps/main frontend<br/>React Router (SSR)"]
   subgraph modules["Modules (installed into main)"]
     core["platform-core<br/>BaseViewSet, schema API,<br/>generic CRUD screens, AppShell"]
@@ -164,7 +164,7 @@ flowchart LR
 | `apps/platform-auth/` | Users, login/signup, rotating refresh tokens, session store | [PMNexa/platform-auth](https://github.com/PMNexa/platform-auth) |
 | `apps/platform-org/` | Multi-tenant organizations and memberships | [PMNexa/platform-org](https://github.com/PMNexa/platform-org) |
 | `apps/platform-mcp/` | MCP server over every `BaseViewSet`, OAuth and personal access tokens, agent-skills serving, the MCP access page | [PMNexa/platform-mcp](https://github.com/PMNexa/platform-mcp) |
-| `nginx/default.conf` | Single-port gateway: `/api/*` and `/admin/*` go to the backend, everything else to the frontend | this repo |
+| `nginx/default.conf` | Single-port gateway: `/api/*` goes to the backend, everything else to the frontend | this repo |
 | `scripts/seed_demo.py` | Demo data through the REST API | this repo |
 | `docs/product-discovery/` | Market research behind the product | this repo |
 

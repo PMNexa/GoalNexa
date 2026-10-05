@@ -12,7 +12,7 @@ file is the source of truth for what's actually running).
 `apps/main/` is the running application — a plain directory in this repo
 (not a submodule), Django+DRF backend + `create-react-router` frontend.
 `docker-compose.yml` runs it behind a single nginx port (see
-`nginx/default.conf`): `/api/*` and `/admin/*` → backend, everything else
+`nginx/default.conf`): `/api/*` → backend, everything else
 → frontend.
 
 **Config lives in `.env`** (gitignored; `.env.sample` lists every key).
@@ -38,7 +38,7 @@ database is `DATABASE_URL` (unset = SQLite, what the dev compose uses);
 the prod compose requires `DJANGO_ALLOWED_HOSTS` and real secrets. The
 server bundle inlines every module package (`ssr.noExternal`), so the
 frontend image carries only main's own `node_modules`. `/static/` is
-the admin's CSS/JS, served by the backend (dev runs `collectstatic`
+DRF's browsable-API CSS/JS, served by the backend (dev runs `collectstatic`
 too, since `.env` usually has `DJANGO_DEBUG=false`). Login/signup/setup
 are rate limited (platform-auth's throttles; `AUTH_*_RATE` in `.env`),
 counted in a `DatabaseCache` so every worker shares one count
@@ -258,7 +258,8 @@ include `system-settings`, `audit-events`, `outgoing-emails`,
   pages; the user menu shows "System console" to whoever may open one of
   them (`consoleHome`). The shell sends a user with none of the console's
   permissions to `/dashboard` - cosmetic, the API enforces RBAC anyway.
-  Operator work happens here, never in the Django admin: a new admin page
+  There is no Django admin (`/admin/` isn't mounted; healthchecks probe
+  `/api/v1/health`). Operator work happens here: a new admin page
   is a `BaseViewSet` (admin-only through RBAC: Admin `grants_all`, no
   Member pattern) mounted in the console, plus its link (with a
   `permission`) in `createSystemConsoleNav`.

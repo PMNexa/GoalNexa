@@ -16,6 +16,9 @@ of you beyond the usual upgrade steps.
   longer lists admin pages. Users and roles moved from
   `/platform-auth/users` and `/platform-auth/roles` to `/system/users`
   and `/system/roles` - update any bookmarks.
+- **Health endpoint.** `GET /api/v1/health` answers once the backend
+  reaches its database; every compose and stack healthcheck probes it.
+
 - **Ready for the ChatGPT app directory.** Every MCP tool states
   `openWorldHint` too (true for every write - what it changes is
   shared with an organization's members - `MCP_TOOL_ANNOTATIONS` corrects a
@@ -62,6 +65,13 @@ of you beyond the usual upgrade steps.
 - **Upgrade test.** CI upgrades an install of the oldest supported
   release, with data, to every commit (`scripts/upgrade_test.sh`).
   `docs/upgrading.md` documents versions and the upgrade steps.
+
+### Removed
+
+- **Django admin.** `/admin/` is no longer served - everything it was
+  used for is in the system console. **Action needed** if you run your
+  own nginx config or healthchecks: drop the `/admin/` location and probe
+  `/api/v1/health` instead of `/admin/login/`.
 
 ### Upgrade notes
 

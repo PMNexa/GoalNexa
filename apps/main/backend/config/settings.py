@@ -42,7 +42,7 @@ ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").s
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Full origins (scheme + host), comma-separated - needed for Django's
-# own CSRF-protected forms (e.g. /admin/ login) behind HTTPS on a
+# own CSRF-protected forms (none ship today - no Django admin) behind HTTPS on a
 # domain other than localhost. The API itself uses bearer tokens.
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 SESSION_COOKIE_SECURE = not DEBUG

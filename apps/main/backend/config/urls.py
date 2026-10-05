@@ -17,11 +17,14 @@ Including another URLconf
 from importlib.util import find_spec
 
 from django.conf import settings
-from django.contrib import admin
 from django.urls import include, path
 
+from config.health import health
+
+# No Django admin: operators run the instance from the system console
+# (/system in the frontend, over the same API and RBAC as everything else).
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('api/v1/health', health),
     # platform_mcp's OAuth discovery documents - at the ROOT, where MCP
     # clients look (/.well-known/oauth-protected-resource/api/v1/mcp,
     # /.well-known/oauth-authorization-server); nginx routes

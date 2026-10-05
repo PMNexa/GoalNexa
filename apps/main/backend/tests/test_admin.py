@@ -435,3 +435,16 @@ class SupportTests(AdminTestCase):
         self.assertFalse(User.objects.filter(email="bob@example.com").exists())
         self.assertFalse(Goal.objects.filter(title="Gone soon").exists())
         self.assertEqual(self.admin.post(f"{API}/auth/me/delete", {"password": PASSWORD}, format="json").json()["code"], "last_admin")
+
+
+class HealthTests(TestCase):
+    """What every compose/stack healthcheck probes - and no Django admin."""
+
+    def test_health_answers_without_auth(self):
+        response = APIClient().get("/api/v1/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ok": True})
+
+    def test_django_admin_is_not_served(self):
+        self.assertEqual(APIClient().get("/admin/").status_code, 404)
+        self.assertEqual(APIClient().get("/admin/login/").status_code, 404)
