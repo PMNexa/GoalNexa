@@ -220,11 +220,13 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
     };
   }, [accessToken, orgKey]);
 
-  // The goals the cycle filter lets through - what the tree lists.
+  // The goals the cycle filter lets through, minus archived ones - what the tree lists.
   const shownGoals = useMemo(
     () =>
-      (goals ?? []).filter((goal) =>
-        cycleKey === ALL_CYCLES ? true : cycleKey === NO_CYCLE ? goal.cycle === null : goal.cycle === cycleKey,
+      (goals ?? []).filter(
+        (goal) =>
+          goal.status !== "archived" &&
+          (cycleKey === ALL_CYCLES ? true : cycleKey === NO_CYCLE ? goal.cycle === null : goal.cycle === cycleKey),
       ),
     [goals, cycleKey],
   );
@@ -458,7 +460,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         </div>
       )}
 
-      <div className="col-12 col-lg-4">
+      <div className="col-12 col-lg-4 gn-pane">
         <Card>
           <CardHeader>
             <CardTitle>Filters</CardTitle>
@@ -579,7 +581,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         </Card>
       </div>
 
-      <div className="col-12 col-lg-8">
+      <div className="col-12 col-lg-8 gn-pane">
         {selected.size === 0 ? (
           <Card>
             <CardBody>

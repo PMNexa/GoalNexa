@@ -1,6 +1,6 @@
 import type { Goal } from "../../lib/api/goals";
 import type { Metric } from "../../lib/api/metrics";
-import { isCheckInDue } from "../../lib/progress";
+import { isCheckInDue, isTracked } from "../../lib/progress";
 import { formatPct, seriesColor, seriesKey } from "./chartUtils";
 import RowMenu from "./RowMenu";
 
@@ -230,19 +230,29 @@ function GoalFilterList({
               </button>
             )}
           </span>
-          <span
-            className="gn-metric-value"
-            title={`${formatAmount(metric.current_value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}${
-              Number(metric.base_value) === 0 ? "" : ` (from ${formatAmount(metric.base_value)})`
-            }`}
-          >
-            {formatCompact(metric.current_value)}
-            <span className="gn-metric-target">
-              {" / "}
-              {formatCompact(metric.target_value)}
-              {metric.unit ? ` ${metric.unit}` : ""}
+          {isTracked(metric) ? (
+            <span
+              className="gn-metric-value"
+              title={`${formatAmount(metric.current_value)}${metric.unit ? ` ${metric.unit}` : ""} - tracked, no target`}
+            >
+              {formatCompact(metric.current_value)}
+              {metric.unit && <span className="gn-metric-target"> {metric.unit}</span>}
             </span>
-          </span>
+          ) : (
+            <span
+              className="gn-metric-value"
+              title={`${formatAmount(metric.current_value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}${
+                Number(metric.base_value) === 0 ? "" : ` (from ${formatAmount(metric.base_value)})`
+              }`}
+            >
+              {formatCompact(metric.current_value)}
+              <span className="gn-metric-target">
+                {" / "}
+                {formatCompact(metric.target_value)}
+                {metric.unit ? ` ${metric.unit}` : ""}
+              </span>
+            </span>
+          )}
           {actions ? (
             <RowMenu
               label={`Check in or add to ${metric.name}`}

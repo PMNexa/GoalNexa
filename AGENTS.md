@@ -130,9 +130,10 @@ per shown goal (titled with the goal + its %), one straight-segment line per sho
 metric; the tooltip shows each metric's % AND its actual reading
 ("57,000 / 100,000"), and end labels sit past the plot edge with a
 leader line (progress from base to target as a %,
-replayed from check-ins, `computeMetricSeries`). All panels share one
-time range (`fitDomain`) so they line up, but each fits its own %
-ceiling (min 100%) - a goal at 800% would otherwise flatten one at 20%. That range also stretches to now and to every shown goal's
+replayed from check-ins, `computeMetricSeries`). Each panel has its OWN
+time range (`fitDomain`, `panelDomains` - asked for: goals run over
+different periods, an earlier version shared one) and its own %
+ceiling (min 100%) - a goal at 800% would otherwise flatten one at 20%. Its range also stretches to now and to its goal's
 `target_date`; each panel draws a "Now" hairline and, if its goal has
 one, a dashed "Target <date>" line (`markers` prop). A goal with a
 target date also gets a linear PREDICTION (`lib/progress.ts`'s
@@ -154,7 +155,13 @@ metric's color key, so it doubles as the panels' legend. A goal's progress = the
 ROOT metrics' `(value - base_value) / (target_value - base_value)` (so a
 metric meant to go down works too); sub-metrics break a root down and
 don't count (`rootMetrics`; the goalnexa skills say the same). The math
-is in `lib/progress.ts`.
+is in `lib/progress.ts`. A metric whose target equals its base is
+TRACKED only (`isTracked`): no %, out of progress/projection/health, drawn
+as its own small value chart in its unit under the goal's % chart
+(`ValueLineChart`, same time range); the tree shows its value with no
+target, and a goal with only those gets a neutral "Tracking" badge.
+On desktop (lg+) the filters and the charts are two panes that scroll
+on their own (`.gn-pane`, viewport-high); the page itself doesn't.
 A `sum` metric (`Metric.aggregation`) replays as a running total from
 its base (each check-in is an amount done, `applyCheckIn`); a `latest`
 one, each check-in is the new value. Each panel header ends with a
@@ -181,7 +188,7 @@ row, never asked (`CreateRecordModal.tsx`); a new goal or metric shows
 its goal if a color slot is free. The menu is `position: fixed` inline
 (the tree is a scroll box, and Bootstrap's `.dropdown-menu` would win
 over a class). The goal picker is
-`screens/dashboard/GoalFilterList.tsx`, a tree with no checkboxes. A
+`screens/dashboard/GoalFilterList.tsx`, a tree with no checkboxes; archived goals are left out. A
 goal node is color key, title (up to 2 lines), % pill and eye, with a
 thin progress bar in the goal's color. A goal's branches are its metrics
 (while it's shown), then its sub-goals (always - each is shown/hidden on

@@ -35,7 +35,8 @@ The server keeps these up to date on every goal - read them, don't recompute:
   A metric's own progress is
   `(current_value - base_value) / (target_value - base_value)` (it works for
   metrics meant to go down too). Clamp to 0–100% for display, but mention one
-  that's past its target.
+  that's past its target. A metric with `target_value` = `base_value` is
+  tracked only: no %, left out of `progress` - report its value and trend.
 - `projected_progress`: where the goal lands by its `target_date` if each metric
   keeps its check-in trend (null without a target date or a trend).
 - `health`: `on_track` (projected ≥ 100%), `at_risk` (≥ 80%), `off_track` (less,

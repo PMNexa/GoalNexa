@@ -56,7 +56,8 @@ their own words.
    `note` (the user's own words, briefly) and `checked_in_at`.
 5. **Confirm** in one line: metric, old → new value (the `current_value` the
    server returns on `metrics_get`), the metric's progress %, and whether it's now
-   at or past its target. The goal's own `progress` averages all its root
+   at or past its target (a tracked-only metric - `target_value` =
+   `base_value` - has no %: give the change instead). The goal's own `progress` averages all its root
    metrics, so it differs from this one's; mention its `health` if it's
    `at_risk` or `off_track`. For several updates in one message,
    log each one and confirm them as a short list.

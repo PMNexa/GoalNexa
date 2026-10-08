@@ -159,6 +159,33 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   padding: 0.25rem;
   margin: -0.25rem;
 }
+/* Desktop: the filters and the charts scroll on their own, each filling
+   the viewport under the app's sticky header (64px) - so the goal tree
+   stays in reach while scrolling charts, and the reverse. No page
+   margin or row gutter above/below: the panes (and their scrollbars) sit flush against the
+   header and the bottom edge, reading as panels that scroll. The goal
+   list then needs no scroll box of its own. */
+@media (min-width: 992px) {
+  .page-body:has(> * > .gn-dashboard) {
+    margin-block: 0;
+  }
+  .gn-dashboard {
+    --tblr-gutter-y: 0;
+  }
+  .gn-pane {
+    height: calc(100dvh - 64px);
+    /* Inside the scroll box: the scrollbar runs edge to edge, the
+       content starts and ends with breathing room. */
+    padding-block: 1rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .gn-pane .gn-goal-list {
+    max-height: none;
+    overflow-y: visible;
+  }
+}
 
 /* The goal list is a tree: goal nodes, with their metrics then their
    sub-goals as branches, and a metric's sub-metrics under it. Every row
@@ -261,6 +288,36 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
 }
 .gn-health.is-at_risk {
   --gn-health: var(--tblr-warning, #f76707);
+}
+/* Only tracked metrics (no targets): a neutral dot, no verdict. */
+.gn-health.is-tracking {
+  --gn-health: var(--gn-text-secondary);
+}
+/* Tracked metrics (target = base): one value chart each, two across when there's room. */
+.gn-tracked-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px 24px;
+}
+.gn-tracked-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+.gn-tracked-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gn-text-secondary);
+}
+.gn-tracked-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--gn-text-primary);
 }
 .gn-health.is-off_track {
   --gn-health: var(--tblr-danger, #d63939);

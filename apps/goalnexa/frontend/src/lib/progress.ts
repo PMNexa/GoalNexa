@@ -9,7 +9,7 @@ import type { CheckIn, CheckInSource } from "./api/checkIns";
  * `target_value`, as a percentage: `(value - base) / (target - base)`
  * (can exceed 100; never below 0). The same formula covers a metric that
  * should go DOWN (base 80, target 70). Metrics whose target equals their
- * base are skipped - there's no distance to measure. A goal with no
+ * base are skipped - there's no distance to measure (`isTracked`). A goal with no
  * usable metrics has no progress at all (`current: null`, empty series),
  * not 0%.
  *
@@ -39,6 +39,15 @@ export interface GoalProgress {
 
 function isUsable(metric: Metric): boolean {
   return Number(metric.target_value) !== Number(metric.base_value);
+}
+
+/**
+ * A metric whose target equals its base has no distance to measure, so no
+ * %: it's TRACKED only - its readings are charted as values, and it counts
+ * toward nothing (progress, projection, health).
+ */
+export function isTracked(metric: Metric): boolean {
+  return !isUsable(metric);
 }
 
 function metricPct(value: string | number, metric: Metric): number {
@@ -109,13 +118,24 @@ export function computeGoalProgress(goals: Goal[], metrics: Metric[], checkIns: 
  */
 export function computeMetricSeries(metric: Metric, checkIns: CheckIn[]): ProgressPoint[] {
   if (!isUsable(metric)) return [];
+  return computeValueSeries(metric, checkIns).map((point) => ({ ...point, pct: metricPct(point.value, metric) }));
+}
+
+export interface ValuePoint {
+  t: number;
+  value: number;
+  source?: CheckInSource;
+}
+
+/** One metric's value at each of its check-ins, oldest first (a running total for `sum`) - any metric, tracked ones too. */
+export function computeValueSeries(metric: Metric, checkIns: CheckIn[]): ValuePoint[] {
   let value = Number(metric.base_value);
   return checkIns
     .filter((checkIn) => checkIn.metric === metric.id)
     .sort((a, b) => Date.parse(a.checked_in_at) - Date.parse(b.checked_in_at))
     .map((checkIn) => {
       value = applyCheckIn(metric, value, checkIn);
-      return { t: Date.parse(checkIn.checked_in_at), pct: metricPct(value, metric), value, source: checkIn.source };
+      return { t: Date.parse(checkIn.checked_in_at), value, source: checkIn.source };
     });
 }
 

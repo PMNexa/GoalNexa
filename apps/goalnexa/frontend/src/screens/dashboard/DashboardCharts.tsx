@@ -3,6 +3,7 @@ import type { Goal, GoalHealth } from "../../lib/api/goals";
 import { goalHealth, goalTargetTime } from "../../lib/progress";
 import ProgressBarChart from "./ProgressBarChart";
 import ProgressLineChart, { type ChartMarker } from "./ProgressLineChart";
+import ValueLineChart from "./ValueLineChart";
 import { formatPct } from "./chartUtils";
 import { MAX_GOALS, type DashboardChartsData } from "./useDashboardCharts";
 
@@ -33,13 +34,13 @@ export interface DashboardChartsProps {
 
 /**
  * The dashboard's right-hand column: one progress-over-time card per shown
- * goal, one line per shown metric - all sharing one time range
- * (`panelDomain`) so they line up, each fitting its own % scale - then the
- * current-progress bars. Read-only; the dashboard and a public link's page
+ * goal, one line per shown metric with a target and a small value chart
+ * per tracked one (target = base, no %) - each goal on its own time range
+ * and % scale (`panelDomains`) - then the current-progress bars. Read-only; the dashboard and a public link's page
  * both render it.
  */
 function DashboardCharts({ charts, slotOf, loading = false }: DashboardChartsProps) {
-  const { progress, metricsByGoal, metricPanels, now, panelDomain } = charts;
+  const { progress, metricsByGoal, metricPanels, now, panelDomains } = charts;
   return (
     <div className="d-flex flex-column gap-3">
       {loading ? (
@@ -49,7 +50,9 @@ function DashboardCharts({ charts, slotOf, loading = false }: DashboardChartsPro
           </CardBody>
         </Card>
       ) : (
-        metricPanels.map(({ progress: p, projected, series, yMax }) => (
+        metricPanels.map(({ progress: p, projected, series, tracked, shownCount }) => {
+          const panelDomain = panelDomains.get(p.goal.id);
+          return (
           <Card key={p.goal.id}>
             <CardHeader>
               <CardTitle>
@@ -64,6 +67,11 @@ function DashboardCharts({ charts, slotOf, loading = false }: DashboardChartsPro
                       → {formatPct(projected.pct)} by {markerDate.format(projected.t)}
                     </span>
                   )}
+                  {p.current === null && tracked.length > 0 && (
+                    <span className="gn-health is-tracking" title="No metric here has a target (start = target), so there's no % or health - just the readings">
+                      Tracking
+                    </span>
+                  )}
                   {(() => {
                     const health = goalHealth(p.current, projected?.pct ?? null, goalTargetTime(p.goal), now);
                     return health === "unknown" ? null : (
@@ -76,25 +84,43 @@ function DashboardCharts({ charts, slotOf, loading = false }: DashboardChartsPro
               </CardTitle>
             </CardHeader>
             <CardBody>
-              {series.length === 0 ? (
+              {shownCount === 0 && (
                 <p className="text-secondary small mb-0">
                   {(metricsByGoal.get(p.goal.id)?.length ?? 0) === 0 ? "No metrics yet." : "All metrics hidden."}
                 </p>
-              ) : (
+              )}
+              {series.length > 0 && (
                 <ProgressLineChart
                   series={series}
                   // More room once the lines outnumber the palette.
                   height={series.length > MAX_GOALS ? 300 : 220}
-                  domain={panelDomain && { ...panelDomain, yMax }}
+                  domain={panelDomain}
                   markers={goalMarkers(p.goal, now)}
                   alwaysLegend
-                  emptyText="No check-ins yet."
                   ariaLabel={`${p.goal.title}: metric progress over time`}
                 />
               )}
+              {tracked.length > 0 && panelDomain && (
+                <div className={series.length > 0 ? "mt-3" : undefined}>
+                  {series.length > 0 && (
+                    <div className="subheader mb-2" title="Start = target, so these have no % and don't count toward the goal's progress">
+                      Tracked, no target
+                    </div>
+                  )}
+                  <div className="gn-tracked-grid">
+                    {tracked.map((line) => (
+                      <ValueLineChart key={line.id} {...line} tMin={panelDomain.tMin} tMax={panelDomain.tMax} now={now} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {tracked.length > 0 && !panelDomain && series.length === 0 && (
+                <p className="text-secondary small mb-0">No check-ins yet.</p>
+              )}
             </CardBody>
           </Card>
-        ))
+          );
+        })
       )}
       <Card>
         <CardHeader>

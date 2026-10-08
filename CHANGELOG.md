@@ -9,6 +9,15 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Metrics without a target.** A metric whose target equals its start
+  value (a KPI you watch rather than a goal) is now charted by its own
+  values - one small chart per metric, in its unit - instead of leaving
+  the goal's panel saying "No check-ins yet". It doesn't count toward the
+  goal's progress or health; a goal with only such metrics shows
+  "Tracking".
+- **Dashboard panes scroll on their own** on desktop: the filters and
+  the charts each fill the window under the header and scroll within it.
+
 - **System console.** Running the instance now has its own space at
   `/system`: status, settings, users and roles, all organizations and the
   logs, with their own sidebar and a "Back to GoalNexa" link. Admins
@@ -70,6 +79,14 @@ of you beyond the usual upgrade steps.
 - **Upgrade test.** CI upgrades an install of the oldest supported
   release, with data, to every commit (`scripts/upgrade_test.sh`).
   `docs/upgrading.md` documents versions and the upgrade steps.
+
+### Changed
+
+- **Each goal's chart has its own time range** on the dashboard (and on
+  shared links), instead of every panel spanning the earliest to the
+  latest date of all shown goals - a quarterly goal no longer sits in a
+  sliver of a yearly one's timeline.
+- **The dashboard leaves out archived goals.**
 
 ### Removed
 

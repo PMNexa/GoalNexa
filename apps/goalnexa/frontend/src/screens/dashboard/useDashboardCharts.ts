@@ -5,13 +5,15 @@ import type { Metric } from "../../lib/api/metrics";
 import {
   computeGoalProgress,
   computeMetricSeries,
+  computeValueSeries,
   goalTargetTime,
+  isTracked,
   projectGoal,
   projectMetric,
   rootMetrics,
   type ProgressPoint,
 } from "../../lib/progress";
-import { fitDomain, pctDomainMax } from "./chartUtils";
+import { fitDomain, pctDomainMax, type ChartDomain } from "./chartUtils";
 
 /** Palette has 8 validated categorical slots - a 9th series would need a generated hue, so selection stops at 8. */
 export const MAX_GOALS = 8;
@@ -88,13 +90,13 @@ export function useDashboardCharts(
   }, [progress, countedMetrics, metricsByGoal, checkIns]);
 
   // Small multiples: one progress-over-time panel per shown goal, one line
-  // per shown metric.
+  // per shown metric with a target, and a value chart per tracked one.
   const metricPanels = useMemo(
     () =>
       progress.map((p) => {
         const goalMetrics = metricsByGoal.get(p.goal.id) ?? [];
         const shownMetrics = goalMetrics.filter((metric) => !disabledMetrics.has(metric.id));
-        const series = shownMetrics.map((metric) => ({
+        const series = shownMetrics.filter((metric) => !isTracked(metric)).map((metric) => ({
           id: metric.id,
           label: metric.name,
           slot: metricSlot.get(metric.id) as number,
@@ -111,7 +113,16 @@ export function useDashboardCharts(
           progress: p,
           projected: projections.byGoal.get(p.goal.id) ?? null,
           series,
-          // Fits this panel's own lines (min 100%) - see the time range, which is shared.
+          // Target = base: no %, so charted as values, one small chart each.
+          tracked: shownMetrics.filter(isTracked).map((metric) => ({
+            id: metric.id,
+            label: metric.name,
+            unit: metric.unit,
+            slot: metricSlot.get(metric.id) as number,
+            points: computeValueSeries(metric, checkIns),
+          })),
+          shownCount: shownMetrics.length,
+          // Fits this panel's own lines (min 100%).
           yMax: pctDomainMax(
             series.flatMap((line) => [...line.points, ...(line.projection ? [line.projection] : [])].map((point) => point.pct)),
           ),
@@ -120,21 +131,30 @@ export function useDashboardCharts(
     [progress, projections, metricsByGoal, disabledMetrics, metricSlot, checkIns],
   );
 
-  // One shared time range across every panel (each panel fits its own %
-  // ceiling - one goal at 800% would flatten another at 20%), stretched to
-  // reach now and every shown goal's target date so their markers show.
-  // "Now" is re-read whenever the panels change (e.g. after a check-in).
-  const { now, panelDomain } = useMemo(() => {
+  // Each panel's own time range (goals can run over different periods),
+  // stretched to reach now and its goal's target date so the markers show;
+  // each also fits its own % ceiling (one goal at 800% would flatten
+  // another at 20%). "Now" is re-read whenever the panels change (e.g.
+  // after a check-in).
+  const { now, panelDomains } = useMemo(() => {
     const now = Date.now();
-    const panelDomain =
-      fitDomain(
-        metricPanels.flatMap((panel) => panel.series.flatMap((line) => line.points)),
-        [now, ...metricPanels.flatMap((panel) => goalTargetTime(panel.progress.goal) ?? [])],
-      ) ?? undefined;
-    return { now, panelDomain };
+    const panelDomains = new Map<string, ChartDomain>();
+    for (const panel of metricPanels) {
+      const target = goalTargetTime(panel.progress.goal);
+      const domain = fitDomain(
+        [
+          ...panel.series.flatMap((line) => line.points),
+          // Times only - a tracked metric's values never reach a % axis.
+          ...panel.tracked.flatMap((line) => line.points.map((point) => ({ t: point.t, pct: 0 }))),
+        ],
+        target === null ? [now] : [now, target],
+      );
+      if (domain) panelDomains.set(panel.progress.goal.id, { ...domain, yMax: panel.yMax });
+    }
+    return { now, panelDomains };
   }, [metricPanels]);
 
-  return { progress, metricsByGoal, metricSlot, metricPanels, now, panelDomain };
+  return { progress, metricsByGoal, metricSlot, metricPanels, now, panelDomains };
 }
 
 export type DashboardChartsData = ReturnType<typeof useDashboardCharts>;
