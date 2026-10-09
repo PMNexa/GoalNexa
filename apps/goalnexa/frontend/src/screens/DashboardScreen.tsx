@@ -34,6 +34,7 @@ import ShareDashboardModal from "./dashboard/ShareDashboardModal";
 import { MAX_GOALS, useDashboardCharts } from "./dashboard/useDashboardCharts";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
 import OnboardingWizard from "./onboarding/OnboardingWizard";
+import { readStored, writeStored } from "../lib/storedState";
 import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../lib/currentOrg";
 
 export interface DashboardScreenProps {
@@ -98,6 +99,19 @@ function goalFromUrl(): string | null {
   }
 }
 
+const HIDDEN_METRICS_KEY = "goalnexa:dashboard-hidden-metrics";
+const SHOWN_GOALS_KEY = "goalnexa:dashboard-shown-goals";
+
+/** The shown goals (id -> color slot) remembered for an org + cycle, or null if never chosen. */
+function readShown(scope: string): Map<string, number> | null {
+  const stored = readStored<Record<string, [string, number][]>>(SHOWN_GOALS_KEY, {})[scope];
+  return Array.isArray(stored) ? new Map(stored) : null;
+}
+
+function writeShown(scope: string, shown: Map<string, number>) {
+  writeStored(SHOWN_GOALS_KEY, { ...readStored<Record<string, unknown>>(SHOWN_GOALS_KEY, {}), [scope]: [...shown] });
+}
+
 /** Lowest color slot (1-8) not already held by a selected goal. */
 function freeSlot(slots: Map<string, number>): number {
   const taken = new Set(slots.values());
@@ -138,7 +152,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   const [loadingSeries, setLoadingSeries] = useState(false);
   // Opt-out, not opt-in: every metric counts until unticked, so a goal's
   // progress matches the rest of the app by default.
-  const [disabledMetrics, setDisabledMetrics] = useState<Set<string>>(new Set());
+  const [disabledMetrics, setDisabledMetrics] = useState<Set<string>>(() => new Set(readStored<string[]>(HIDDEN_METRICS_KEY, [])));
   const [checkInFor, setCheckInFor] = useState<string | null>(null);
   const [createTarget, setCreateTarget] = useState<CreateTarget | null>(null);
   const [sharing, setSharing] = useState(false);
@@ -241,6 +255,11 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         return;
       }
     }
+    const remembered = readShown(`${orgKey}|${cycleKey}`);
+    if (remembered) {
+      setSelected(new Map([...remembered].filter(([id]) => shownGoals.some((goal) => goal.id === id))));
+      return;
+    }
     setSelected(new Map(shownGoals.slice(0, MAX_GOALS).map((goal, i) => [goal.id, i + 1])));
     // Not on every `shownGoals` change: creating a goal mustn't reset the selection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -285,12 +304,22 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
       const next = new Set(prev);
       if (next.has(metricId)) next.delete(metricId);
       else next.add(metricId);
+      writeStored(HIDDEN_METRICS_KEY, [...next]);
+      return next;
+    });
+  }
+
+  // Every change the user makes to what's shown is remembered per org + cycle.
+  function chooseShown(update: (prev: Map<string, number>) => Map<string, number>) {
+    setSelected((prev) => {
+      const next = update(prev);
+      writeShown(`${orgKey}|${cycleKey}`, next);
       return next;
     });
   }
 
   function toggleGoal(goalId: string) {
-    setSelected((prev) => {
+    chooseShown((prev) => {
       const next = new Map(prev);
       if (next.has(goalId)) next.delete(goalId);
       else if (next.size < MAX_GOALS) next.set(goalId, freeSlot(next));
@@ -299,7 +328,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   }
 
   function selectFirst() {
-    setSelected(new Map(shownGoals.slice(0, MAX_GOALS).map((goal, i) => [goal.id, i + 1])));
+    chooseShown(() => new Map(shownGoals.slice(0, MAX_GOALS).map((goal, i) => [goal.id, i + 1])));
   }
 
   // Anything may have changed in the drawer (a check-in, a metric's
@@ -538,7 +567,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
                 <button
                   type="button"
                   className="btn btn-link btn-sm p-0"
-                  onClick={() => setSelected(new Map())}
+                  onClick={() => chooseShown(() => new Map())}
                   disabled={selected.size === 0}
                 >
                   Hide all

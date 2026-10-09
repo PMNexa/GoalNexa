@@ -214,7 +214,7 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
 .gn-goal-head {
   position: relative;
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr) auto auto auto;
+  grid-template-columns: 12px minmax(0, 1fr) 1.25rem auto auto auto;
   align-items: start;
   column-gap: 0.5rem;
 }
@@ -427,6 +427,36 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   top: calc(0.9375rem + 4px);
   bottom: 0;
   border-left-width: 1px;
+}
+
+/* Fold/unfold chevron after a node's name. */
+.gn-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--gn-text-secondary);
+  cursor: pointer;
+}
+.gn-collapse:hover {
+  background: var(--tblr-bg-surface-secondary, #f6f8fb);
+  color: var(--gn-text-primary);
+}
+.gn-collapse svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.15s;
+}
+.gn-collapse.is-collapsed svg {
+  transform: rotate(-90deg);
+}
+.gn-goal-head > .gn-collapse {
+  margin-top: 0.25rem;
 }
 
 /* Metric row: [key name] [current / target] [+] [eye]. */

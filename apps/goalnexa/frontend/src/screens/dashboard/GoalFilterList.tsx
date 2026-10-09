@@ -1,8 +1,12 @@
+import { useState } from "react";
 import type { Goal } from "../../lib/api/goals";
 import type { Metric } from "../../lib/api/metrics";
 import { isCheckInDue, isTracked } from "../../lib/progress";
 import { formatPct, seriesColor, seriesKey } from "./chartUtils";
+import { readStored, writeStored } from "../../lib/storedState";
 import RowMenu from "./RowMenu";
+
+const COLLAPSED_KEY = "goalnexa:dashboard-collapsed";
 
 export interface GoalFilterListProps {
   goals: Goal[];
@@ -105,6 +109,22 @@ const EyeOffIcon = (
   </SvgIcon>
 );
 
+const ChevronIcon = (
+  <SvgIcon>
+    <path d="M6 9l6 6l6 -6" />
+  </SvgIcon>
+);
+
+/** Folds a node's branches; the node ids it holds are remembered per browser. */
+function CollapseToggle({ collapsed, name, onToggle }: { collapsed: boolean; name: string; onToggle: () => void }) {
+  const label = `${collapsed ? "Expand" : "Collapse"} ${name}`;
+  return (
+    <button type="button" className={`gn-collapse${collapsed ? " is-collapsed" : ""}`} aria-expanded={!collapsed} aria-label={label} title={label} onClick={onToggle}>
+      {ChevronIcon}
+    </button>
+  );
+}
+
 function VisibilityToggle({
   shown,
   name,
@@ -199,13 +219,25 @@ function GoalFilterList({
   actions,
   now,
 }: GoalFilterListProps) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(readStored<string[]>(COLLAPSED_KEY, [])));
+  function toggleCollapsed(id: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      writeStored(COLLAPSED_KEY, [...next]);
+      return next;
+    });
+  }
+
   function renderMetric({ item: metric, children }: TreeNode<Metric>) {
     const metricShown = !disabledMetrics.has(metric.id);
     const slot = metricSlot.get(metric.id);
     const due = actions !== undefined && isCheckInDue(metric, now);
+    const isCollapsed = collapsed.has(metric.id);
     return (
       <li key={metric.id} className="gn-branch gn-metric">
-        <div className={`gn-metric-row${metricShown ? "" : " is-off"}${children.length > 0 ? " has-branches" : ""}`}>
+        <div className={`gn-metric-row${metricShown ? "" : " is-off"}${children.length > 0 && !isCollapsed ? " has-branches" : ""}`}>
           <span className="gn-metric-label">
             {/* The tree doubles as the panels' legend: the metric's line color. */}
             <span
@@ -218,6 +250,9 @@ function GoalFilterList({
             >
               <span className="gn-metric-name">{metric.name}</span>
             </NameCell>
+            {children.length > 0 && (
+              <CollapseToggle collapsed={isCollapsed} name={metric.name} onToggle={() => toggleCollapsed(metric.id)} />
+            )}
             {due && (
               <button
                 type="button"
@@ -267,7 +302,7 @@ function GoalFilterList({
           )}
           <VisibilityToggle shown={metricShown} name={metric.name} onToggle={() => onToggleMetric(metric.id)} />
         </div>
-        {children.length > 0 && <ul className="gn-branches">{children.map(renderMetric)}</ul>}
+        {children.length > 0 && !isCollapsed && <ul className="gn-branches">{children.map(renderMetric)}</ul>}
       </li>
     );
   }
@@ -279,9 +314,10 @@ function GoalFilterList({
     const metricTree = shown ? buildTree(metricsByGoal.get(goal.id) ?? []) : [];
     const noMetrics = shown && !loading && metricTree.length === 0;
     const hasBranches = metricTree.length > 0 || noMetrics || subGoals.length > 0;
+    const isCollapsed = collapsed.has(goal.id);
     return (
       <li key={goal.id} className={`gn-goal-group${nested ? " gn-branch" : ""}${shown ? " is-shown" : ""}`}>
-        <div className={`gn-goal-head${hasBranches ? " has-branches" : ""}`}>
+        <div className={`gn-goal-head${hasBranches && !isCollapsed ? " has-branches" : ""}`}>
           <span
             className={`gn-key gn-goal-key${shown ? "" : " is-empty"}`}
             style={shown ? { background: seriesColor(slot) } : undefined}
@@ -289,6 +325,11 @@ function GoalFilterList({
           <NameCell title={withDescription(goal.title, goal.description)} onOpen={actions && (() => actions.onOpenGoal(goal.id))}>
             <span className="gn-goal-title">{goal.title}</span>
           </NameCell>
+          {hasBranches ? (
+            <CollapseToggle collapsed={isCollapsed} name={goal.title} onToggle={() => toggleCollapsed(goal.id)} />
+          ) : (
+            <span />
+          )}
           {shown && !loading ? <span className="gn-goal-pct">{current === null ? "—" : formatPct(current)}</span> : <span />}
           {actions ? (
             <RowMenu
@@ -316,7 +357,7 @@ function GoalFilterList({
           )}
         </div>
 
-        {hasBranches && (
+        {hasBranches && !isCollapsed && (
           <ul className="gn-branches">
             {noMetrics && <li className="gn-branch gn-metric-empty">No metrics yet</li>}
             {metricTree.map(renderMetric)}

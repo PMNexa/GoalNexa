@@ -16,13 +16,13 @@ export interface RowMenuProps {
  * A tree row's "+" button as a small dropdown (Tabler's `dropdown-menu`
  * markup, opened by React state - Bootstrap's JS isn't loaded). The menu
  * is `position: fixed` at the toggle's corner (inline, since Bootstrap's
- * `.dropdown-menu` sets `absolute`), not absolute: the goal
+ * `.dropdown-menu` sets `absolute`; flips above the toggle near the viewport's bottom), not absolute: the goal
  * tree is a scroll box, which would clip a menu opened near its bottom.
  * A disclosure like platform-core's `UserMenu`; closes on an outside
  * click, Escape, a scroll or resize (the fixed menu would drift), or a pick.
  */
 function RowMenu({ label, icon, items }: RowMenuProps) {
-  const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
+  const [position, setPosition] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
@@ -53,7 +53,15 @@ function RowMenu({ label, icon, items }: RowMenuProps) {
 
   function toggle() {
     const rect = toggleRef.current?.getBoundingClientRect();
-    setPosition(open || !rect ? null : { top: rect.bottom + 2, right: window.innerWidth - rect.right });
+    if (open || !rect) return setPosition(null);
+    const right = window.innerWidth - rect.right;
+    // Not enough room below for the menu (~36px per item): open upward.
+    const needed = items.length * 36 + 16;
+    setPosition(
+      window.innerHeight - rect.bottom < needed && rect.top > needed
+        ? { bottom: window.innerHeight - rect.top + 2, right }
+        : { top: rect.bottom + 2, right },
+    );
   }
 
   return (
@@ -71,7 +79,7 @@ function RowMenu({ label, icon, items }: RowMenuProps) {
         {icon}
       </button>
       {position && (
-        <div id={menuId} className="dropdown-menu show gn-row-menu-list" style={{ position: "fixed", top: position.top, right: position.right, left: "auto" }}>
+        <div id={menuId} className="dropdown-menu show gn-row-menu-list" style={{ position: "fixed", top: position.top, bottom: position.bottom, right: position.right, left: "auto" }}>
           {items.map((item) => (
             <button
               key={item.label}
