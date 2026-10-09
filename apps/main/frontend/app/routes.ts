@@ -1,6 +1,7 @@
 import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
 import {
   createCyclesRoutes,
+  createCheckInTableRoutes,
   createDashboardRoutes,
   createSharedDashboardRoutes,
   createGoalsRoutes,
@@ -61,6 +62,7 @@ export default [
   // constant would be, for a link that doesn't change.
   layout("routes/app-shell.tsx", [
     ...createDashboardRoutes("dashboard"),
+    ...createCheckInTableRoutes("table"),
     ...createOrgsRoutes("platform-org"),
     // Goals: the generic pages too, but a goal's page adds who it's
     // shared with - goalnexa-frontend's builder swaps in that one file.

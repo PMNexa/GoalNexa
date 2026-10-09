@@ -18,4 +18,11 @@ class CheckInSerializer(BaseSerializer):
         model = CheckIn
         auto_exclude = ["created_at", "updated_at", "comments"]
         # Who logged it and from where - the server's to set (CheckInViewSet).
-        extra_kwargs = {"author_id": {"read_only": True}, "source": {"read_only": True}}
+        # `help_text` is the plain-language hint forms and table headers show.
+        extra_kwargs = {
+            "value": {"help_text": "The new reading, or for a sum metric the amount to add (ran 5 km: enter 5)."},
+            "note": {"help_text": "Optional. Anything worth remembering about this check-in."},
+            "checked_in_at": {"help_text": "When the reading was taken. Leave blank for now."},
+            "author_id": {"read_only": True, "help_text": "Who logged it."},
+            "source": {"read_only": True, "help_text": "Where it came from: the website, an AI assistant, or an automatic script."},
+        }

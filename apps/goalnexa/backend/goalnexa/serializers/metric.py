@@ -19,8 +19,18 @@ class MetricSerializer(BaseSerializer):
     class Meta:
         model = Metric
         auto_exclude = ["created_at", "updated_at", "reminded_at", "ingest_token_hash"]
+        # `help_text` is the plain-language hint forms and table headers show.
         extra_kwargs = {
-            "last_checked_in_at": {"read_only": True},
-            "check_in_due_at": {"read_only": True},
-            "ingest_token_hint": {"read_only": True},
+            "name": {"help_text": "The one number you track. For example: Distance run, or Users signed up."},
+            "description": {"help_text": "Optional. How it is measured, or where the number comes from."},
+            "unit": {"help_text": "What the number counts, such as km, users or $. Optional."},
+            "base_value": {"help_text": "Where you start. Progress is measured from this value."},
+            "target_value": {"help_text": "The number you want to reach. It can be lower than the start for something that should go down. Equal to the start = tracked only, with no % progress."},
+            "current_value": {"help_text": "The latest reading. It updates by itself with each check-in; you rarely need to set it."},
+            "aggregation": {"help_text": "Latest: each check-in is the new reading (a weight, a user count). Sum: each check-in is an amount added to the total (km run today)."},
+            "check_in_every": {"help_text": "How often you plan to check in. You get a reminder when one is due. Empty = no schedule."},
+            "parent": {"help_text": "Makes this a sub-metric that breaks down another metric of the same goal. Sub-metrics don't count toward the goal's progress."},
+            "last_checked_in_at": {"read_only": True, "help_text": "When the latest check-in happened."},
+            "check_in_due_at": {"read_only": True, "help_text": "When the next check-in is due, from the schedule."},
+            "ingest_token_hint": {"read_only": True, "help_text": "The end of the metric's automatic check-in token, to tell tokens apart."},
         }

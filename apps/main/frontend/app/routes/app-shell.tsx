@@ -30,6 +30,7 @@ import { useUserMenu } from "../lib/useUserMenu";
 // linked from the user menu. See root AGENTS.md.
 const NAV_ITEMS: NavEntry[] = [
   { label: "Dashboard", to: "/dashboard", icon: DashboardIcon },
+  { label: "Check-in table", to: "/table", icon: GoalsIcon },
   {
     label: "Goal tracking",
     icon: GoalsIcon,

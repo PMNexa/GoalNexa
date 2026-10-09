@@ -11,7 +11,17 @@ class CycleSerializer(BaseSerializer):
     class Meta:
         model = Cycle
         auto_exclude = ["created_at", "updated_at", "scores"]
-        extra_kwargs = {"owner_id": {"read_only": True}, "closed_at": {"read_only": True}}
+        # `help_text` is the plain-language hint forms and table headers show.
+        extra_kwargs = {
+            "name": {"help_text": "A name for the period. For example: Q4 2026."},
+            "owner_id": {"read_only": True},
+            "org_id": {"help_text": "The organization this period is for. Empty = just yours."},
+            "starts_on": {"help_text": "The first day of the period."},
+            "ends_on": {"help_text": "The last day of the period."},
+            "status": {"help_text": "Planning (not started), active (running), or closed (scored and read-only)."},
+            "closed_at": {"read_only": True, "help_text": "When the period was closed and scored."},
+            "retro": {"help_text": "Optional. What went well, what didn't, and what to change next time."},
+        }
         related_endpoints = {"org_id": "/api/v1/orgs"}
 
 

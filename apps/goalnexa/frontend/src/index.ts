@@ -60,6 +60,8 @@ export { createRemindersRoutes } from "./remindersRoutes";
 export { default as DashboardScreen } from "./screens/DashboardScreen";
 export type { DashboardScreenProps } from "./screens/DashboardScreen";
 export { createDashboardRoutes, createSharedDashboardRoutes } from "./dashboardRoutes";
+export { createCheckInTableRoutes } from "./checkInTableRoutes";
+export { default as CheckInTableScreen } from "./screens/CheckInTableScreen";
 // What a public dashboard link shows - mounted outside the app shell.
 export { default as SharedDashboardScreen } from "./screens/SharedDashboardScreen";
 export type { SharedDashboardScreenProps } from "./screens/SharedDashboardScreen";

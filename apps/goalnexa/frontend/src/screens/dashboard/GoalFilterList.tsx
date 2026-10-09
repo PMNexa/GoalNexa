@@ -154,7 +154,7 @@ function VisibilityToggle({
   );
 }
 
-interface TreeNode<T> {
+export interface TreeNode<T> {
   item: T;
   children: TreeNode<T>[];
 }
@@ -165,7 +165,7 @@ interface TreeNode<T> {
  * goal in another org) is a root; so is anything caught in a parent cycle
  * (A -> B -> A isn't prevented server-side yet), rather than vanishing.
  */
-function buildTree<T extends { id: string; parent: string | null }>(items: T[]): TreeNode<T>[] {
+export function buildTree<T extends { id: string; parent: string | null }>(items: T[]): TreeNode<T>[] {
   const ids = new Set(items.map((item) => item.id));
   const byParent = new Map<string | null, T[]>();
   for (const item of items) {

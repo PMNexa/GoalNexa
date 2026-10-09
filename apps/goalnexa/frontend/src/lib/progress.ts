@@ -50,7 +50,7 @@ export function isTracked(metric: Metric): boolean {
   return !isUsable(metric);
 }
 
-function metricPct(value: string | number, metric: Metric): number {
+export function metricPct(value: string | number, metric: Metric): number {
   const base = Number(metric.base_value);
   return Math.max(0, ((Number(value) - base) / (Number(metric.target_value) - base)) * 100);
 }
