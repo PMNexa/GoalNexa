@@ -396,6 +396,28 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   const slotOf = (goalId: string) => selected.get(goalId) ?? 1;
   const atLimit = selected.size >= MAX_GOALS;
 
+  const orgSelect = (id: string, className = "form-select form-select-sm", ariaLabel?: string) => (
+    <select
+      id={id}
+      aria-label={ariaLabel}
+      className={className}
+      value={orgKey ?? ""}
+      disabled={orgs === null}
+      onChange={(event) => {
+        setOrgKey(event.target.value);
+        setCurrentOrg(event.target.value);
+      }}
+    >
+      {orgs === null && <option value="">Loading…</option>}
+      {orgs?.map((org) => (
+        <option key={org.id} value={org.id}>
+          {org.name}
+        </option>
+      ))}
+      <option value={PERSONAL_ORG}>Personal (no organization)</option>
+    </select>
+  );
+
   // A chosen organization with no goals (archived ones don't count) gets the setup wizard, not an empty dashboard.
   const hasActiveGoals = (goals ?? []).some((goal) => goal.status !== "archived");
   const emptyOrg =
@@ -408,6 +430,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         key={emptyOrg.id}
         accessToken={accessToken}
         existingOrg={{ id: emptyOrg.id, name: emptyOrg.name }}
+        orgPicker={orgSelect("setup-org", "form-select w-auto fw-semibold", "Organization")}
         onComplete={() => setGoalsVersion((v) => v + 1)}
         onSkip={() => setSetupSkipped((prev) => new Set(prev).add(emptyOrg.id))}
       />
@@ -531,24 +554,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
           <CardBody>
             <div className="mb-3">
               <FormLabel htmlFor="dashboard-org">Organization</FormLabel>
-              <select
-                id="dashboard-org"
-                className="form-select form-select-sm"
-                value={orgKey ?? ""}
-                disabled={orgs === null}
-                onChange={(event) => {
-                  setOrgKey(event.target.value);
-                  setCurrentOrg(event.target.value);
-                }}
-              >
-                {orgs === null && <option value="">Loading…</option>}
-                {orgs?.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name}
-                  </option>
-                ))}
-                <option value={PERSONAL_ORG}>Personal (no organization)</option>
-              </select>
+              {orgSelect("dashboard-org")}
             </div>
 
             {cycles.length > 0 && (

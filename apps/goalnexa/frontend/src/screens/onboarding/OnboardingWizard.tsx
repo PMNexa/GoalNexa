@@ -1,4 +1,4 @@
-import { useRef, useState, useSyncExternalStore, type SubmitEvent } from "react";
+import { useRef, useState, useSyncExternalStore, type ReactNode, type SubmitEvent } from "react";
 import { Button, Card, CardBody, CopyButton, FormControl, FormLabel, Icon } from "platform-core";
 import { McpConnectGuide } from "platform-mcp-frontend";
 import { createGoal, createMetric, createOrg } from "../../lib/api/onboarding";
@@ -89,6 +89,8 @@ export interface OnboardingWizardProps {
    * `id: null` = personal goals.
    */
   existingOrg?: { id: string | null; name: string };
+  /** Replaces the org's name in the heading ("Set up <picker>"), e.g. a select to switch to another org. */
+  orgPicker?: ReactNode;
   /** "Skip for now" - the host decides whether to ask again. */
   onSkip: () => void;
 }
@@ -108,7 +110,7 @@ export interface OnboardingWizardProps {
  * Self-contained like every screen in this package - `accessToken` in,
  * no router dependency.
  */
-function OnboardingWizard({ accessToken, onComplete, onSkip, existingOrg }: OnboardingWizardProps) {
+function OnboardingWizard({ accessToken, onComplete, onSkip, existingOrg, orgPicker }: OnboardingWizardProps) {
   const [mode, setMode] = useState<Mode | null>(null);
   // With an existing org, the first step (naming one) is skipped.
   const firstStep = existingOrg ? 1 : 0;
@@ -193,7 +195,13 @@ function OnboardingWizard({ accessToken, onComplete, onSkip, existingOrg }: Onbo
     <div className="row justify-content-center">
       <div className="col-12 col-lg-9 col-xl-8">
         <div className="text-center mb-4">
-          <h2 className="mb-1">{existingOrg ? `Set up ${existingOrg.name}` : "Welcome to GoalNexa"}</h2>
+          {existingOrg && orgPicker ? (
+            <h2 className="mb-1 d-flex justify-content-center align-items-center gap-2 flex-wrap">
+              Set up {orgPicker}
+            </h2>
+          ) : (
+            <h2 className="mb-1">{existingOrg ? `Set up ${existingOrg.name}` : "Welcome to GoalNexa"}</h2>
+          )}
           <p className="text-secondary mb-0">
             {mode === "web"
               ? existingOrg
