@@ -15,6 +15,7 @@ from goalnexa.views import (
     GoalViewSet,
     MetricIngestView,
     MetricViewSet,
+    OnboardingChoiceView,
     ReminderSettingsView,
     ReminderTestView,
     SharedDashboardView,
@@ -49,6 +50,7 @@ urlpatterns = [
     path("metrics/<str:pk>/ingest", MetricIngestView.as_view(), name="metric-ingest"),
     # The caller's own reminder settings - not a resource (views/reminders.py).
     path("reminder-settings", ReminderSettingsView.as_view(), name="reminder-settings"),
+    path("onboarding-choice", OnboardingChoiceView.as_view(), name="onboarding-choice"),
     path("reminder-settings/test", ReminderTestView.as_view(), name="reminder-settings-test"),
     # Public dashboard links: the owner's list, and what a link shows (views/shares.py).
     path("dashboard-shares", DashboardShareListView.as_view(), name="dashboard-shares"),

@@ -23,7 +23,7 @@ from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 from django.utils import timezone
 
-from core_api.system import heartbeat, run_system_jobs
+from core_api.system import count, heartbeat, run_system_jobs
 from goalnexa.digest import send_due_digests, snapshot_goals
 from goalnexa.models import Goal, GoalHealth
 from goalnexa.progress import refresh_goal
@@ -57,13 +57,16 @@ class Command(BaseCommand):
 
     def handle(self, *args, loop, **options):
         while True:
+            started = time.perf_counter()
             try:
                 result = run_once()
                 heartbeat("goalnexa_jobs", result=result)
+                count("job", "goalnexa_jobs", ms=(time.perf_counter() - started) * 1000)
                 if any(result.values()) or not loop:
                     self.stdout.write(f"{timezone.now().isoformat()} {result}")
             except Exception as exc:
                 heartbeat("goalnexa_jobs", ok=False, error=f"{type(exc).__name__}: {exc}")
+                count("job", "goalnexa_jobs", ok=False, ms=(time.perf_counter() - started) * 1000)
                 if not loop:
                     raise
                 logger.exception("goalnexa_jobs run failed")

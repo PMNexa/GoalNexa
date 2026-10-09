@@ -9,6 +9,22 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **System > Insights.** A new console page shows how the instance is
+  used and how well it runs, for the last 7, 30 or 90 days against the
+  period before: daily numbers with sparklines (active users, sign-ups,
+  goals, check-ins, AI assistant use, API traffic, emails; CSV export),
+  active users by channel (website, AI assistant, both), the activation
+  funnel by signup source and onboarding choice, weekly retention
+  cohorts and people/organizations gone quiet, feature adoption, goal
+  outcomes, reminder follow-through, most active organizations, and
+  quality (requests, latency and errors per endpoint, MCP tools,
+  deliveries, jobs, failed logins, rate limits, database size).
+  Aggregates only - nothing leaves the instance. "Active" now counts
+  anyone who signed in, kept a page open, used an assistant or checked
+  in; Status's "Signed in" rows became "Active".
+- **Data retention.** System > Settings > Data retention sets how long
+  to keep the audit log, email and notification logs, goal activity
+  feeds, daily goal snapshots and Insights history. Default: forever.
 - **Order goals and metrics by dragging.** In the dashboard's goal tree
   and the check-in table, drag a goal, sub-goal, metric or sub-metric
   to move it among the others under the same parent; the order is saved

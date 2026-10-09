@@ -72,14 +72,14 @@ built yet - they are roadmap items below.
 
 |                   | GoalNexa (public)                                  | GoalNexa Cloud                                                |
 | ----------------- | -------------------------------------------------- | ------------------------------------------------------------- |
-| Price             | Free                                               | Flat monthly plans *(planned, C-02)*                          |
+| Price             | Free                                               | Free, Pro, Team, Business plans, monthly or yearly (C-02)      |
 | License           | PolyForm Shield (source-available)                 | Hosted service                                                |
 | Who runs it       | You: Docker Compose, your server, NAS or VPS       | Us: DigitalOcean, Docker Swarm, managed Postgres              |
 | First account     | Becomes the admin (first-run setup)                | Regular signup; operator admins only                          |
 | Sign-up           | Open by default; invite-only or closed in Settings; optional single sign-on | Open with email verification                                  |
 | Email             | Bring your own SMTP (`EMAIL_URL`)                  | Included *(provider not configured yet, C-01)*                |
 | Reminder services | Any Apprise service, webhooks, email               | Fixed-host services (Telegram, Slack, Discord, ...) and email |
-| Limits            | None by default                                    | Members and goals per plan *(planned, C-03)*                  |
+| Limits            | None by default                                    | Goals, owned orgs and members per plan (C-03)                 |
 | Updates           | Pull, rebuild, migrate                             | Continuous, rolling, zero-downtime                            |
 | Backups           | Yours                                              | Managed database backups                                      |
 | Support           | GitHub issues                                      | Email support, by plan *(planned)*                            |
@@ -94,13 +94,13 @@ then plugged into the tools teams already run. Built in this repo
 ### Now - Q4 2026 - Run it safely
 
 
-| ID   | Item                     | Requirement                                                                                                                                                                                       | Status   | Notes                                           |
-| ---- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------- |
-| P-01 | Two-factor login         | TOTP (authenticator app) per account, with recovery codes; enrol/disable on "My account"; an admin setting can require it for everyone; an admin can reset a user's 2FA                           | Proposed |                                                 |
-| P-02 | Lockout + password rules | Lock an account after N failed logins for M minutes (both System settings), audited; password minimum length and common-password check on signup, reset and change | Done | 2026-10-02. Defaults: 10 attempts, 15 minutes |
+| ID   | Item                     | Requirement                                                                                                                                                                                       | Status      | Notes                                                                                                                                                  |
+| ---- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| P-01 | Two-factor login         | TOTP (authenticator app) per account, with recovery codes; enrol/disable on "My account"; an admin setting can require it for everyone; an admin can reset a user's 2FA                           | Proposed    |                                                                                                                                                        |
+| P-02 | Lockout + password rules | Lock an account after N failed logins for M minutes (both System settings), audited; password minimum length and common-password check on signup, reset and change                                | Done        | 2026-10-02. Defaults: 10 attempts, 15 minutes                                                                                                          |
 | P-03 | Health checks + alerts   | Unauthenticated `/api/v1/health` (database, scheduler heartbeat, email outbox) for uptime monitors; the scheduler alerts admins (email/Apprise) when a job goes silent or deliveries keep failing | In progress | 2026-10-05: `/api/v1/health` (database only) is live and every healthcheck probes it. Left: scheduler heartbeat and email outbox in it, and the alerts |
-| P-04 | Data retention cleanup   | System settings for how long to keep audit events, sent emails, delivery attempts, activity and goal snapshots; a scheduler job deletes older rows; default = keep forever                        | Proposed |                                                 |
-| P-05 | SSO (OpenID Connect) | "Sign in with <provider>" from one OIDC issuer configured by env/settings (Google, Authentik, Keycloak, ...); links to an existing account by verified email; can disable password login | Done | 2026-10-02. Q-2: public. Setup: docs/sso.md |
+| P-04 | Data retention cleanup   | System settings for how long to keep audit events, sent emails, delivery attempts, activity and goal snapshots; a scheduler job deletes older rows; default = keep forever                        | Done | 2026-10-09. System > Settings > Data retention: audit log, email log, notification log, goal activity feeds, daily goal snapshots, Insights history; daily job (`data_retention` on Status) |
+| P-05 | SSO (OpenID Connect)     | "Sign in with <provider>" from one OIDC issuer configured by env/settings (Google, Authentik, Keycloak, ...); links to an existing account by verified email; can disable password login          | Done        | 2026-10-02. Q-2: public. Setup: docs/sso.md                                                                                                            |
 
 
 **Gate: v1.0 release** - an upgrade from an older install and a backup
@@ -145,14 +145,14 @@ whether it runs. Today Status shows snapshots only, and "active" means
 each module through a time-series provider like `register_usage_provider`.
 Aggregates only, nothing sent to third parties. Listed in build order.
 
-| ID   | Item                       | Requirement                                                                                                                                                                                       | Status   | Notes                                                             |
-| ---- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------- |
-| P-28 | Real active users          | `last_seen_at` per user, updated (at most hourly) on token refresh, MCP calls and check-ins; DAU / WAU / MAU, stickiness (DAU/MAU) and active by channel (web only, agent only, both); "engaged" = a check-in in 7 days | Proposed | Fixes Status's "Signed in" counts, which miss chat-only users     |
-| P-29 | Daily snapshots + trends   | `goalnexa_jobs` writes one row of system counts per day (users, active, orgs, goals, check-ins, ...); Insights overview: tiles with change vs the previous period and sparklines; 7/30/90-day range; CSV export | Proposed | Every chart below reads these; covered by P-04's retention        |
-| P-31 | Activation funnel + source | Signup -> email confirmed -> first goal -> first metric -> first check-in -> check-in in week 2: conversion and median time per step, split by signup source and onboarding choice (website / AI agent) | Proposed | Uses C-17's recorded source; needs the onboarding choice stored on the server. C-05 could build on it |
-| P-32 | Retention cohorts          | Weekly signup cohorts x weeks since signup, % still active; lists of users and orgs gone quiet (active before, nothing in 14 / 30 days)                                                           | Proposed | Depends on P-28, P-29                                             |
-| P-33 | Feature adoption + top orgs | % of active users using cycles, comments, share links, ingest, digest, reminders, MCP, SSO; goal outcomes (achieved vs abandoned, cycle scores); reminder -> check-in lag; top orgs and users by activity, orgs near their limits | Proposed |                                                                   |
-| P-34 | Quality metrics            | API requests, p50/p95 latency and error rate per endpoint; MCP calls, errors and top tools; email/Apprise success rate per day; scheduler run time; failed logins, lockouts and rate-limit hits; database size | Proposed | Biggest item (request middleware); overlaps P-03 and C-09         |
+| ID   | Item                        | Requirement                                                                                                                                                                                                                          | Status   | Notes                                                                                                 |
+| ---- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------- |
+| P-28 | Real active users           | `last_seen_at` per user, updated (at most hourly) on token refresh, MCP calls and check-ins; DAU / WAU / MAU, stickiness (DAU/MAU) and active by channel (web only, agent only, both); "engaged" = a check-in in 7 days              | Done | 2026-10-09. `UserPresence.last_seen_at` + one `UserDay` per active day (sign-in/refresh, MCP tool calls, check-ins), hourly-gated; Status's "Signed in" rows are now "Active" |
+| P-29 | Daily snapshots + trends    | `goalnexa_jobs` writes one row of system counts per day (users, active, orgs, goals, check-ins, ...); Insights overview: tiles with change vs the previous period and sparklines; 7/30/90-day range; CSV export                      | Done | 2026-10-09. `/system/insights`; modules register `InsightSeries`; backfilled 90 days on first run |
+| P-31 | Activation funnel + source  | Signup -&gt; email confirmed -&gt; first goal -&gt; first metric -&gt; first check-in -&gt; check-in in week 2: conversion and median time per step, split by signup source and onboarding choice (website / AI agent)               | Done | 2026-10-09. Source from the `auth.signup` audit event (assistant, `?ref=`, SSO, website); onboarding choice stored (`/api/v1/onboarding-choice`). Week 2 counts accounts 14+ days old |
+| P-32 | Retention cohorts           | Weekly signup cohorts x weeks since signup, % still active; lists of users and orgs gone quiet (active before, nothing in 14 / 30 days)                                                                                              | Done | 2026-10-09. Activity = `UserDay` plus check-ins written (so cohorts have history before P-28) |
+| P-33 | Feature adoption + top orgs | % of active users using cycles, comments, share links, ingest, digest, reminders, MCP, SSO; goal outcomes (achieved vs abandoned, cycle scores); reminder -&gt; check-in lag; top orgs and users by activity, orgs near their limits | Done | 2026-10-09. Reminder lag = first check-in within 7 days of a reminder |
+| P-34 | Quality metrics             | API requests, p50/p95 latency and error rate per endpoint; MCP calls, errors and top tools; email/Apprise success rate per day; scheduler run time; failed logins, lockouts and rate-limit hits; database size                       | Done | 2026-10-09. `RequestMetricsMiddleware` (method + URL pattern, never ids), latency histograms, MCP tool counts, 429s, job run time; database size live |
 
 
 ### Next - Q1 2027 - Own and share your data
@@ -195,10 +195,11 @@ through the sync, so P-01..P-03 land there before paid launch.
 | ID   | Item                   | Requirement                                                                                                                                                     | Status   | Notes                                   |
 | ---- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------- |
 | C-01 | Email provider live    | Transactional email from our domain (SPF/DKIM/DMARC), `EMAIL_URL` set in the stack, verification/invite/reset/digest mails delivered; bounces visible on Status | Proposed | Q-1 decided: SES. Left: domain setup and `EMAIL_URL` in the stack |
-| C-02 | Plans + Stripe billing | Free/Team/Business plans per org; Stripe Checkout + customer portal; webhooks keep the org's plan in sync; billing page for org owners                          | Done | 2026-10-06. Paddle Billing instead of Stripe (checkout overlay, signed webhooks, customer portal link, Billing page); plans edited in the System console. See goalnexa-cloud `docs/billing.md` |
-| C-03 | Plan limits per org    | The org's plan sets `limits.max_members` / `limits.max_goals`; upgrade prompt on `limit_reached`; downgrade never deletes data                                  | Done | 2026-10-06. Limits live on the plan (personal goals, owned orgs, members and goals per owned org); a subscription is per user and an org gets its owners' best plan; refusal is `402 plan_limit`; a downgrade deletes nothing |
+| C-02 | Plans + billing        | Free/Pro/Team/Business plans; Paddle checkout and customer portal; signed webhooks keep subscriptions in sync; Billing page; plans edited in the System console | Done | 2026-10-06. Paddle instead of Stripe (Gumroad first, replaced 2026-10-05); prorated amount shown before a switch; `/pay` for Paddle's payment link. Live payments wait for Paddle's approval and setup |
+| C-03 | Plan limits per org    | Each plan limits personal goals, owned orgs, and members and goals per owned org; refusal `402 plan_limit` with the pricing link; a downgrade never deletes data | Done | 2026-10-06. A subscription is per user; an org gets its owners' best plan; `BILLING_ENFORCE_LIMITS` turns limits off. See goalnexa-cloud `docs/billing.md` |
 | C-04 | Public status page     | Public uptime/incident page on its own host, fed by the health endpoint (P-03)                                                                                  | Proposed | Depends on P-03 (endpoint live, alerts not) |
 | C-05 | Signup funnel tracking | Privacy-friendly, cookieless counts: visit -&gt; signup -&gt; verified -&gt; first goal -&gt; first check-in -&gt; paid; shown to operators                     | Proposed |                                         |
+| C-21 | Public website | Landing page, pricing, terms, privacy, refund policy and contact pages on the hosted site; a "Use GoalNexa with Claude" guide | Done | 2026-10-05. In `goalnexa-cloud` (`app/extensions/`), mounted through the public-route seam. Legal texts await review before paid launch |
 
 
 **Gate: paid launch** - billing, email and backups verified (a tested
@@ -215,8 +216,8 @@ Cloud's share of the assistant path (the rest is P-17..P-25):
 | ID   | Item                         | Requirement                                                                                                                              | Status   | Notes                                  |
 | ---- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------- |
 | C-17 | Signup source                | Each signup records where it came from (website, which assistant's connector, `?ref=`), shown in the funnel counts                         | In progress | 2026-10-02 - recorded: the `auth.signup` audit event holds `next` path, OAuth `client_id`, `ref` (public, platform-auth). Showing it waits for C-05, which isn't approved |
-| C-18 | Upgrade by chat              | A plan-limit refusal reaching an MCP client carries a message and the billing link the assistant can relay                                 | Done | 2026-10-02. In `goalnexa-cloud`: the refusal ends with the Billing URL (needs `GOALNEXA_PUBLIC_URL` set), and the server instructions say to relay it |
-| C-19 | Assistant directory listings | Listed in the Claude Connectors Directory, then ChatGPT's; whatever each review asks for (test account, policies, support contact)        | In progress | 2026-10-04: Claude submitted (in review); ChatGPT plugin submitted (in review; `docs/directory/chatgpt-plugin/`) |
+| C-18 | Upgrade by chat              | A plan-limit refusal reaching an MCP client carries a message and the billing link the assistant can relay | Done | 2026-10-04. In `goalnexa-cloud`: the refusal states the limit and links `/pricing` (needs `GOALNEXA_PUBLIC_URL`), neutral wording because ChatGPT's app rules forbid upgrade prompts; the server instructions say to relay it |
+| C-19 | Assistant directory listings | Listed in the Claude Connectors Directory, then ChatGPT's; whatever each review asks for (test account, policies, support contact) | In progress | Claude: listed at claude.ai/directory/goalnexa, linked from the landing page since 2026-10-05. ChatGPT: plugin submitted 2026-10-04, in review (`docs/directory/chatgpt-plugin/`) |
 | C-20 | A reason for Pro besides limits | Decide from beta data what a solo chat user with a few goals would pay for                                                              | Approved | Decision, not code - needs beta data |
 
 
@@ -244,25 +245,28 @@ Cloud's share of the assistant path (the rest is P-17..P-25):
 | C-16 | Hosted AI weekly review | Server-run weekly review per org (the `goalnexa-review` skill on our API key), delivered with the digest | Proposed |                             |
 
 
-## Cloud plans (hypothesis)
+## Cloud plans
 
-Price Cloud flat per organization, not per seat: the discovery research
-found per-seat pricing is the pain teams name, and Operately already
-charges flat ($0 /$49 / $149 /$249 a month). Every number below is a
-starting hypothesis to test, not a decision.
-
-
-| Plan       | Price (USD/month) | Members   | Goals     | Adds                                                       |
-| ---------- | ----------------- | --------- | --------- | ---------------------------------------------------------- |
-| Free       | 0                 | 3         | 10        | Everything in the public version, reminders, AI assistants |
-| Team       | 29                | 25        | Unlimited | Cycles and scoring, digests, ingest URLs, email support    |
-| Business   | 99                | 100       | Unlimited | SSO, audit log export and streaming, priority support      |
-| Enterprise | Custom            | Unlimited | Unlimited | Dedicated instance, data residency, contract               |
+Live since 2026-10-06 (C-02, C-03). Plans are rows in the System console
+(Billing > Plans), so these launch values can change without a deploy;
+goalnexa-cloud's `docs/billing.md` is the source of truth. The first
+hypothesis was flat per organization (Free / Team $29 / Business $99 /
+Enterprise); what shipped is a subscription per user, and an
+organization gets the best plan among its owners - a team still pays
+once.
 
 
-Limits map onto what's already built: each plan sets `limits.max_members`
-and `limits.max_goals` on the organization. Feature gating by plan (SSO,
-audit streaming) is new work in the Cloud fork.
+| Plan     | Price (USD)            | Personal goals | Orgs you own | Members per owned org | Goals per owned org |
+| -------- | ---------------------- | -------------- | ------------ | --------------------- | ------------------- |
+| Free     | 0                      | 5              | 1            | 3                     | 5                   |
+| Pro      | 5 / month, 48 / year   | Unlimited      | 1            | 5                     | Unlimited           |
+| Team     | 29 / month, 290 / year | Unlimited      | 3            | 25                    | Unlimited           |
+| Business | 79 / month, 790 / year | Unlimited      | 10           | 100                   | Unlimited           |
+
+
+Only adding is limited. Feature gating by plan (SSO, audit streaming)
+is still new work in the Cloud fork; Enterprise is a contract, not a
+listed plan.
 
 ## Risks, open questions, measures
 

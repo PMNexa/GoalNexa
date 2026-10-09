@@ -100,11 +100,17 @@ INSTALLED_APPS = [
     # MCP server over every BaseViewSet above + personal access tokens
     # for MCP clients. Mounted at api/v1/mcp (config/urls.py).
     'platform_mcp',
+    # The host's own app: System > Insights sections that join several
+    # modules' data (config/insights.py). Last - it reads every app above.
+    'config.apps.HostConfig',
     *GOALNEXA_EXTENSIONS,
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Counts API requests per endpoint for System > Insights (outermost,
+    # so the time covers everything below).
+    'core_api.middleware.RequestMetricsMiddleware',
     # Serves collected static files (the admin's) from gunicorn - no
     # separate file server in front of the backend.
     'whitenoise.middleware.WhiteNoiseMiddleware',

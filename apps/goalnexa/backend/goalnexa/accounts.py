@@ -10,11 +10,22 @@
   goals stay, unattributed when erasing.
 """
 
-from goalnexa.models import Activity, CheckIn, Cycle, DashboardShare, Goal, GoalComment, GoalMember, ReminderSettings
+from goalnexa.models import (
+    Activity,
+    CheckIn,
+    Cycle,
+    DashboardShare,
+    Goal,
+    GoalComment,
+    GoalMember,
+    OnboardingChoice,
+    ReminderSettings,
+)
 
 
 def on_user_removed(sender, user_id, transfer_to=None, **kwargs):
     ReminderSettings.objects.filter(user_id=user_id).delete()
+    OnboardingChoice.objects.filter(user_id=user_id).delete()
     # A public link speaks for whoever made it - never handed on.
     DashboardShare.objects.filter(owner_id=user_id).delete()
     if transfer_to:
@@ -90,7 +101,9 @@ def export(user_id: str) -> dict:
                             "check_ins": CheckInSerializer(metric.check_ins.all(), many=True).data})
         goals.append({**GoalSerializer(goal).data, "metrics": metrics})
     reminder = ReminderSettings.objects.filter(user_id=user_id).first()
+    onboarding = OnboardingChoice.objects.filter(user_id=user_id).first()
     return {
+        "onboarding_choice": onboarding.choice if onboarding else None,
         "goals": goals,
         "cycles": CycleSerializer(Cycle.objects.filter(owner_id=user_id), many=True).data,
         "goal_memberships": [str(g) for g in GoalMember.objects.filter(user_id=user_id).values_list("goal_id", flat=True)],

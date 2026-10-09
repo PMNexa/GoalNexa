@@ -26,3 +26,8 @@ export function createMetric(
 ): Promise<Metric> {
   return apiRequest<Metric>("/api/v1/metrics", accessToken, { method: "POST", data });
 }
+
+/** How the user said they'll use GoalNexa (the wizard's first step) - for the admin's activation funnel. Only the first answer is kept. */
+export function saveOnboardingChoice(accessToken: string, choice: "web" | "agent"): Promise<{ choice: string }> {
+  return apiRequest("/api/v1/onboarding-choice", accessToken, { method: "POST", data: { choice } });
+}

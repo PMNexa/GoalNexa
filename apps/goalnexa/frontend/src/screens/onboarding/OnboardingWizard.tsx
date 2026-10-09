@@ -1,7 +1,7 @@
 import { useRef, useState, useSyncExternalStore, type ReactNode, type SubmitEvent } from "react";
 import { Button, Card, CardBody, CopyButton, FormControl, FormLabel, Icon } from "platform-core";
 import { McpConnectGuide } from "platform-mcp-frontend";
-import { createGoal, createMetric, createOrg } from "../../lib/api/onboarding";
+import { createGoal, createMetric, createOrg, saveOnboardingChoice } from "../../lib/api/onboarding";
 
 interface MetricDraft {
   key: number;
@@ -220,7 +220,14 @@ function OnboardingWizard({ accessToken, onComplete, onSkip, existingOrg, orgPic
         <Card>
           <CardBody>
             {mode === null ? (
-              <ModeChoice onChoose={setMode} onSkip={onSkip} />
+              <ModeChoice
+                onChoose={(choice) => {
+                  setMode(choice);
+                  // Best effort - only the admin's funnel reads it.
+                  saveOnboardingChoice(accessToken, choice).catch(() => {});
+                }}
+                onSkip={onSkip}
+              />
             ) : mode === "agent" ? (
               <AgentSteps
                 accessToken={accessToken}

@@ -20,10 +20,11 @@ from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
+from core_api.system import AGENT, WEB, seen
 from core_api.viewsets import BaseViewSet
 from goalnexa.access import visible_goals
 from goalnexa.activity import record, request_source
-from goalnexa.models import ActivityVerb, CheckIn, Metric
+from goalnexa.models import ActivityVerb, CheckIn, CheckInSource, Metric
 from goalnexa.progress import refresh_metric_and_goal
 from goalnexa.serializers import CheckInSerializer
 
@@ -71,6 +72,7 @@ class CheckInViewSet(BaseViewSet):
         check_in = serializer.save(metric=self._resolve_metric(), author_id=self.request.user.id, source=source)
         refresh_metric_and_goal(check_in.metric_id)
         record_check_in(check_in, ActivityVerb.CHECKED_IN, self.request.user.id)
+        seen(self.request.user.id, AGENT if source == CheckInSource.AGENT else WEB)
 
     def perform_update(self, serializer):
         # Only `metric` is reassignable (presence-based, same rule as

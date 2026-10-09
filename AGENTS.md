@@ -341,6 +341,28 @@ include `system-settings`, `audit-events`, `outgoing-emails`,
   bare id (goalnexa goals/cycles, platform-org memberships - an ownerless
   org promotes its oldest admin, an empty one is deleted -, platform-mcp
   tokens). Add a receiver for any new user- or org-owned data.
+- **Insights** (`/system/insights`, platform_system's `insights.py`,
+  `system-settings.view`): `core_api.system.seen(user_id, WEB|AGENT)`
+  (session start/refresh, MCP tool calls, check-ins) keeps
+  `UserPresence.last_seen_at` and a `UserDay` per active day, written at
+  most hourly per process; `count(kind, key, ok, ms)` buffers per-day
+  `EventCount`s (`RequestMetricsMiddleware` in main's MIDDLEWARE - method
+  + URL pattern, never ids; `mcp.tool`; `rate_limit` from the exception
+  handler; `job`). A module adds a daily number with
+  `register_insight_series(InsightSeries(key, label, group, compute(day)))`
+  - `compute` must work for any past day (the scheduler backfills 90
+  days, finalizes yesterday, refreshes today hourly into `DailyStat`) - and
+  a live part with `register_insight_section(InsightSection(key, title,
+  build(days) -> blocks))` (blocks: tiles, or tables whose cells may carry
+  a `bar`/`heat`). Sections that join several modules (activation funnel,
+  cohorts, adoption) live in the HOST, `config/insights.py`, registered by
+  `config.apps.HostConfig` - a module never imports another's models. The
+  onboarding wizard's first answer is goalnexa's `OnboardingChoice`.
+- **Data retention**: `register_retention_rule(RetentionRule(name, label,
+  purge(cutoff)))` adds the setting `retention.<name>_days` (group "Data
+  retention", 0 = forever); `run_system_jobs` applies every rule once a
+  day (heartbeat `data_retention`). Add one for any new table that grows
+  without bound.
 - **Status** (`/system/status`): `heartbeat()` from `goalnexa_jobs` (a job
   silent 20 min = "Not running"), deliveries in 24h (email outbox,
   `log_delivery` for Apprise - scheme only, never URLs), and every

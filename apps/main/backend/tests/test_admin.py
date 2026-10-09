@@ -448,3 +448,118 @@ class HealthTests(TestCase):
     def test_django_admin_is_not_served(self):
         self.assertEqual(APIClient().get("/admin/").status_code, 404)
         self.assertEqual(APIClient().get("/admin/login/").status_code, 404)
+
+
+class InsightsTests(AdminTestCase):
+    """System > Insights (P-28..P-34) and data retention (P-04)."""
+
+    def setUp(self):
+        from platform_system.insights import flush_counts, forget_seen
+
+        forget_seen()  # the hourly write gate is per process - start clean
+        flush_counts()
+        super().setUp()
+
+    def insights(self, days=30, client=None):
+        response = (client or self.admin).get(f"{API}/system-settings/insights?days={days}")
+        self.assertEqual(response.status_code, 200, response.content)
+        return response.json()
+
+    def section(self, data, key):
+        return next(s for s in data["sections"] if s["key"] == key)
+
+    def tiles(self, section):
+        return {i["label"]: i["value"] for b in section["blocks"] if b["kind"] == "tiles" for i in b["items"]}
+
+    def test_sign_ins_and_mcp_calls_count_as_active_by_channel(self):
+        from platform_system.models import UserDay, UserPresence
+
+        days = {d.user_id: d for d in UserDay.objects.all()}
+        self.assertTrue(days[self.admin.user_id].web and days[self.bob.user_id].web)
+        self.assertTrue(UserPresence.objects.filter(user_id=self.bob.user_id).exists())
+        _, raw = PersonalAccessToken.issue(user_id=self.bob.user_id, name="Claude")
+        call = APIClient()
+        call.credentials(HTTP_AUTHORIZATION=f"Bearer {raw}")
+        response = call.post(f"{API}/mcp", {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                                            "params": {"name": "goals_list", "arguments": {}}}, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(UserDay.objects.get(user_id=self.bob.user_id).agent)
+        active = self.tiles(self.section(self.insights(), "active_users"))
+        self.assertEqual((active["Active today"], active["Website only"], active["Both"]), (2, 1, 1))
+        quality = self.section(self.insights(), "quality")
+        tools = next(b for b in quality["blocks"] if b.get("title") == "MCP tools")
+        self.assertEqual(tools["rows"][0][0], "goals_list")
+
+    def test_only_admins_see_it(self):
+        self.assertEqual(self.bob.get(f"{API}/system-settings/insights").status_code, 403)
+        self.assertEqual(self.bob.get(f"{API}/system-settings/insights-csv").status_code, 403)
+
+    def test_daily_numbers_are_backfilled_and_exported(self):
+        from core_api.system import run_system_jobs
+        from platform_system.models import DailyStat
+
+        self.bob.post(f"{API}/goals", {"title": "Run"}, format="json")
+        run_system_jobs()
+        self.assertTrue(DailyStat.objects.filter(key="users").count() >= 89)  # filled in back to 90 days
+        series = {s["key"]: s for s in self.insights(7)["series"]}
+        self.assertEqual(series["users"]["points"][-1][1], 2)
+        self.assertEqual(series["goals"]["points"][-1][1], 1)
+        self.assertEqual(len(series["users"]["points"]), 14)  # this range and the one before
+        csv = self.admin.get(f"{API}/system-settings/insights-csv?days=7")
+        self.assertEqual(csv["Content-Type"], "text/csv; charset=utf-8")
+        lines = csv.content.decode().splitlines()
+        self.assertTrue(lines[0].startswith("date,") and "users" in lines[0])
+        self.assertEqual(len(lines), 8)
+
+    def test_requests_are_counted_per_endpoint_without_ids(self):
+        from platform_system.insights import flush_counts
+
+        goal = self.bob.post(f"{API}/goals", {"title": "Run"}, format="json").json()
+        self.bob.get(f"{API}/goals/{goal['id']}")
+        flush_counts()
+        quality = self.section(self.insights(), "quality")
+        endpoints = [r[0] for r in next(b for b in quality["blocks"] if b.get("title", "").startswith("API endpoints"))["rows"]]
+        self.assertIn("GET /api/v1/goals/{pk}", endpoints)
+        self.assertFalse(any(goal["id"] in e for e in endpoints))
+
+    def test_activation_funnel_by_source_and_onboarding_choice(self):
+        self.assertEqual(self.bob.post(f"{API}/onboarding-choice", {"choice": "agent"}, format="json").status_code, 200)
+        self.bob.post(f"{API}/onboarding-choice", {"choice": "web"}, format="json")  # the first answer stays
+        self.assertEqual(self.bob.get(f"{API}/onboarding-choice").json()["choice"], "agent")
+        goal = self.bob.post(f"{API}/goals", {"title": "Run"}, format="json").json()
+        metric = self.bob.post(f"{API}/metrics", {"goal": goal["id"], "name": "km", "target_value": 10}, format="json").json()
+        self.bob.post(f"{API}/check-ins", {"metric": metric["id"], "value": 3}, format="json")
+        blocks = self.section(self.insights(), "activation")["blocks"]
+        steps = {row[0]: row[1] for row in blocks[0]["rows"]}
+        self.assertEqual((steps["Signed up"], steps["First goal"], steps["First check-in"]), (2, 1, 1))
+        sources = {row[0]: row[1] for row in blocks[1]["rows"]}
+        self.assertEqual(sources["Website"], 1)
+        choices = {row[0]: row[1] for row in blocks[2]["rows"]}
+        self.assertEqual(choices["AI assistant"], 1)
+
+    def test_retention_and_adoption_sections_compute(self):
+        data = self.insights(90)
+        retention = self.section(data, "retention")
+        cohort = next(b for b in retention["blocks"] if b.get("title", "").startswith("Weekly"))
+        self.assertEqual(cohort["rows"][-1][1], 2)  # this week's cohort: both accounts
+        adoption = self.section(data, "adoption")
+        self.assertIn("Of the 2 people active", adoption["blocks"][0]["title"])
+        for section in data["sections"]:
+            for block in section["blocks"]:
+                self.assertNotEqual(block.get("items", [{}])[0].get("label"), "Error", section["key"])
+
+    def test_retention_deletes_old_rows_only_when_set(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from platform_system.insights import apply_retention
+
+        old = AuditEvent.objects.create(action="old.thing", created_at=timezone.now() - timedelta(days=40))
+        self.assertEqual(apply_retention(), {})  # default: keep forever
+        self.assertTrue(AuditEvent.objects.filter(id=old.id).exists())
+        self.assertEqual(self.set_setting("retention.audit_days", -1).status_code, 400)
+        self.assertEqual(self.set_setting("retention.audit_days", 30).status_code, 200)
+        self.assertEqual(apply_retention()["audit"], 1)
+        self.assertFalse(AuditEvent.objects.filter(id=old.id).exists())
+        self.assertTrue(AuditEvent.objects.filter(action="settings.updated").exists())

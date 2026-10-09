@@ -31,6 +31,9 @@ class GoalnexaConfig(AppConfig):
         org_removed.connect(on_org_removed, dispatch_uid="goalnexa.org_removed")
         register_usage_provider(UsageProvider("Goals", usage))
         register_export_provider("goals", export)
+        from goalnexa.insights import register_insights
+
+        register_insights()
         register_setting(SettingDef(
             "limits.max_goals", "Goals per organization", INT, default=0, group="Limits", env="LIMIT_MAX_GOALS",
             help="Goals that aren't archived. 0: unlimited. An organization's own limit (All organizations) wins.",

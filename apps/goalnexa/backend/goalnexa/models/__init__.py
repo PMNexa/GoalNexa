@@ -8,6 +8,7 @@ from goalnexa.models.goal_member import GoalMember
 from goalnexa.models.goal_score import GoalOutcome, GoalScore
 from goalnexa.models.goal_snapshot import GoalSnapshot
 from goalnexa.models.metric import CheckInCadence, Metric, MetricAggregation
+from goalnexa.models.onboarding_choice import OnboardingChoice
 from goalnexa.models.reminder_settings import DigestFrequency, ReminderSettings
 
 __all__ = [
@@ -31,5 +32,6 @@ __all__ = [
     "GoalVisibility",
     "Metric",
     "MetricAggregation",
+    "OnboardingChoice",
     "ReminderSettings",
 ]
