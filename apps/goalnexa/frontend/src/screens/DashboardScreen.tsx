@@ -165,6 +165,10 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   const [detailVersion, setDetailVersion] = useState(0);
   const [error, setError] = useState<Error | null>(null);
   const [onboarding, setOnboarding] = useState(false);
+  // Organizations whose empty-state setup wizard was skipped (until reload).
+  const [setupSkipped, setSetupSkipped] = useState<Set<string>>(() => new Set());
+  // Bumped after the wizard adds goals to an org that already exists - reloads its goals.
+  const [goalsVersion, setGoalsVersion] = useState(0);
   // Bumped after onboarding creates an org - reloads the org list.
   const [orgsVersion, setOrgsVersion] = useState(0);
   // The goal a `?goal=` link asked for, until it has been shown (or isn't found).
@@ -232,7 +236,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
     return () => {
       cancelled = true;
     };
-  }, [accessToken, orgKey]);
+  }, [accessToken, orgKey, goalsVersion]);
 
   // The goals the cycle filter lets through, minus archived ones - what the tree lists.
   const shownGoals = useMemo(
@@ -392,13 +396,30 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   const slotOf = (goalId: string) => selected.get(goalId) ?? 1;
   const atLimit = selected.size >= MAX_GOALS;
 
+  // A chosen organization with no goals at all gets the setup wizard, not an empty dashboard.
+  const emptyOrg =
+    orgKey !== null && orgKey !== PERSONAL_ORG && goals !== null && goals.length === 0 && !setupSkipped.has(orgKey)
+      ? orgs?.find((org) => org.id === orgKey)
+      : undefined;
+  if (emptyOrg) {
+    return (
+      <OnboardingWizard
+        key={emptyOrg.id}
+        accessToken={accessToken}
+        existingOrg={{ id: emptyOrg.id, name: emptyOrg.name }}
+        onComplete={() => setGoalsVersion((v) => v + 1)}
+        onSkip={() => setSetupSkipped((prev) => new Set(prev).add(emptyOrg.id))}
+      />
+    );
+  }
+
   if (onboarding) {
     return (
       <OnboardingWizard
         accessToken={accessToken}
         onComplete={(orgId) => {
           // The org list reload picks the stored org, so the new one opens.
-          setCurrentOrg(orgId);
+          if (orgId) setCurrentOrg(orgId);
           setOnboarding(false);
           setOrgsVersion((v) => v + 1);
         }}

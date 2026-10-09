@@ -15,7 +15,7 @@ export function createOrg(accessToken: string, name: string): Promise<{ id: stri
 
 export function createGoal(
   accessToken: string,
-  data: { title: string; description: string; org_id: string; target_date: string | null },
+  data: { title: string; description: string; org_id: string | null; target_date: string | null },
 ): Promise<Goal> {
   return apiRequest<Goal>("/api/v1/goals", accessToken, { method: "POST", data });
 }
