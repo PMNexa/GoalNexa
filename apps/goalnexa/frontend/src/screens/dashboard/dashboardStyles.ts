@@ -429,6 +429,24 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   border-left-width: 1px;
 }
 
+/* Drag to reorder (lib/ordering.ts): a line where the row will land. */
+.gn-goal-head[draggable="true"],
+.gn-metric-row[draggable="true"] {
+  cursor: grab;
+}
+.gn-goal-head[data-dragging],
+.gn-metric-row[data-dragging] {
+  opacity: 0.5;
+}
+.gn-goal-head[data-drop="before"],
+.gn-metric-row[data-drop="before"] {
+  box-shadow: inset 0 2px 0 var(--tblr-primary, #066fd1);
+}
+.gn-goal-head[data-drop="after"],
+.gn-metric-row[data-drop="after"] {
+  box-shadow: inset 0 -2px 0 var(--tblr-primary, #066fd1);
+}
+
 /* Fold/unfold chevron after a node's name. */
 .gn-collapse {
   display: inline-flex;

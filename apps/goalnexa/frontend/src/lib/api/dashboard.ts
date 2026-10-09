@@ -41,7 +41,7 @@ export function fetchOrgs(accessToken: string): Promise<OrgOption[]> {
 /** `orgId === null` = personal goals (no org). */
 export function fetchGoals(accessToken: string, orgId: string | null): Promise<Goal[]> {
   const filter = orgId === null ? "filter{org_id.isnull}=true" : `filter{org_id}=${encodeURIComponent(orgId)}`;
-  return fetchAll<Goal>(`/api/v1/goals?${filter}&sort=title`, accessToken);
+  return fetchAll<Goal>(`/api/v1/goals?${filter}&sort=position,title`, accessToken);
 }
 
 /** One goal the caller can see, or `null` (gone, or not theirs). */
@@ -50,7 +50,7 @@ export function fetchGoal(accessToken: string, goalId: string): Promise<Goal | n
 }
 
 export function fetchMetrics(accessToken: string, goalIds: string[]): Promise<Metric[]> {
-  return fetchAll<Metric>(`/api/v1/metrics?filter{goal.in}=${goalIds.join(",")}`, accessToken);
+  return fetchAll<Metric>(`/api/v1/metrics?filter{goal.in}=${goalIds.join(",")}&sort=position,name`, accessToken);
 }
 
 export function fetchCheckIns(accessToken: string, goalIds: string[]): Promise<CheckIn[]> {

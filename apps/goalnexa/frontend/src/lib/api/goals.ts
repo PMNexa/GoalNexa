@@ -17,6 +17,8 @@ export interface Goal {
   visibility: GoalVisibility;
   /** A sub-goal's parent - a bare id, `null` for a top-level goal. */
   parent: string | null;
+  /** Order among its siblings, lowest first (`lib/ordering.ts`). */
+  position: number;
   /** Server-computed over ALL its root metrics (the dashboard recomputes its own, with hidden metrics left out). Decimal strings, in %. */
   progress: string | null;
   projected_progress: string | null;

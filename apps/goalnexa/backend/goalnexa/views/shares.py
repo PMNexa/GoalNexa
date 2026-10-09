@@ -114,7 +114,7 @@ class SharedDashboardView(APIView):
         by_id = {str(goal.id): goal for goal in rows}
         # The link's order, which is the order the dashboard showed them in.
         goals = [by_id[goal_id] for goal_id in share.goal_ids if goal_id in by_id]
-        metrics = Metric.objects.filter(goal__in=goals).order_by("name")
+        metrics = Metric.objects.filter(goal__in=goals).order_by("position", "name")
         check_ins = CheckIn.objects.filter(metric__in=metrics).order_by("checked_in_at")
         return Response({
             "title": share.title,
@@ -125,6 +125,7 @@ class SharedDashboardView(APIView):
                     "status": goal.status,
                     "target_date": goal.target_date.isoformat() if goal.target_date else None,
                     "parent": str(goal.parent_id) if goal.parent_id and goal.parent_id in by_id else None,
+                    "position": goal.position,
                     "progress": _decimal(goal.progress),
                     "projected_progress": _decimal(goal.projected_progress),
                     "health": goal.health,
@@ -141,6 +142,7 @@ class SharedDashboardView(APIView):
                     "target_value": _decimal(metric.target_value),
                     "current_value": _decimal(metric.current_value),
                     "parent": str(metric.parent_id) if metric.parent_id else None,
+                    "position": metric.position,
                     "aggregation": metric.aggregation,
                 }
                 for metric in metrics

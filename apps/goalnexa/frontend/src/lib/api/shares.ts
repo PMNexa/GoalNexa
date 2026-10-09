@@ -24,8 +24,8 @@ export interface NewDashboardShare {
 /** What a link shows: only what the charts need, so these are trimmed `Goal`/`Metric`/`CheckIn`s. */
 export interface SharedDashboard {
   title: string;
-  goals: Pick<Goal, "id" | "title" | "status" | "target_date" | "parent" | "progress" | "projected_progress" | "health">[];
-  metrics: Pick<Metric, "id" | "goal" | "name" | "unit" | "base_value" | "target_value" | "current_value" | "parent" | "aggregation">[];
+  goals: Pick<Goal, "id" | "title" | "status" | "target_date" | "parent" | "position" | "progress" | "projected_progress" | "health">[];
+  metrics: Pick<Metric, "id" | "goal" | "name" | "unit" | "base_value" | "target_value" | "current_value" | "parent" | "position" | "aggregation">[];
   check_ins: Pick<CheckIn, "id" | "metric" | "value" | "checked_in_at" | "source">[];
   hidden_metrics: string[];
 }

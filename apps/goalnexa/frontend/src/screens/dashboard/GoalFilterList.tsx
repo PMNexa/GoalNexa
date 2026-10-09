@@ -5,6 +5,7 @@ import { isCheckInDue, isTracked } from "../../lib/progress";
 import { formatPct, seriesColor, seriesKey } from "./chartUtils";
 import { readStored, writeStored } from "../../lib/storedState";
 import RowMenu from "./RowMenu";
+import { goalGroup, metricGroup, useSiblingDrag, type OrderKind } from "../../lib/ordering";
 
 const COLLAPSED_KEY = "goalnexa:dashboard-collapsed";
 
@@ -43,6 +44,8 @@ export interface GoalFilterActions {
   /** A goal's / metric's name was clicked - the host shows its details. */
   onOpenGoal: (goalId: string) => void;
   onOpenMetric: (metricId: string) => void;
+  /** A row was dragged onto a sibling - before it, or `after` it (`lib/ordering.ts`). */
+  onMove: (kind: OrderKind, dragged: string, target: string, after: boolean) => void;
 }
 
 /** A goal's / metric's name: a button that opens its details, or plain text when read-only. */
@@ -220,6 +223,13 @@ function GoalFilterList({
   now,
 }: GoalFilterListProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(readStored<string[]>(COLLAPSED_KEY, [])));
+  const dragProps = useSiblingDrag((kind, dragged, target, after) => actions?.onMove(kind, dragged, target, after));
+  // Rows are reordered by dragging - not on a read-only (shared) tree.
+  function dragRow(kind: OrderKind, id: string, group: string) {
+    if (!actions) return {};
+    const { source, target } = dragProps(kind, id, group);
+    return { ...source, ...target };
+  }
   function toggleCollapsed(id: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -237,7 +247,10 @@ function GoalFilterList({
     const isCollapsed = collapsed.has(metric.id);
     return (
       <li key={metric.id} className="gn-branch gn-metric">
-        <div className={`gn-metric-row${metricShown ? "" : " is-off"}${children.length > 0 && !isCollapsed ? " has-branches" : ""}`}>
+        <div
+          className={`gn-metric-row${metricShown ? "" : " is-off"}${children.length > 0 && !isCollapsed ? " has-branches" : ""}`}
+          {...dragRow("metric", metric.id, metricGroup(metric))}
+        >
           <span className="gn-metric-label">
             {/* The tree doubles as the panels' legend: the metric's line color. */}
             <span
@@ -317,7 +330,10 @@ function GoalFilterList({
     const isCollapsed = collapsed.has(goal.id);
     return (
       <li key={goal.id} className={`gn-goal-group${nested ? " gn-branch" : ""}${shown ? " is-shown" : ""}`}>
-        <div className={`gn-goal-head${hasBranches && !isCollapsed ? " has-branches" : ""}`}>
+        <div
+          className={`gn-goal-head${hasBranches && !isCollapsed ? " has-branches" : ""}`}
+          {...dragRow("goal", goal.id, goalGroup(goal))}
+        >
           <span
             className={`gn-key gn-goal-key${shown ? "" : " is-empty"}`}
             style={shown ? { background: seriesColor(slot) } : undefined}

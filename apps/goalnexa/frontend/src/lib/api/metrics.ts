@@ -17,6 +17,8 @@ export interface Metric {
   current_value: string;
   /** A sub-metric's parent - a bare id, `null` for a top-level metric. */
   parent: string | null;
+  /** Order among its siblings, lowest first (`lib/ordering.ts`). */
+  position: number;
   aggregation: MetricAggregation;
   check_in_every: CheckInCadence;
   /** Server-kept (ISO timestamps): the latest check-in's time, and when the next one is due (`null` = no schedule). */

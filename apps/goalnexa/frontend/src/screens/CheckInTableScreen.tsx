@@ -29,8 +29,22 @@ import CreateRecordModal, {
   type CreateTarget,
 } from "./dashboard/CreateRecordModal";
 import RowMenu from "./dashboard/RowMenu";
-import { buildTree, CollapseToggle, type TreeNode } from "./dashboard/GoalFilterList";
+import {
+  buildTree,
+  CollapseToggle,
+  type TreeNode,
+} from "./dashboard/GoalFilterList";
 import { readStored, writeStored } from "../lib/storedState";
+import {
+  applyOrder,
+  byPosition,
+  goalGroup,
+  metricGroup,
+  moveId,
+  saveOrder,
+  useSiblingDrag,
+  type OrderKind,
+} from "../lib/ordering";
 
 export interface CheckInTableScreenProps {
   accessToken: string;
@@ -72,6 +86,10 @@ const TABLE_CSS = `.gn-table-wrap { overflow: auto; max-height: calc(100vh - 14r
 .gn-table td.gn-cell { text-align: right; font-variant-numeric: tabular-nums; }
 .gn-table tr.gn-goal-row th, .gn-table tr.gn-goal-row td { font-weight: 600; background: var(--tblr-bg-surface-secondary, #f6f8fb); }
 .gn-table .gn-sub { display: block; font-size: .7rem; color: var(--tblr-secondary, #667382); font-weight: 400; }
+.gn-table tbody th[draggable="true"] { cursor: grab; }
+.gn-table tbody tr[data-dragging] > * { opacity: .5; }
+.gn-table tbody tr[data-drop="before"] > * { box-shadow: inset 0 2px 0 var(--tblr-primary, #066fd1); }
+.gn-table tbody tr[data-drop="after"] > * { box-shadow: inset 0 -2px 0 var(--tblr-primary, #066fd1); }
 .gn-table .gn-collapse { color: var(--tblr-secondary, #667382); flex-shrink: 0; }
 .gn-table .gn-collapse-gap { display: inline-block; width: 1.25rem; flex-shrink: 0; }
 .gn-table .gn-target { color: var(--tblr-secondary, #667382); text-align: right; }
@@ -84,6 +102,8 @@ interface Row {
   id: string;
   /** A metric's goal (its own id for a goal row). */
   goalId: string;
+  /** Its sibling group - rows are dragged within one (`lib/ordering.ts`). */
+  group: string;
   depth: number;
   /** Ids of the goals/metrics this row hangs under - it's hidden while any of them is collapsed. */
   ancestors: string[];
@@ -234,7 +254,58 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
   const scrolledFor = useRef<string | null>(null);
   const [createTarget, setCreateTarget] = useState<CreateTarget | null>(null);
   // Collapsed goal/metric ids, remembered per browser.
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(readStored<string[]>(COLLAPSED_KEY, [])));
+  const [collapsed, setCollapsed] = useState<Set<string>>(
+    () => new Set(readStored<string[]>(COLLAPSED_KEY, [])),
+  );
+  const [orderError, setOrderError] = useState<string | null>(null);
+
+  // Drag and drop within a sibling group: shown at once, then saved; a
+  // failed save reloads the table's order from the server.
+  function moveRow(
+    kind: OrderKind,
+    dragged: string,
+    target: string,
+    after: boolean,
+  ) {
+    if (!data) return;
+    let ids: string[];
+    let next: typeof data;
+    if (kind === "goal") {
+      const goal = data.goals.find((g) => g.id === dragged);
+      if (!goal) return;
+      const siblings = data.goals
+        .filter((g) => goalGroup(g) === goalGroup(goal))
+        .sort(byPosition((g) => g.title));
+      ids = moveId(
+        siblings.map((g) => g.id),
+        dragged,
+        target,
+        after,
+      );
+      next = { ...data, goals: applyOrder(data.goals, ids, (g) => g.title) };
+    } else {
+      const metric = data.metrics.find((m) => m.id === dragged);
+      if (!metric) return;
+      const siblings = data.metrics
+        .filter((m) => metricGroup(m) === metricGroup(metric))
+        .sort(byPosition((m) => m.name));
+      ids = moveId(
+        siblings.map((m) => m.id),
+        dragged,
+        target,
+        after,
+      );
+      next = { ...data, metrics: applyOrder(data.metrics, ids, (m) => m.name) };
+    }
+    setData(next);
+    setOrderError(null);
+    saveOrder(accessToken, kind, ids).catch((e) => {
+      setOrderError(`Couldn't save the new order: ${String(e?.message ?? e)}`);
+      setVersion((v) => v + 1);
+    });
+  }
+  const dragRow = useSiblingDrag(moveRow);
+
   function toggleCollapsed(id: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -297,11 +368,14 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
     for (const m of metrics)
       metricsByGoal.set(m.goal, [...(metricsByGoal.get(m.goal) ?? []), m]);
     const sortedMetrics = (id: string) =>
-      [...(metricsByGoal.get(id) ?? [])].sort((a, b) =>
-        a.name.localeCompare(b.name),
-      );
+      [...(metricsByGoal.get(id) ?? [])].sort(byPosition((m) => m.name));
 
-    const metricRow = (m: Metric, depth: number, ancestors: string[], hasChildren: boolean): Row => {
+    const metricRow = (
+      m: Metric,
+      depth: number,
+      ancestors: string[],
+      hasChildren: boolean,
+    ): Row => {
       const series = computeValueSeries(m, checkIns);
       const tracked = isTracked(m);
       const unit = m.unit ? ` ${m.unit}` : "";
@@ -340,6 +414,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
         kind: "metric",
         id: m.id,
         goalId: m.goal,
+        group: metricGroup(m),
         depth,
         ancestors,
         hasChildren,
@@ -358,13 +433,22 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
       };
     };
 
-    const metricRows = (nodes: TreeNode<Metric>[], depth: number, ancestors: string[]): Row[] =>
+    const metricRows = (
+      nodes: TreeNode<Metric>[],
+      depth: number,
+      ancestors: string[],
+    ): Row[] =>
       nodes.flatMap((n) => [
         metricRow(n.item, depth, ancestors, n.children.length > 0),
         ...metricRows(n.children, depth + 1, [...ancestors, n.item.id]),
       ]);
 
-    const goalRow = (goal: Goal, depth: number, ancestors: string[], hasChildren: boolean): Row => {
+    const goalRow = (
+      goal: Goal,
+      depth: number,
+      ancestors: string[],
+      hasChildren: boolean,
+    ): Row => {
       const own = metricsByGoal.get(goal.id) ?? [];
       const usable = rootMetrics(own).filter((m) => !isTracked(m));
       const series = new Map(
@@ -398,6 +482,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
         kind: "goal",
         id: goal.id,
         goalId: goal.id,
+        group: goalGroup(goal),
         depth,
         ancestors,
         hasChildren,
@@ -406,12 +491,21 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
       };
     };
 
-    const goalRows = (nodes: TreeNode<Goal>[], depth: number, ancestors: string[]): Row[] =>
+    const goalRows = (
+      nodes: TreeNode<Goal>[],
+      depth: number,
+      ancestors: string[],
+    ): Row[] =>
       nodes.flatMap((n) => {
         const inner = [...ancestors, n.item.id];
         const metrics = buildTree(sortedMetrics(n.item.id));
         return [
-          goalRow(n.item, depth, ancestors, metrics.length > 0 || n.children.length > 0),
+          goalRow(
+            n.item,
+            depth,
+            ancestors,
+            metrics.length > 0 || n.children.length > 0,
+          ),
           ...metricRows(metrics, depth + 1, inner),
           ...goalRows(n.children, depth + 1, inner),
         ];
@@ -595,6 +689,9 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
           </div>
         </div>
       </div>
+      {orderError && (
+        <div className="alert alert-danger py-2">{orderError}</div>
+      )}
       <Card>
         <CardBody className="p-0">
           {error ? (
@@ -664,112 +761,129 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {table.rows.filter((row) => !row.ancestors.some((id) => collapsed.has(id))).map((row) => (
-                    <tr
-                      key={row.key}
-                      className={
-                        row.kind === "goal" ? "gn-goal-row" : undefined
-                      }
-                    >
-                      <th
-                        className="gn-sticky"
-                        scope="row"
-                        style={{
-                          paddingLeft: `${0.6 + row.depth * 1.1}rem`,
-                          fontWeight: row.kind === "goal" ? 600 : 400,
-                        }}
-                        title={row.label}
-                      >
-                        <span className="d-flex align-items-center gap-1">
-                          {row.hasChildren ? (
-                            <CollapseToggle
-                              collapsed={collapsed.has(row.id)}
-                              name={row.label}
-                              onToggle={() => toggleCollapsed(row.id)}
-                            />
-                          ) : (
-                            <span className="gn-collapse-gap" aria-hidden="true" />
-                          )}
-                          <span className="flex-grow-1 text-truncate">
-                            {row.label}
-                          </span>
-                          <RowMenu
-                            label={`Add to ${row.label}`}
-                            icon={PlusIcon}
-                            items={
-                              row.kind === "goal"
-                                ? [
-                                    {
-                                      label: "Add metric",
-                                      onSelect: () => addMetric(row.id, null),
-                                    },
-                                    {
-                                      label: "Add sub-goal",
-                                      onSelect: () => addGoal(row.id),
-                                    },
-                                  ]
-                                : [
-                                    {
-                                      label: "Check in",
-                                      onSelect: () =>
-                                        setCheckInFor(metricById(row.id)),
-                                    },
-                                    {
-                                      label: "Add sub-metric",
-                                      onSelect: () =>
-                                        addMetric(row.goalId, row.id),
-                                    },
-                                  ]
-                            }
-                          />
-                        </span>
-                      </th>
-                      <td className="gn-target" title={row.targetTitle}>
-                        {row.target ?? ""}
-                      </td>
-                      {table.columns.map((col) => {
-                        const cell = row.cells.get(col);
-                        return (
-                          <td key={col} className="gn-cell" title={cell?.title}>
-                            {cell && (
-                              <>
-                                {cell.main}
-                                {cell.sub && (
-                                  <span className="gn-sub">{cell.sub}</span>
+                  {table.rows
+                    .filter(
+                      (row) => !row.ancestors.some((id) => collapsed.has(id)),
+                    )
+                    .map((row) => {
+                      const drag = dragRow(row.kind, row.id, row.group);
+                      return (
+                        <tr
+                          key={row.key}
+                          className={
+                            row.kind === "goal" ? "gn-goal-row" : undefined
+                          }
+                          {...drag.target}
+                        >
+                          <th
+                            className="gn-sticky"
+                            scope="row"
+                            style={{
+                              paddingLeft: `${0.6 + row.depth * 1.1}rem`,
+                              fontWeight: row.kind === "goal" ? 600 : 400,
+                            }}
+                            title={`${row.label}\nDrag to reorder`}
+                            {...drag.source}
+                          >
+                            <span className="d-flex align-items-center gap-1">
+                              {row.hasChildren ? (
+                                <CollapseToggle
+                                  collapsed={collapsed.has(row.id)}
+                                  name={row.label}
+                                  onToggle={() => toggleCollapsed(row.id)}
+                                />
+                              ) : (
+                                <span
+                                  className="gn-collapse-gap"
+                                  aria-hidden="true"
+                                />
+                              )}
+                              <span className="flex-grow-1 text-truncate">
+                                {row.label}
+                              </span>
+                              <RowMenu
+                                label={`Add to ${row.label}`}
+                                icon={PlusIcon}
+                                items={
+                                  row.kind === "goal"
+                                    ? [
+                                        {
+                                          label: "Add metric",
+                                          onSelect: () =>
+                                            addMetric(row.id, null),
+                                        },
+                                        {
+                                          label: "Add sub-goal",
+                                          onSelect: () => addGoal(row.id),
+                                        },
+                                      ]
+                                    : [
+                                        {
+                                          label: "Check in",
+                                          onSelect: () =>
+                                            setCheckInFor(metricById(row.id)),
+                                        },
+                                        {
+                                          label: "Add sub-metric",
+                                          onSelect: () =>
+                                            addMetric(row.goalId, row.id),
+                                        },
+                                      ]
+                                }
+                              />
+                            </span>
+                          </th>
+                          <td className="gn-target" title={row.targetTitle}>
+                            {row.target ?? ""}
+                          </td>
+                          {table.columns.map((col) => {
+                            const cell = row.cells.get(col);
+                            return (
+                              <td
+                                key={col}
+                                className="gn-cell"
+                                title={cell?.title}
+                              >
+                                {cell && (
+                                  <>
+                                    {cell.main}
+                                    {cell.sub && (
+                                      <span className="gn-sub">{cell.sub}</span>
+                                    )}
+                                  </>
                                 )}
-                              </>
+                              </td>
+                            );
+                          })}
+                          <td className="gn-fill" />
+                          <td className="gn-draft">
+                            {row.kind === "metric" && (
+                              <input
+                                type="number"
+                                step="any"
+                                className="form-control form-control-sm text-end"
+                                aria-label={`New check-in for ${row.label}`}
+                                placeholder={
+                                  metricById(row.id)?.aggregation === "sum"
+                                    ? "+ amount"
+                                    : (metricById(row.id)?.unit ?? "")
+                                }
+                                value={draftValues[row.id] ?? ""}
+                                onChange={(event) =>
+                                  setDraftValues((prev) => ({
+                                    ...prev,
+                                    [row.id]: event.target.value,
+                                  }))
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") void saveDraft();
+                                }}
+                              />
                             )}
                           </td>
-                        );
-                      })}
-                      <td className="gn-fill" />
-                      <td className="gn-draft">
-                        {row.kind === "metric" && (
-                          <input
-                            type="number"
-                            step="any"
-                            className="form-control form-control-sm text-end"
-                            aria-label={`New check-in for ${row.label}`}
-                            placeholder={
-                              metricById(row.id)?.aggregation === "sum"
-                                ? "+ amount"
-                                : (metricById(row.id)?.unit ?? "")
-                            }
-                            value={draftValues[row.id] ?? ""}
-                            onChange={(event) =>
-                              setDraftValues((prev) => ({
-                                ...prev,
-                                [row.id]: event.target.value,
-                              }))
-                            }
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") void saveDraft();
-                            }}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>

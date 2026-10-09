@@ -18,6 +18,7 @@ from goalnexa.access import visible_cycles, visible_goals
 from goalnexa.activity import changes, record, snapshot
 from core_api.system import check_org_limit
 from goalnexa.models import ActivityVerb, CheckIn, Cycle, CycleStatus, Goal, GoalStatus, Metric
+from goalnexa.ordering import ReorderMixin, next_position, sibling_key
 from goalnexa.progress import metric_pct, metric_readings, refresh_goal, root_metrics
 from goalnexa.serializers import GoalSerializer
 
@@ -26,7 +27,7 @@ from goalnexa.serializers import GoalSerializer
 FEED_FIELDS = ["title", "status", "target_date", "visibility", "org_id", "cycle", "parent"]
 
 
-class GoalViewSet(BaseViewSet):
+class GoalViewSet(ReorderMixin, BaseViewSet):
     queryset = Goal.objects.all()
     serializer_class = GoalSerializer
     # `QParamSearchFilter` (DRF's own `SearchFilter` under the `?q=` name -
@@ -83,6 +84,8 @@ class GoalViewSet(BaseViewSet):
             check_org_limit(org_id, "max_goals", current, "goals")
         cycle = self._resolve_cycle(org_id)
         goal = serializer.save(owner_id=self.request.user.id, parent=self._resolve_parent(), cycle=cycle)
+        goal.position = next_position(goal)
+        goal.save(update_fields=["position"])
         record(goal.id, ActivityVerb.GOAL_CREATED, self.request.user.id, title=goal.title)
 
     def perform_update(self, serializer):
@@ -101,6 +104,7 @@ class GoalViewSet(BaseViewSet):
         if visibility != instance.visibility and str(instance.owner_id) != str(self.request.user.id):
             raise PermissionDenied("Only the goal's owner can change who sees it.")
         before = snapshot(instance, FEED_FIELDS)
+        old_siblings = sibling_key(instance)
         org_id = serializer.validated_data.get("org_id", instance.org_id)
         if "cycle" in self.request.data:
             cycle = self._resolve_cycle(org_id)
@@ -114,6 +118,9 @@ class GoalViewSet(BaseViewSet):
         else:
             parent = instance.parent
         goal = serializer.save(parent=parent, cycle=cycle)
+        if sibling_key(goal) != old_siblings:  # moved under another parent/org - it goes last there
+            goal.position = next_position(goal)
+            goal.save(update_fields=["position"])
         # Its target date may have moved - health and projection follow it.
         refresh_goal(goal.id)
         goal.refresh_from_db()  # the response shows the recomputed fields

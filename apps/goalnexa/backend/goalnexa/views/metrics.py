@@ -27,6 +27,7 @@ from core_api.viewsets import BaseViewSet
 from goalnexa.access import visible_goals
 from goalnexa.activity import changes, record, snapshot
 from goalnexa.models import ActivityVerb, Goal, Metric
+from goalnexa.ordering import ReorderMixin, next_position, sibling_key
 from goalnexa.progress import refresh_goal, refresh_metric, refresh_metric_and_goal
 from goalnexa.serializers import MetricSerializer
 
@@ -42,7 +43,7 @@ def hash_ingest_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-class MetricViewSet(BaseViewSet):
+class MetricViewSet(ReorderMixin, BaseViewSet):
     queryset = Metric.objects.all()
     serializer_class = MetricSerializer
     search_fields = ["name"]
@@ -78,6 +79,8 @@ class MetricViewSet(BaseViewSet):
         if "current_value" not in self.request.data:
             extra["current_value"] = serializer.validated_data.get("base_value", 0)
         metric = serializer.save(goal=self._resolve_goal(), parent=self._resolve_parent(), **extra)
+        metric.position = next_position(metric)
+        metric.save(update_fields=["position"])
         refresh_metric_and_goal(metric.id)
         metric.refresh_from_db()  # the response shows the recomputed fields
         record(metric.goal_id, ActivityVerb.METRIC_ADDED, self.request.user.id, metric=metric.id, metric_name=metric.name)
@@ -96,7 +99,11 @@ class MetricViewSet(BaseViewSet):
         old_goal_id = instance.goal_id
         old_value_rule = (instance.aggregation, instance.base_value)
         before = snapshot(instance, FEED_FIELDS)
+        old_siblings = sibling_key(instance)
         metric = serializer.save(goal=goal, parent=parent)
+        if sibling_key(metric) != old_siblings:  # moved - it goes last in its new place
+            metric.position = next_position(metric)
+            metric.save(update_fields=["position"])
         # A current value set by hand stays - unless what check-ins add up
         # to just changed (a SUM metric counts from its base).
         refresh_metric(metric.id, sync_value=(metric.aggregation, metric.base_value) != old_value_rule)

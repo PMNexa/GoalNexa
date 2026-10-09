@@ -144,8 +144,8 @@ as "projected"); the goal's is the mean of those, a metric with no trend
 (< 2 check-ins) held at its current %, shown as "→ 62% by Oct 31" in
 the panel header - not in the goal tree (tried, too busy). None once
 the target date has passed.
-A metric's line color is its position among its goal's metrics (by
-name), so it stays put when other metrics are hidden. Every metric of a
+A metric's line color is its place among its goal's metrics (their
+manual order), so it stays put when other metrics are hidden. Every metric of a
 goal is on that goal's ONE chart (asked for; an earlier version split
 them 8 per chart). The palette has 8 slots, so the 9th-16th reuse the
 colors with a dotted line and the 17th-24th with a dash-dot one
@@ -362,6 +362,18 @@ include `system-settings`, `audit-events`, `outgoing-emails`,
   changes the password (`POST auth/me/password`: needs the current one,
   ends every other session, answers with a new session for this one).
 Tests: `apps/main/backend/tests/test_admin.py`.
+
+**Manual order** (`position` on `Goal` and `Metric`, goalnexa's
+`ordering.py`): siblings are sub-goals of one goal, an org's top-level
+goals (or one owner's personal ones), and a goal's metrics under the
+same parent metric. A new row goes last, and so does one moved under
+another parent. `POST goals/reorder` / `metrics/reorder` with `{"ids":
+[...]}` renumbers one sibling group (all ids updatable by the caller, one
+parent; siblings left out follow). The UI drags rows within a sibling
+group only - in the dashboard tree (not on a shared link) and the
+check-in table, whose name cell is the handle so the row's inputs still
+select text (`lib/ordering.ts`'s `useSiblingDrag`); re-parenting stays in
+the edit form. Lists sort `position`, then title/name.
 
 **Check-in time is `CheckIn.checked_in_at`**, not `created_at`. It's
 user-set and defaults to now when left blank (the form omits the key and

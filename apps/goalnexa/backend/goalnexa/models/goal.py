@@ -99,5 +99,11 @@ class Goal(TimestampedModel):
         "self", on_delete=models.SET_NULL, null=True, blank=True, db_column="parent_id", related_name="sub_goals"
     )
 
+    # Order among its siblings - goals under the same parent (top-level goals: in the same org, or the owner's personal ones); lowest first. Set by
+    # `POST <resource>/reorder` (drag and drop); a new one goes last.
+    # `db_default` so the previous release's code can still insert rows
+    # while a deploy migrates first.
+    position = models.PositiveIntegerField(default=0, db_default=0)
+
     class Meta:
         db_table = "goal"

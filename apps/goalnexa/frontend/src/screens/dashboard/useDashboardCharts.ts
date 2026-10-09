@@ -14,6 +14,7 @@ import {
   type ProgressPoint,
 } from "../../lib/progress";
 import { fitDomain, pctDomainMax, type ChartDomain } from "./chartUtils";
+import { byPosition } from "../../lib/ordering";
 
 /** Palette has 8 validated categorical slots - a 9th series would need a generated hue, so selection stops at 8. */
 export const MAX_GOALS = 8;
@@ -51,14 +52,14 @@ export function useDashboardCharts(
 
   const metricsByGoal = useMemo(() => {
     const byGoal = new Map<string, Metric[]>();
-    for (const metric of [...metrics].sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const metric of [...metrics].sort(byPosition((m) => m.name))) {
       byGoal.set(metric.goal, [...(byGoal.get(metric.goal) ?? []), metric]);
     }
     return byGoal;
   }, [metrics]);
 
-  // A metric's line = its position among its goal's metrics (by name) -
-  // stable while other metrics are shown/hidden. All of a goal's metrics
+  // A metric's line = its place among its goal's metrics (their manual
+  // order, `position`) - stable while other metrics are shown/hidden. All of a goal's metrics
   // share one chart; the palette has 8 validated colors, so the 9th+
   // reuse them with another line style (`seriesDash`) - never a
   // generated color.

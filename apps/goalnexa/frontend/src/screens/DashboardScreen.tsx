@@ -35,6 +35,7 @@ import { MAX_GOALS, useDashboardCharts } from "./dashboard/useDashboardCharts";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
 import OnboardingWizard from "./onboarding/OnboardingWizard";
 import { readStored, writeStored } from "../lib/storedState";
+import { applyOrder, byPosition, goalGroup, metricGroup, moveId, saveOrder, type OrderKind } from "../lib/ordering";
 import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../lib/currentOrg";
 
 export interface DashboardScreenProps {
@@ -359,6 +360,33 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   const titleOf = (endpoint: "/api/v1/goals" | "/api/v1/metrics", id: string) =>
     endpoint === "/api/v1/goals" ? goals?.find((goal) => goal.id === id)?.title : metrics.find((metric) => metric.id === id)?.name;
 
+  // Drag and drop in the tree, within a sibling group: shown at once, then
+  // saved; a failed save reloads the order from the server.
+  function moveRow(kind: OrderKind, dragged: string, target: string, after: boolean) {
+    let ids: string[];
+    if (kind === "goal") {
+      const goal = goals?.find((g) => g.id === dragged);
+      if (!goals || !goal) return;
+      const siblings = goals.filter((g) => goalGroup(g) === goalGroup(goal)).sort(byPosition((g) => g.title));
+      ids = moveId(siblings.map((g) => g.id), dragged, target, after);
+      setGoals(applyOrder(goals, ids, (g) => g.title));
+    } else {
+      const metric = metrics.find((m) => m.id === dragged);
+      if (!metric) return;
+      const siblings = metrics.filter((m) => metricGroup(m) === metricGroup(metric)).sort(byPosition((m) => m.name));
+      ids = moveId(siblings.map((m) => m.id), dragged, target, after);
+      setMetrics(applyOrder(metrics, ids, (m) => m.name));
+    }
+    saveOrder(accessToken, kind, ids).catch((thrown: unknown) => {
+      setError(toError(thrown));
+      if (kind === "metric") setSeriesVersion((v) => v + 1);
+      else
+        fetchGoals(accessToken, orgKey === PERSONAL_ORG ? null : orgKey)
+          .then(setGoals)
+          .catch(() => {});
+    });
+  }
+
   function addGoal(parentGoalId: string | null) {
     setCreateTarget({
       endpoint: "/api/v1/goals",
@@ -627,6 +655,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
                   onAddGoal: addGoal,
                   onOpenGoal: (id) => setDetail({ endpoint: "/api/v1/goals", id }),
                   onOpenMetric: (id) => setDetail({ endpoint: "/api/v1/metrics", id }),
+                  onMove: moveRow,
                 }}
                 now={now}
               />

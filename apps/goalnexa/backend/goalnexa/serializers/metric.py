@@ -30,6 +30,7 @@ class MetricSerializer(BaseSerializer):
             "aggregation": {"help_text": "Latest: each check-in is the new reading (a weight, a user count). Sum: each check-in is an amount added to the total (km run today)."},
             "check_in_every": {"help_text": "How often you plan to check in. You get a reminder when one is due. Empty = no schedule."},
             "parent": {"help_text": "Makes this a sub-metric that breaks down another metric of the same goal. Sub-metrics don't count toward the goal's progress."},
+            "position": {"read_only": True, "help_text": "Order among metrics with the same parent, lowest first. Changed by dragging, or POST reorder."},
             "last_checked_in_at": {"read_only": True, "help_text": "When the latest check-in happened."},
             "check_in_due_at": {"read_only": True, "help_text": "When the next check-in is due, from the schedule."},
             "ingest_token_hint": {"read_only": True, "help_text": "The end of the metric's automatic check-in token, to tell tokens apart."},

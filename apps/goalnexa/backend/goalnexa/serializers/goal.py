@@ -35,6 +35,7 @@ class GoalSerializer(BaseSerializer):
         extra_kwargs = {
             "title": {"help_text": "What you want to achieve, as an outcome. For example: Run a half marathon."},
             "description": {"help_text": "Optional. Why it matters, or any detail worth remembering."},
+            "position": {"read_only": True, "help_text": "Order among goals with the same parent, lowest first. Changed by dragging, or POST reorder."},
             "owner_id": {"read_only": True},
             "org_id": {"help_text": "The organization this goal belongs to. Its members can see it. Empty = just yours."},
             "status": {"help_text": "Where the goal stands: not started, in progress, completed, or archived (hidden from the dashboard)."},

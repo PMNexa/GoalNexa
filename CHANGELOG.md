@@ -9,6 +9,15 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Order goals and metrics by dragging.** In the dashboard's goal tree
+  and the check-in table, drag a goal, sub-goal, metric or sub-metric
+  to move it among the others under the same parent; the order is saved
+  for everyone. Existing ones start in their old alphabetical order, and
+  a metric's chart color follows its place in the list.
+- **Collapsible rows in the check-in table** for goals and metrics with
+  rows under them.
+- **Organization names in lists.** Generic lists (e.g. Goals) show a
+  goal's organization by name instead of its id.
 - **Metrics without a target.** A metric whose target equals its start
   value (a KPI you watch rather than a goal) is now charted by its own
   values - one small chart per metric, in its unit - instead of leaving

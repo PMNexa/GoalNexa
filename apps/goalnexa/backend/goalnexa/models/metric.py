@@ -98,5 +98,11 @@ class Metric(TimestampedModel):
         "self", on_delete=models.SET_NULL, null=True, blank=True, db_column="parent_id", related_name="sub_metrics"
     )
 
+    # Order among its siblings - metrics of the same goal under the same parent metric; lowest first. Set by
+    # `POST <resource>/reorder` (drag and drop); a new one goes last.
+    # `db_default` so the previous release's code can still insert rows
+    # while a deploy migrates first.
+    position = models.PositiveIntegerField(default=0, db_default=0)
+
     class Meta:
         db_table = "metric"

@@ -169,6 +169,51 @@ class SumAggregationTests(ApiTestCase):
 
 
 @without_access_policy
+class OrderingTests(ApiTestCase):
+    def ids(self, rows):
+        return [str(row.id) for row in rows]
+
+    def test_new_goals_and_metrics_go_last_among_their_siblings(self):
+        first = self.post("goals", {"title": "Zebra"}).data
+        second = self.post("goals", {"title": "Apple"}).data
+        child = self.post("goals", {"title": "Sub", "parent": first["id"]}).data
+        self.assertEqual((first["position"], second["position"], child["position"]), (0, 1, 0))
+        a = self.post("metrics", {"goal": first["id"], "name": "b", "target_value": 1}).data
+        b = self.post("metrics", {"goal": first["id"], "name": "a", "target_value": 1}).data
+        sub = self.post("metrics", {"goal": first["id"], "name": "s", "target_value": 1, "parent": a["id"]}).data
+        self.assertEqual((a["position"], b["position"], sub["position"]), (0, 1, 0))
+
+    def test_reorder_renumbers_siblings_in_the_given_order(self):
+        x, y, z = (self.goal(title=t, position=i) for i, t in enumerate("xyz"))
+        response = self.post("goals/reorder", {"ids": self.ids([z, x])})
+        self.assertEqual(response.status_code, 204, getattr(response, "data", None))
+        ordered = Goal.objects.filter(id__in=[x.id, y.id, z.id]).order_by("position")
+        self.assertEqual(self.ids(ordered), self.ids([z, x, y]))  # y, left out, keeps its place after them
+        goal = self.goal()
+        m1, m2 = (Metric.objects.create(goal=goal, name=n, target_value=1, position=i) for i, n in enumerate("ab"))
+        self.assertEqual(self.post("metrics/reorder", {"ids": self.ids([m2, m1])}).status_code, 204)
+        self.assertEqual(self.ids(Metric.objects.filter(goal=goal).order_by("position")), self.ids([m2, m1]))
+
+    def test_reorder_refuses_mixed_parents_and_others_goals(self):
+        parent = self.goal(title="P")
+        child = self.goal(title="C", parent=parent)
+        response = self.post("goals/reorder", {"ids": self.ids([parent, child])})
+        self.assertEqual(response.status_code, 400)
+        stranger = Goal.objects.create(title="Theirs", owner_id=uuid.uuid4())
+        response = self.post("goals/reorder", {"ids": self.ids([parent, stranger])})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.post("goals/reorder", {"ids": ["nope"]}).status_code, 400)
+
+    def test_moving_under_another_parent_goes_last_there(self):
+        parent = self.goal(title="P")
+        self.goal(title="C1", parent=parent)
+        loose = self.goal(title="Loose")
+        response = self.client.patch(f"/api/v1/goals/{loose.id}", {"parent": str(parent.id)}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["position"], 1)
+
+
+@without_access_policy
 class ScheduleTests(ApiTestCase):
     def test_due_follows_the_latest_check_in(self):
         metric = Metric.objects.create(goal=self.goal(), name="km", target_value=100)

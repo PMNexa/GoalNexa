@@ -98,7 +98,7 @@ then plugged into the tools teams already run. Built in this repo
 | ---- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------- |
 | P-01 | Two-factor login         | TOTP (authenticator app) per account, with recovery codes; enrol/disable on "My account"; an admin setting can require it for everyone; an admin can reset a user's 2FA                           | Proposed |                                                 |
 | P-02 | Lockout + password rules | Lock an account after N failed logins for M minutes (both System settings), audited; password minimum length and common-password check on signup, reset and change | Done | 2026-10-02. Defaults: 10 attempts, 15 minutes |
-| P-03 | Health checks + alerts   | Unauthenticated `/api/v1/health` (database, scheduler heartbeat, email outbox) for uptime monitors; the scheduler alerts admins (email/Apprise) when a job goes silent or deliveries keep failing | Proposed |                                                 |
+| P-03 | Health checks + alerts   | Unauthenticated `/api/v1/health` (database, scheduler heartbeat, email outbox) for uptime monitors; the scheduler alerts admins (email/Apprise) when a job goes silent or deliveries keep failing | In progress | 2026-10-05: `/api/v1/health` (database only) is live and every healthcheck probes it. Left: scheduler heartbeat and email outbox in it, and the alerts |
 | P-04 | Data retention cleanup   | System settings for how long to keep audit events, sent emails, delivery attempts, activity and goal snapshots; a scheduler job deletes older rows; default = keep forever                        | Proposed |                                                 |
 | P-05 | SSO (OpenID Connect) | "Sign in with <provider>" from one OIDC issuer configured by env/settings (Google, Authentik, Keycloak, ...); links to an existing account by verified email; can disable password login | Done | 2026-10-02. Q-2: public. Setup: docs/sso.md |
 
@@ -133,6 +133,26 @@ without the website. Listed in priority order; all live in
 | P-25 | Chart in the chat                | A tool returns a goal's progress chart as an image or a data series the assistant can draw                                                                                                     | Done | 2026-10-02. `goals_chart` returns the data series; the assistant draws it. No image |
 | P-26 | Public dashboard link | Share the dashboard's shown goals (up to 8) as a public, read-only, live link - no login, no notes or authors; each link revocable | Done | 2026-10-05. Asked for directly. `/shared/<token>`; goals the sharer can no longer see drop off the link |
 | P-27 | Tracked-only metrics | A metric with no target (target = start) is charted by its own values instead of a %, and counts toward nothing (progress, projection, health) | Done | 2026-10-07. Asked for directly. One value chart per metric under the goal's % chart; "Tracking" badge on a goal with only those |
+| P-30 | Manual order + drag and drop | Goals, sub-goals, metrics and sub-metrics keep an order the user sets by dragging rows in the dashboard tree and the check-in table, within the same parent | Done | 2026-10-09. Asked for directly. `position` + `POST goals|metrics/reorder`; moving under another parent stays in the edit form |
+
+
+### Next - Q1 2027 - Know how it's used
+
+Admins see how the instance is used and how well it runs, not just
+whether it runs. Today Status shows snapshots only, and "active" means
+"logged in", which misses chat users (MCP) and slid sessions. A new
+`/system/insights` console page (Status stays "is it running"), fed by
+each module through a time-series provider like `register_usage_provider`.
+Aggregates only, nothing sent to third parties. Listed in build order.
+
+| ID   | Item                       | Requirement                                                                                                                                                                                       | Status   | Notes                                                             |
+| ---- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------- |
+| P-28 | Real active users          | `last_seen_at` per user, updated (at most hourly) on token refresh, MCP calls and check-ins; DAU / WAU / MAU, stickiness (DAU/MAU) and active by channel (web only, agent only, both); "engaged" = a check-in in 7 days | Proposed | Fixes Status's "Signed in" counts, which miss chat-only users     |
+| P-29 | Daily snapshots + trends   | `goalnexa_jobs` writes one row of system counts per day (users, active, orgs, goals, check-ins, ...); Insights overview: tiles with change vs the previous period and sparklines; 7/30/90-day range; CSV export | Proposed | Every chart below reads these; covered by P-04's retention        |
+| P-31 | Activation funnel + source | Signup -> email confirmed -> first goal -> first metric -> first check-in -> check-in in week 2: conversion and median time per step, split by signup source and onboarding choice (website / AI agent) | Proposed | Uses C-17's recorded source; needs the onboarding choice stored on the server. C-05 could build on it |
+| P-32 | Retention cohorts          | Weekly signup cohorts x weeks since signup, % still active; lists of users and orgs gone quiet (active before, nothing in 14 / 30 days)                                                           | Proposed | Depends on P-28, P-29                                             |
+| P-33 | Feature adoption + top orgs | % of active users using cycles, comments, share links, ingest, digest, reminders, MCP, SSO; goal outcomes (achieved vs abandoned, cycle scores); reminder -> check-in lag; top orgs and users by activity, orgs near their limits | Proposed |                                                                   |
+| P-34 | Quality metrics            | API requests, p50/p95 latency and error rate per endpoint; MCP calls, errors and top tools; email/Apprise success rate per day; scheduler run time; failed logins, lockouts and rate-limit hits; database size | Proposed | Biggest item (request middleware); overlaps P-03 and C-09         |
 
 
 ### Next - Q1 2027 - Own and share your data
@@ -143,7 +163,7 @@ without the website. Listed in priority order; all live in
 | P-07 | Backup and restore      | `manage.py backup` / `restore` (one archive: database dump + settings), scheduled backups to a local path or S3-compatible bucket, last backup shown on Status; restore tested in CI | Proposed | Needed for the v1.0 gate |
 | P-08 | Open export format      | Documented, versioned JSON/CSV export of an org (goals, metrics, check-ins, cycles, scores, comments) that an import can read back losslessly                                        | Proposed |                          |
 | P-09 | Import from CSV, Notion | Import goals/metrics/check-ins from CSV with column mapping and a preview before writing; Notion via its CSV export                                                                  | Proposed |                          |
-| P-10 | Progress badges, embeds | Per-goal opt-in public link: SVG badge (progress %, health) and an embeddable read-only chart; revocable token, no login                                                             | Proposed |                          |
+| P-10 | Progress badges, embeds | Per-goal opt-in public link: SVG badge (progress %, health) and an embeddable read-only chart; revocable token, no login                                                             | Proposed | P-26 covers a read-only live link to a dashboard; left: per-goal SVG badge and an iframe embed |
 | P-11 | Homepage widget         | JSON endpoint + ready-made configs for Homepage / Homarr / Dashy showing goals and progress                                                                                          | Proposed |                          |
 
 
@@ -174,10 +194,10 @@ through the sync, so P-01..P-03 land there before paid launch.
 
 | ID   | Item                   | Requirement                                                                                                                                                     | Status   | Notes                                   |
 | ---- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------- |
-| C-01 | Email provider live    | Transactional email from our domain (SPF/DKIM/DMARC), `EMAIL_URL` set in the stack, verification/invite/reset/digest mails delivered; bounces visible on Status | Proposed | Needs decision: Postmark, Resend or SES |
-| C-02 | Plans + Stripe billing | Free/Team/Business plans per org; Stripe Checkout + customer portal; webhooks keep the org's plan in sync; billing page for org owners                          | Proposed | Prices below are a hypothesis           |
-| C-03 | Plan limits per org    | The org's plan sets `limits.max_members` / `limits.max_goals`; upgrade prompt on `limit_reached`; downgrade never deletes data                                  | Proposed | Depends on C-02                         |
-| C-04 | Public status page     | Public uptime/incident page on its own host, fed by the health endpoint (P-03)                                                                                  | Proposed | Depends on P-03                         |
+| C-01 | Email provider live    | Transactional email from our domain (SPF/DKIM/DMARC), `EMAIL_URL` set in the stack, verification/invite/reset/digest mails delivered; bounces visible on Status | Proposed | Q-1 decided: SES. Left: domain setup and `EMAIL_URL` in the stack |
+| C-02 | Plans + Stripe billing | Free/Team/Business plans per org; Stripe Checkout + customer portal; webhooks keep the org's plan in sync; billing page for org owners                          | Done | 2026-10-06. Paddle Billing instead of Stripe (checkout overlay, signed webhooks, customer portal link, Billing page); plans edited in the System console. See goalnexa-cloud `docs/billing.md` |
+| C-03 | Plan limits per org    | The org's plan sets `limits.max_members` / `limits.max_goals`; upgrade prompt on `limit_reached`; downgrade never deletes data                                  | Done | 2026-10-06. Limits live on the plan (personal goals, owned orgs, members and goals per owned org); a subscription is per user and an org gets its owners' best plan; refusal is `402 plan_limit`; a downgrade deletes nothing |
+| C-04 | Public status page     | Public uptime/incident page on its own host, fed by the health endpoint (P-03)                                                                                  | Proposed | Depends on P-03 (endpoint live, alerts not) |
 | C-05 | Signup funnel tracking | Privacy-friendly, cookieless counts: visit -&gt; signup -&gt; verified -&gt; first goal -&gt; first check-in -&gt; paid; shown to operators                     | Proposed |                                         |
 
 
@@ -196,7 +216,7 @@ Cloud's share of the assistant path (the rest is P-17..P-25):
 | ---- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------- |
 | C-17 | Signup source                | Each signup records where it came from (website, which assistant's connector, `?ref=`), shown in the funnel counts                         | In progress | 2026-10-02 - recorded: the `auth.signup` audit event holds `next` path, OAuth `client_id`, `ref` (public, platform-auth). Showing it waits for C-05, which isn't approved |
 | C-18 | Upgrade by chat              | A plan-limit refusal reaching an MCP client carries a message and the billing link the assistant can relay                                 | Done | 2026-10-02. In `goalnexa-cloud`: the refusal ends with the Billing URL (needs `GOALNEXA_PUBLIC_URL` set), and the server instructions say to relay it |
-| C-19 | Assistant directory listings | Listed in the Claude Connectors Directory, then ChatGPT's; whatever each review asks for (test account, policies, support contact)        | Approved | Blocked on the owner: submitting is an account action. P-17..P-19 are done |
+| C-19 | Assistant directory listings | Listed in the Claude Connectors Directory, then ChatGPT's; whatever each review asks for (test account, policies, support contact)        | In progress | 2026-10-04: Claude submitted (in review); ChatGPT plugin submitted (in review; `docs/directory/chatgpt-plugin/`) |
 | C-20 | A reason for Pro besides limits | Decide from beta data what a solo chat user with a few goals would pay for                                                              | Approved | Decision, not code - needs beta data |
 
 
