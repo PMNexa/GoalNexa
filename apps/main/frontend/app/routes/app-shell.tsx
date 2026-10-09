@@ -13,7 +13,7 @@ import {
 import { createMcpNavItems } from "platform-mcp-frontend";
 import { createOrgsNavItems } from "platform-org-frontend";
 import { createExtensionNavItems } from "../extensions";
-import { DashboardIcon, GoalsIcon } from "../lib/navIcons";
+import { DashboardIcon, GoalsIcon, TableIcon } from "../lib/navIcons";
 import { ShellLink } from "../lib/ShellLink";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
 import { useUserMenu } from "../lib/useUserMenu";
@@ -30,7 +30,7 @@ import { useUserMenu } from "../lib/useUserMenu";
 // linked from the user menu. See root AGENTS.md.
 const NAV_ITEMS: NavEntry[] = [
   { label: "Dashboard", to: "/dashboard", icon: DashboardIcon },
-  { label: "Check-in table", to: "/table", icon: GoalsIcon },
+  { label: "Check-in table", to: "/table", icon: TableIcon },
   {
     label: "Goal tracking",
     icon: GoalsIcon,
