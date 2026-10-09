@@ -29,13 +29,15 @@ import CreateRecordModal, {
   type CreateTarget,
 } from "./dashboard/CreateRecordModal";
 import RowMenu from "./dashboard/RowMenu";
-import { buildTree, type TreeNode } from "./dashboard/GoalFilterList";
+import { buildTree, CollapseToggle, type TreeNode } from "./dashboard/GoalFilterList";
+import { readStored, writeStored } from "../lib/storedState";
 
 export interface CheckInTableScreenProps {
   accessToken: string;
 }
 
 const CHUNK = 40;
+const COLLAPSED_KEY = "goalnexa:table-collapsed";
 
 const PlusIcon = (
   <svg
@@ -70,6 +72,8 @@ const TABLE_CSS = `.gn-table-wrap { overflow: auto; max-height: calc(100vh - 14r
 .gn-table td.gn-cell { text-align: right; font-variant-numeric: tabular-nums; }
 .gn-table tr.gn-goal-row th, .gn-table tr.gn-goal-row td { font-weight: 600; background: var(--tblr-bg-surface-secondary, #f6f8fb); }
 .gn-table .gn-sub { display: block; font-size: .7rem; color: var(--tblr-secondary, #667382); font-weight: 400; }
+.gn-table .gn-collapse { color: var(--tblr-secondary, #667382); flex-shrink: 0; }
+.gn-table .gn-collapse-gap { display: inline-block; width: 1.25rem; flex-shrink: 0; }
 .gn-table .gn-target { color: var(--tblr-secondary, #667382); text-align: right; }
 `;
 
@@ -81,6 +85,10 @@ interface Row {
   /** A metric's goal (its own id for a goal row). */
   goalId: string;
   depth: number;
+  /** Ids of the goals/metrics this row hangs under - it's hidden while any of them is collapsed. */
+  ancestors: string[];
+  /** Has rows under it (sub-goals, metrics, sub-metrics) - gets a collapse toggle. */
+  hasChildren: boolean;
   label: string;
   target?: string;
   /** Hover text explaining `target`. */
@@ -225,6 +233,17 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const scrolledFor = useRef<string | null>(null);
   const [createTarget, setCreateTarget] = useState<CreateTarget | null>(null);
+  // Collapsed goal/metric ids, remembered per browser.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(readStored<string[]>(COLLAPSED_KEY, [])));
+  function toggleCollapsed(id: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      writeStored(COLLAPSED_KEY, [...next]);
+      return next;
+    });
+  }
 
   useEffect(() => {
     let live = true;
@@ -282,7 +301,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
         a.name.localeCompare(b.name),
       );
 
-    const metricRow = (m: Metric, depth: number): Row => {
+    const metricRow = (m: Metric, depth: number, ancestors: string[], hasChildren: boolean): Row => {
       const series = computeValueSeries(m, checkIns);
       const tracked = isTracked(m);
       const unit = m.unit ? ` ${m.unit}` : "";
@@ -322,6 +341,8 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
         id: m.id,
         goalId: m.goal,
         depth,
+        ancestors,
+        hasChildren,
         label: m.name,
         target: tracked
           ? "tracked"
@@ -337,13 +358,13 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
       };
     };
 
-    const metricRows = (nodes: TreeNode<Metric>[], depth: number): Row[] =>
+    const metricRows = (nodes: TreeNode<Metric>[], depth: number, ancestors: string[]): Row[] =>
       nodes.flatMap((n) => [
-        metricRow(n.item, depth),
-        ...metricRows(n.children, depth + 1),
+        metricRow(n.item, depth, ancestors, n.children.length > 0),
+        ...metricRows(n.children, depth + 1, [...ancestors, n.item.id]),
       ]);
 
-    const goalRow = (goal: Goal, depth: number): Row => {
+    const goalRow = (goal: Goal, depth: number, ancestors: string[], hasChildren: boolean): Row => {
       const own = metricsByGoal.get(goal.id) ?? [];
       const usable = rootMetrics(own).filter((m) => !isTracked(m));
       const series = new Map(
@@ -378,19 +399,25 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
         id: goal.id,
         goalId: goal.id,
         depth,
+        ancestors,
+        hasChildren,
         label: goal.title,
         cells,
       };
     };
 
-    const goalRows = (nodes: TreeNode<Goal>[], depth: number): Row[] =>
-      nodes.flatMap((n) => [
-        goalRow(n.item, depth),
-        ...metricRows(buildTree(sortedMetrics(n.item.id)), depth + 1),
-        ...goalRows(n.children, depth + 1),
-      ]);
+    const goalRows = (nodes: TreeNode<Goal>[], depth: number, ancestors: string[]): Row[] =>
+      nodes.flatMap((n) => {
+        const inner = [...ancestors, n.item.id];
+        const metrics = buildTree(sortedMetrics(n.item.id));
+        return [
+          goalRow(n.item, depth, ancestors, metrics.length > 0 || n.children.length > 0),
+          ...metricRows(metrics, depth + 1, inner),
+          ...goalRows(n.children, depth + 1, inner),
+        ];
+      });
 
-    return { columns, rows: goalRows(buildTree(goals), 0) };
+    return { columns, rows: goalRows(buildTree(goals), 0, []) };
   }, [data, orgKey, snap, weekStart]);
 
   const filled = Object.entries(draftValues).filter(
@@ -637,7 +664,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {table.rows.map((row) => (
+                  {table.rows.filter((row) => !row.ancestors.some((id) => collapsed.has(id))).map((row) => (
                     <tr
                       key={row.key}
                       className={
@@ -654,6 +681,15 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
                         title={row.label}
                       >
                         <span className="d-flex align-items-center gap-1">
+                          {row.hasChildren ? (
+                            <CollapseToggle
+                              collapsed={collapsed.has(row.id)}
+                              name={row.label}
+                              onToggle={() => toggleCollapsed(row.id)}
+                            />
+                          ) : (
+                            <span className="gn-collapse-gap" aria-hidden="true" />
+                          )}
                           <span className="flex-grow-1 text-truncate">
                             {row.label}
                           </span>

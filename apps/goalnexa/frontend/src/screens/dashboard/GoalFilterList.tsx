@@ -116,7 +116,7 @@ const ChevronIcon = (
 );
 
 /** Folds a node's branches; the node ids it holds are remembered per browser. */
-function CollapseToggle({ collapsed, name, onToggle }: { collapsed: boolean; name: string; onToggle: () => void }) {
+export function CollapseToggle({ collapsed, name, onToggle }: { collapsed: boolean; name: string; onToggle: () => void }) {
   const label = `${collapsed ? "Expand" : "Collapse"} ${name}`;
   return (
     <button type="button" className={`gn-collapse${collapsed ? " is-collapsed" : ""}`} aria-expanded={!collapsed} aria-label={label} title={label} onClick={onToggle}>
