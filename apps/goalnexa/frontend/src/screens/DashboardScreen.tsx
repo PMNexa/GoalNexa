@@ -396,9 +396,10 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   const slotOf = (goalId: string) => selected.get(goalId) ?? 1;
   const atLimit = selected.size >= MAX_GOALS;
 
-  // A chosen organization with no goals at all gets the setup wizard, not an empty dashboard.
+  // A chosen organization with no goals (archived ones don't count) gets the setup wizard, not an empty dashboard.
+  const hasActiveGoals = (goals ?? []).some((goal) => goal.status !== "archived");
   const emptyOrg =
-    orgKey !== null && orgKey !== PERSONAL_ORG && goals !== null && goals.length === 0 && !setupSkipped.has(orgKey)
+    orgKey !== null && orgKey !== PERSONAL_ORG && goals !== null && !hasActiveGoals && !setupSkipped.has(orgKey)
       ? orgs?.find((org) => org.id === orgKey)
       : undefined;
   if (emptyOrg) {
@@ -599,7 +600,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
               <div className="text-secondary small">Loading goals…</div>
             ) : shownGoals.length === 0 ? (
               <div className="text-secondary small">
-                {goals.length === 0 ? "No goals in this organization yet." : "No goals in this cycle yet."}
+                {!hasActiveGoals ? "No goals in this organization yet." : "No goals in this cycle yet."}
               </div>
             ) : (
               <GoalFilterList
