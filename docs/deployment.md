@@ -103,7 +103,7 @@ BACKEND_REPLICAS=2
 FRONTEND_REPLICAS=2
 # Outgoing email: password reset, email verification (on by default in
 # saas mode - enforced only once this is set), invitations, reminders.
-# Amazon SES: see step 9 (port 2587 - DigitalOcean blocks 587).
+# Brevo: see step 9 (port 2525 - DigitalOcean blocks 587).
 EMAIL_URL="smtp://<user>:<password>@<smtp-host>:587"
 EMAIL_FROM="GoalNexa <noreply@<app.yourdomain.com>>"
 ```
@@ -176,60 +176,45 @@ EOF
      HTTPS.
    - Nothing else. The database is reached over the VPC.
 
-## 9. Email (Amazon SES)
+## 9. Email (Brevo)
 
 Verification, password resets, invitations, reminders and digests. Any
-SMTP provider works through `EMAIL_URL`; these are the steps for SES.
-Without it nothing is sent (logged as failed on System > Outgoing
-emails) and email verification isn't enforced.
+SMTP provider works through `EMAIL_URL`; these are the steps for Brevo
+(free: 300 emails a day). Without it nothing is sent (logged as failed on
+System > Outgoing emails) and email verification isn't enforced.
 
 **DigitalOcean blocks outbound 25, 465 and 587** on most accounts, so
-Gmail and most providers' standard ports never connect. SES also listens
-on **2587** (STARTTLS) and **2465** (TLS), which get through. Check a
-provider before configuring it:
+Gmail and most providers' standard ports never connect. Brevo also
+listens on **2525** (STARTTLS), which gets through. Check a provider
+before configuring it:
 
 ```bash
-ssh deploy@<public-ip> nc -4 -vz -w 5 email-smtp.<region>.amazonaws.com 2587
+ssh deploy@<public-ip> nc -4 -vz -w 5 smtp-relay.brevo.com 2525
 ```
 
-1. **Region.** AWS console > SES, in a region near the Droplet (e.g.
-   `ap-southeast-1` for SGP, `eu-central-1` for FRA). Everything below
-   is per region.
-2. **Verify the domain.** Identities > Create identity > Domain >
-   `<app.yourdomain.com>`, Easy DKIM (RSA 2048), and a **custom MAIL FROM
-   domain** `mail.<app.yourdomain.com>` (so SPF aligns with the From
-   domain, which DMARC needs). Add the records SES lists:
-
-   | Type | Name | Value |
-   |---|---|---|
-   | CNAME x3 | `<token>._domainkey.<app.yourdomain.com>` | `<token>.dkim.amazonses.com` |
-   | MX | `mail.<app.yourdomain.com>` | `10 feedback-smtp.<region>.amazonses.com` |
-   | TXT | `mail.<app.yourdomain.com>` | `v=spf1 include:amazonses.com ~all` |
-   | TXT | `_dmarc.<app.yourdomain.com>` | `v=DMARC1; p=none; rua=mailto:<you@yourdomain.com>` |
-
-   On Cloudflare, set the CNAMEs to DNS only (not proxied). Wait for
-   "Verified" (usually 5-30 minutes).
-3. **Leave the sandbox.** A new account only sends to verified addresses,
-   200 a day. Account dashboard > Request production access: mail type
-   Transactional, the site's URL, and a use case along the lines of
-   "account verification, password resets, team invitations, goal
-   reminders and opt-in digests; users sign up themselves; no marketing;
-   reminders and digests can be turned off per user". Usually about a
-   day. Meanwhile, verify your own address as an identity to test with.
-4. **SMTP credentials.** SMTP settings > Create SMTP credentials (an IAM
-   user). The password is shown once - keep it in the password manager.
-   These are not the IAM user's access keys.
-5. **`EMAIL_URL`.** Port 2587 needs `?tls=1` (STARTTLS is only on by
-   default for 587). SES passwords often contain `/` or `+`: URL-encode
-   the password (it's decoded again). Quote both values - `deploy.sh`
-   sources this file as shell, and a bare `<`/`>` fails the deploy.
-
-   ```bash
-   python3 -c 'import urllib.parse,getpass;print(urllib.parse.quote(getpass.getpass(),safe=""))'
-   ```
+1. **Account.** Sign up at brevo.com (free plan) and complete the
+   profile (company, address, phone) - sending stays off until it's
+   done. "SMTP account not activated" later means asking Brevo support
+   to activate transactional email.
+2. **Authenticate the domain.** Your name (top right) > Senders,
+   Domains & Dedicated IPs > Domains > Add a domain >
+   `<app.yourdomain.com>`, set up manually. Add the records Brevo lists
+   (a `brevo-code:` TXT, two DKIM records `brevo1._domainkey` /
+   `brevo2._domainkey`, and a DMARC TXT if you have none), then
+   Authenticate. On Cloudflare, CNAMEs are DNS only (not proxied).
+3. **Sender.** Senders > Add a sender: `GoalNexa`,
+   `noreply@<app.yourdomain.com>` (no inbox confirmation once the domain
+   is authenticated).
+4. **SMTP key.** Your name > SMTP & API > SMTP: copy the **Login**
+   (`xxxx@smtp-brevo.com` - not your account email) and Generate a new
+   SMTP key (shown once - keep it in the password manager).
+5. **`EMAIL_URL`.** The login's `@` is written `%40`; port 2525 needs
+   `?tls=1` (STARTTLS is only on by default for 587). Quote both values -
+   `deploy.sh` sources this file as shell, and a bare `<`/`>` fails the
+   deploy.
 
    ```ini
-   EMAIL_URL="smtp://<smtp-user>:<encoded-password>@email-smtp.<region>.amazonaws.com:2587?tls=1"
+   EMAIL_URL="smtp://<login>%40smtp-brevo.com:<smtp-key>@smtp-relay.brevo.com:2525?tls=1"
    EMAIL_FROM="GoalNexa <noreply@<app.yourdomain.com>>"
    ```
 
@@ -240,10 +225,12 @@ ssh deploy@<public-ip> nc -4 -vz -w 5 email-smtp.<region>.amazonaws.com 2587
 6. **Test.** System > Settings > "Test email" card, then System >
    Outgoing emails shows it sent. Sign up with a fresh address: the
    confirmation arrives. In Gmail, "Show original" shows SPF, DKIM and
-   DMARC all `PASS`.
-7. **Later.** Once mail lands in inboxes for a couple of weeks, tighten
-   DMARC to `p=quarantine`. Bounces and complaints show only in the SES
-   console for now (not on Status yet - roadmap C-01).
+   DMARC all `PASS`. Brevo > Transactional > Logs shows each message.
+7. **Past 300 a day** (reminders and digests count): a paid Brevo plan,
+   or Amazon SES - `email-smtp.<region>.amazonaws.com:2587?tls=1` with
+   **IAM SMTP credentials** (SES > SMTP settings; not "Mail Manager
+   SMTP", a separate paid product), a verified domain and production
+   access requested. Only `EMAIL_URL`/`EMAIL_FROM` change.
 
 ## 10. First deploy
 
