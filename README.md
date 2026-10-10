@@ -110,7 +110,7 @@ address: it connects the MCP server if needed (asking you for a token), saves
 each skill where your client looks for skills, and tells you what it installed.
 Run the same line again to update them.
 
-![MCP access page: tokens, per-client setup and the skills install prompt](docs/media/mcp-access-full.png)
+![MCP access page: tokens, connected apps, the connect wizard's app picker and the skills install prompt](docs/media/mcp-access-full.png)
 
 ## Get started
 

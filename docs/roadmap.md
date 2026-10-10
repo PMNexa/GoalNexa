@@ -136,6 +136,28 @@ without the website. Listed in priority order; all live in
 | P-30 | Manual order + drag and drop | Goals, sub-goals, metrics and sub-metrics keep an order the user sets by dragging rows in the dashboard tree and the check-in table, within the same parent | Done | 2026-10-09. Asked for directly. `position` + `POST goals|metrics/reorder`; moving under another parent stays in the edit form |
 | P-35 | Pick goals in the check-in table | The check-in table shows only the goals picked (several at once, each with its sub-goals); none picked = all; remembered per organization | Done | 2026-10-10. Asked for directly. `GoalPicker` beside "New goal"; columns follow the shown goals' check-ins |
 
+#### Connect guides, client by client
+
+Asked for directly (2026-10-10), after connecting Gemini's web app took
+trial and error. Getting connected is where the agent path is lost: each
+client hides MCP in a different menu, some sign in with OAuth and some
+need a token, and some have eligibility rules (Gemini web: US, 18+,
+personal account, Keep Activity on). Order: one source of truth first,
+then the wizard and its live check, then measurement, then media. Media
+of third-party screens goes stale whenever a vendor redesigns, so text
+plus our own "it worked" check carries the guide. Screenshots and video
+come last, only for the chat apps where non-technical users start.
+
+| ID   | Item                              | Requirement | Status   | Notes |
+| ---- | --------------------------------- | ----------- | -------- | ----- |
+| P-36 | One guide source per client       | `MCP_CLIENTS` grows into the single record per client: group (chat app / IDE / CLI), sign-in (OAuth or token), where it works (web, desktop, phone), eligibility, steps (each with an optional image), how to check it worked, known problems and a "last checked" date. Adds Gemini (web) and ChatGPT. The README's client section is generated from it (a script plus a CI check that fails when they differ) | Done | 2026-10-10. `lib/clients.ts` records; README section generated (`npm run readme`, checked in platform-mcp CI). Step images from P-40. Claude, ChatGPT and Gemini steps checked 2026-10-10 (Claude: up to Add) |
+| P-37 | Connect wizard with a live check  | The `/mcp` page and the onboarding "AI agent" path become a wizard: pick your app (icons, grouped, most popular first), then one step per screen with copy buttons, then "Waiting for <app>..." that turns into "Connected" once the server sees that client register or call a tool (polls the existing connected-apps data), then a first prompt to try ("How are my goals doing?") | Done | 2026-10-10. All steps on one screen (users flip to the other app and back), not one per screen. Live check polls connected apps + tokens; checked with a real token in a browser, not yet with a real OAuth client. The live check replaces "how to check it worked" for users: they don't need to know where each client lists its servers |
+| P-38 | Public connect pages              | `/connect` and `/connect/<client>` work signed out, built from the same records (P-36), with the instance's own URL filled in. They are linkable from the README, the docs, support replies and the server's MCP instructions | Proposed | For people deciding whether to sign up, and for sending someone the steps for one client |
+| P-39 | Connect funnel on Insights        | Per client: guide opened, OAuth client registered or token created, first tool call, first check-in by an agent. A "This step didn't work" link on each step records the client and step (`count`, no free text) | Proposed | Shows which client's guide needs work first; feeds P-40/P-41 priorities |
+| P-40 | Screenshots for chat apps         | Annotated screenshots for each step of Claude (web), ChatGPT and Gemini (web), stored under `docs/media/connect/<client>/` and shown in the wizard and the public pages. Our own screens (consent, connected) are captured by script from the demo account (`seed_demo.py`) so they never go stale | Done | 2026-10-10 (asked for directly). Image per step in the wizard and README, `consent.png` and `chat.png` (a neutral chat around a real exchange, shown with "Connected") by script (`npm run screens`), `annotate_shot.py`, shot list in platform-mcp `docs/connect-screenshots.md`. Claude's 4 shots taken 2026-10-10 in a browser the user signed in to (Claude had moved connectors to Customize; steps updated). ChatGPT's and Gemini's taken the same day (ChatGPT: Plugins → Add custom MCP server, no developer mode, works on Free; Gemini: no US-only limit seen). ChatGPT's steps run end to end by the user the same day. Third-party screens are captured by hand; each image carries its "last checked" date |
+| P-41 | Short videos for top clients      | A 30-60 second silent captioned clip (mp4 + gif) per top client from P-39's numbers, from "open settings" to the first check-in; embedded on its public page | Proposed | Only after P-37 and P-40 are stable: re-recording costs the most |
+| P-42 | Guide freshness check             | A monthly checklist (in `docs/`) to run every client's guide end to end and update its "last checked" date; a guide not checked for 90 days shows "may be out of date" | Proposed | Vendors move MCP settings often (Gemini added custom apps in June 2026) |
+
 
 ### Next - Q1 2027 - Know how it's used
 

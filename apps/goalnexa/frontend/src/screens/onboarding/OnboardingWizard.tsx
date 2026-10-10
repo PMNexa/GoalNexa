@@ -503,7 +503,7 @@ const CHOICES: { mode: Mode; title: string; text: string; recommended?: boolean 
   {
     mode: "agent",
     title: "Use an AI agent",
-    text: "Connect Claude, Codex, Cursor, VS Code… and manage goals by chatting - “we hit 420 beta users today”.",
+    text: "Connect Claude, ChatGPT, Gemini, Cursor… and manage goals by chatting - “we hit 420 beta users today”.",
     recommended: true,
   },
   {

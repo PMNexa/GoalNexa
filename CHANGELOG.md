@@ -9,6 +9,16 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Connect wizard for AI assistants.** The "MCP access" page and the
+  onboarding's AI agent path now start with "Which app do you use?" -
+  Claude, ChatGPT, Gemini, Cursor, VS Code, Windsurf, Claude Code, Codex,
+  Gemini CLI and more - then show that app's steps (with who can use it,
+  e.g. Gemini's custom apps need a personal Google account) and turn
+  "Waiting for <app>" into "Connected" by themselves as soon as the app
+  signs in or uses its token. Claude, ChatGPT and Gemini have a
+  screenshot for every step, and "Connected" shows a first question
+  asked in a chat.
+  ChatGPT and Gemini (web) are new.
 - **System > Insights.** A new console page shows how the instance is
   used and how well it runs, for the last 7, 30 or 90 days against the
   period before: daily numbers with sparklines (active users, sign-ups,

@@ -218,8 +218,9 @@ use GoalNexa, and each answer has its own steps. **Website**: org name →
 goals (optional target date) → metrics per goal (start → target, must
 differ) → review, then it creates everything over the REST API
 (`lib/api/onboarding.ts`) and opens the dashboard on the new org.
-**AI agent**: connect (platform-mcp-frontend's `McpConnectGuide` - pick
-the client, its own steps and snippet, "Create a token" fills it in) →
+**AI agent**: connect (platform-mcp-frontend's `McpConnectGuide` wizard -
+pick the client, its own steps and snippet, "Create a token" fills it
+in, and it shows "Connected" once the client reaches the server) →
 install the skills (the copyable prompt) → starter prompts (plan / check
 in / review); finishing counts as "Skip for now" - the agent creates the
 org. Nothing is written before the
