@@ -103,8 +103,8 @@ BACKEND_REPLICAS=2
 FRONTEND_REPLICAS=2
 # Outgoing email: password reset, email verification (on by default in
 # saas mode - enforced only once this is set), invitations, reminders.
-# Gmail: see step 9 (DigitalOcean may block port 587).
-EMAIL_URL=smtp://<user>:<password>@<smtp-host>:587
+# Amazon SES: see step 9 (port 2587 - DigitalOcean blocks 587).
+EMAIL_URL="smtp://<user>:<password>@<smtp-host>:587"
 EMAIL_FROM="GoalNexa <noreply@<app.yourdomain.com>>"
 ```
 
@@ -176,58 +176,74 @@ EOF
      HTTPS.
    - Nothing else. The database is reached over the VPC.
 
-## 9. Email (Gmail)
+## 9. Email (Amazon SES)
 
 Verification, password resets, invitations, reminders and digests. Any
-SMTP provider works through `EMAIL_URL`; these are the steps for a Gmail
-account. Without it nothing is sent (logged as failed on System >
-Outgoing emails) and email verification isn't enforced.
+SMTP provider works through `EMAIL_URL`; these are the steps for SES.
+Without it nothing is sent (logged as failed on System > Outgoing
+emails) and email verification isn't enforced.
 
-1. **The account.** A Gmail address used only for this (e.g.
-   `<yourapp>@gmail.com`), or a Google Workspace user on your domain.
-   Turn on 2-Step Verification (myaccount.google.com > Security) - app
-   passwords need it.
-2. **App password.** myaccount.google.com/apppasswords > name it
-   "GoalNexa" > copy the 16 characters (without the spaces) into the
-   password manager. It's shown once. Changing the account's password
-   revokes it.
-3. **Is the port open?** Gmail's SMTP only listens on 465 and 587, and
-   DigitalOcean blocks outbound 25, 465 and 587 on most accounts:
+**DigitalOcean blocks outbound 25, 465 and 587** on most accounts, so
+Gmail and most providers' standard ports never connect. SES also listens
+on **2587** (STARTTLS) and **2465** (TLS), which get through. Check a
+provider before configuring it:
+
+```bash
+ssh deploy@<public-ip> nc -4 -vz -w 5 email-smtp.<region>.amazonaws.com 2587
+```
+
+1. **Region.** AWS console > SES, in a region near the Droplet (e.g.
+   `ap-southeast-1` for SGP, `eu-central-1` for FRA). Everything below
+   is per region.
+2. **Verify the domain.** Identities > Create identity > Domain >
+   `<app.yourdomain.com>`, Easy DKIM (RSA 2048), and a **custom MAIL FROM
+   domain** `mail.<app.yourdomain.com>` (so SPF aligns with the From
+   domain, which DMARC needs). Add the records SES lists:
+
+   | Type | Name | Value |
+   |---|---|---|
+   | CNAME x3 | `<token>._domainkey.<app.yourdomain.com>` | `<token>.dkim.amazonses.com` |
+   | MX | `mail.<app.yourdomain.com>` | `10 feedback-smtp.<region>.amazonses.com` |
+   | TXT | `mail.<app.yourdomain.com>` | `v=spf1 include:amazonses.com ~all` |
+   | TXT | `_dmarc.<app.yourdomain.com>` | `v=DMARC1; p=none; rua=mailto:<you@yourdomain.com>` |
+
+   On Cloudflare, set the CNAMEs to DNS only (not proxied). Wait for
+   "Verified" (usually 5-30 minutes).
+3. **Leave the sandbox.** A new account only sends to verified addresses,
+   200 a day. Account dashboard > Request production access: mail type
+   Transactional, the site's URL, and a use case along the lines of
+   "account verification, password resets, team invitations, goal
+   reminders and opt-in digests; users sign up themselves; no marketing;
+   reminders and digests can be turned off per user". Usually about a
+   day. Meanwhile, verify your own address as an identity to test with.
+4. **SMTP credentials.** SMTP settings > Create SMTP credentials (an IAM
+   user). The password is shown once - keep it in the password manager.
+   These are not the IAM user's access keys.
+5. **`EMAIL_URL`.** Port 2587 needs `?tls=1` (STARTTLS is only on by
+   default for 587). SES passwords often contain `/` or `+`: URL-encode
+   the password (it's decoded again). Quote both values - `deploy.sh`
+   sources this file as shell, and a bare `<`/`>` fails the deploy.
 
    ```bash
-   ssh deploy@<public-ip> nc -vz -w 5 smtp.gmail.com 587
+   python3 -c 'import urllib.parse,getpass;print(urllib.parse.quote(getpass.getpass(),safe=""))'
    ```
-
-   A timeout means blocked: open a DigitalOcean support ticket asking to
-   lift the SMTP restriction for the Droplet (transactional mail for
-   your own app, through Gmail's authenticated SMTP). Until it's lifted
-   no mail goes out - a provider with an alternative port (e.g. SES on
-   2587) is the way around it.
-4. **`EMAIL_URL`.** The username is the full address, so its `@` is
-   written `%40` (it's decoded again). STARTTLS on 587 is the default.
 
    ```ini
-   EMAIL_URL=smtp://<yourapp>%40gmail.com:<app-password>@smtp.gmail.com:587
-   EMAIL_FROM="GoalNexa <<yourapp>@gmail.com>"
+   EMAIL_URL="smtp://<smtp-user>:<encoded-password>@email-smtp.<region>.amazonaws.com:2587?tls=1"
+   EMAIL_FROM="GoalNexa <noreply@<app.yourdomain.com>>"
    ```
-
-   Keep the quotes around `EMAIL_FROM`: `deploy.sh` sources this file as
-   shell, and a bare `<`/`>` is a syntax error that fails the deploy.
-   `EMAIL_FROM` must be that address (or a "Send mail as" alias verified
-   in Gmail's settings) - Gmail rewrites any other From. No DNS records
-   needed: mail is signed as gmail.com (or your Workspace domain, once
-   its DKIM is on in the Admin console).
 
    Put both in `.env.production`, update the secret (`gh secret set ...
    PROD_ENV`, step 7) and deploy - the env only changes on a deploy.
-5. **Test.** System > Settings > "Test email" card, then System >
+   While `EMAIL_URL` is set but can't send, new signups wait for a
+   confirmation that never arrives (in saas mode), so test right away.
+6. **Test.** System > Settings > "Test email" card, then System >
    Outgoing emails shows it sent. Sign up with a fresh address: the
-   confirmation arrives. Check it isn't in spam.
-6. **Limits.** Gmail sends to about 500 recipients a day (Workspace:
-   2,000); past that the account is blocked from sending for up to a
-   day. Reminders and digests count. Watch Outgoing emails as users
-   grow, and move to a transactional provider (SES, Postmark, Resend)
-   before you get near it - only `EMAIL_URL`/`EMAIL_FROM` change.
+   confirmation arrives. In Gmail, "Show original" shows SPF, DKIM and
+   DMARC all `PASS`.
+7. **Later.** Once mail lands in inboxes for a couple of weeks, tighten
+   DMARC to `p=quarantine`. Bounces and complaints show only in the SES
+   console for now (not on Status yet - roadmap C-01).
 
 ## 10. First deploy
 
