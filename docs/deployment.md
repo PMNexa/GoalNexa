@@ -103,6 +103,7 @@ BACKEND_REPLICAS=2
 FRONTEND_REPLICAS=2
 # Outgoing email: password reset, email verification (on by default in
 # saas mode - enforced only once this is set), invitations, reminders.
+# Gmail: see step 9 (DigitalOcean may block port 587).
 EMAIL_URL=smtp://<user>:<password>@<smtp-host>:587
 EMAIL_FROM=GoalNexa <noreply@<app.yourdomain.com>>
 ```
@@ -175,7 +176,58 @@ EOF
      HTTPS.
    - Nothing else. The database is reached over the VPC.
 
-## 9. First deploy
+## 9. Email (Gmail)
+
+Verification, password resets, invitations, reminders and digests. Any
+SMTP provider works through `EMAIL_URL`; these are the steps for a Gmail
+account. Without it nothing is sent (logged as failed on System >
+Outgoing emails) and email verification isn't enforced.
+
+1. **The account.** A Gmail address used only for this (e.g.
+   `<yourapp>@gmail.com`), or a Google Workspace user on your domain.
+   Turn on 2-Step Verification (myaccount.google.com > Security) - app
+   passwords need it.
+2. **App password.** myaccount.google.com/apppasswords > name it
+   "GoalNexa" > copy the 16 characters (without the spaces) into the
+   password manager. It's shown once. Changing the account's password
+   revokes it.
+3. **Is the port open?** Gmail's SMTP only listens on 465 and 587, and
+   DigitalOcean blocks outbound 25, 465 and 587 on most accounts:
+
+   ```bash
+   ssh deploy@<public-ip> nc -vz -w 5 smtp.gmail.com 587
+   ```
+
+   A timeout means blocked: open a DigitalOcean support ticket asking to
+   lift the SMTP restriction for the Droplet (transactional mail for
+   your own app, through Gmail's authenticated SMTP). Until it's lifted
+   no mail goes out - a provider with an alternative port (e.g. SES on
+   2587) is the way around it.
+4. **`EMAIL_URL`.** The username is the full address, so its `@` is
+   written `%40` (it's decoded again). STARTTLS on 587 is the default.
+
+   ```ini
+   EMAIL_URL=smtp://<yourapp>%40gmail.com:<app-password>@smtp.gmail.com:587
+   EMAIL_FROM=GoalNexa <<yourapp>@gmail.com>
+   ```
+
+   `EMAIL_FROM` must be that address (or a "Send mail as" alias verified
+   in Gmail's settings) - Gmail rewrites any other From. No DNS records
+   needed: mail is signed as gmail.com (or your Workspace domain, once
+   its DKIM is on in the Admin console).
+
+   Put both in `.env.production`, update the secret (`gh secret set ...
+   PROD_ENV`, step 7) and deploy - the env only changes on a deploy.
+5. **Test.** System > Settings > "Test email" card, then System >
+   Outgoing emails shows it sent. Sign up with a fresh address: the
+   confirmation arrives. Check it isn't in spam.
+6. **Limits.** Gmail sends to about 500 recipients a day (Workspace:
+   2,000); past that the account is blocked from sending for up to a
+   day. Reminders and digests count. Watch Outgoing emails as users
+   grow, and move to a transactional provider (SES, Postmark, Resend)
+   before you get near it - only `EMAIL_URL`/`EMAIL_FROM` change.
+
+## 10. First deploy
 
 `main` and `deploy` start at the same commit, so run the workflow by
 hand:
@@ -195,7 +247,7 @@ Check: `ssh deploy@<public-ip> docker service ls` - replicas 2/2, 2/2,
 1/1, and 1/1 for `main-scheduler` (check-in reminders and goal health,
 `manage.py goalnexa_jobs`).
 
-## 10. Day to day
+## 11. Day to day
 
 **Release** - in goalnexa-cloud: bring in the public repo's `main`
 (the daily sync, or run it now), then a PR from `main` into `deploy`,

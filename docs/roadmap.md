@@ -194,7 +194,7 @@ through the sync, so P-01..P-03 land there before paid launch.
 
 | ID   | Item                   | Requirement                                                                                                                                                     | Status   | Notes                                   |
 | ---- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------- |
-| C-01 | Email provider live    | Transactional email from our domain (SPF/DKIM/DMARC), `EMAIL_URL` set in the stack, verification/invite/reset/digest mails delivered; bounces visible on Status | Proposed | Q-1 decided: SES. Left: domain setup and `EMAIL_URL` in the stack |
+| C-01 | Email provider live    | Transactional email from our domain (SPF/DKIM/DMARC), `EMAIL_URL` set in the stack, verification/invite/reset/digest mails delivered; bounces visible on Status | Proposed | Q-1 decided: Gmail (app password, ~500 recipients a day) to start. Left: DigitalOcean's SMTP port block, `EMAIL_URL` in the stack. Setup: `docs/deployment.md` step 9 |
 | C-02 | Plans + billing        | Free/Pro/Team/Business plans; Paddle checkout and customer portal; signed webhooks keep subscriptions in sync; Billing page; plans edited in the System console | Done | 2026-10-06. Paddle instead of Stripe (Gumroad first, replaced 2026-10-05); prorated amount shown before a switch; `/pay` for Paddle's payment link. Live payments wait for Paddle's approval and setup |
 | C-03 | Plan limits per org    | Each plan limits personal goals, owned orgs, and members and goals per owned org; refusal `402 plan_limit` with the pricing link; a downgrade never deletes data | Done | 2026-10-06. A subscription is per user; an org gets its owners' best plan; `BILLING_ENFORCE_LIMITS` turns limits off. See goalnexa-cloud `docs/billing.md` |
 | C-04 | Public status page     | Public uptime/incident page on its own host, fed by the health endpoint (P-03)                                                                                  | Proposed | Depends on P-03 (endpoint live, alerts not) |
@@ -287,7 +287,7 @@ and email verification are live.
 
 | ID  | Question                                                                                                 | Blocks                 | Decision               |
 | --- | -------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------- |
-| Q-1 | Which email provider for Cloud (Postmark, Resend, SES), and does it send from our domain?                | C-01                   | SES                    |
+| Q-1 | Which email provider for Cloud (Postmark, Resend, SES), and does it send from our domain?                | C-01                   | Gmail to start (sends as gmail.com, not our domain); a transactional provider before ~500 mails a day |
 | Q-2 | Do any Cloud features stay out of the public version (SSO, audit streaming), or only limits and support? | P-05, P-15, C-07, C-08 | only limit and support |
 | Q-3 | Is an EU region needed for the first paying teams?                                                       | C-12                   | yes                    |
 
