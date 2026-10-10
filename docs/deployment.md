@@ -105,7 +105,7 @@ FRONTEND_REPLICAS=2
 # saas mode - enforced only once this is set), invitations, reminders.
 # Gmail: see step 9 (DigitalOcean may block port 587).
 EMAIL_URL=smtp://<user>:<password>@<smtp-host>:587
-EMAIL_FROM=GoalNexa <noreply@<app.yourdomain.com>>
+EMAIL_FROM="GoalNexa <noreply@<app.yourdomain.com>>"
 ```
 
 Keep a copy in a password manager. Changing `JWT_SECRET` logs everyone
@@ -208,9 +208,11 @@ Outgoing emails) and email verification isn't enforced.
 
    ```ini
    EMAIL_URL=smtp://<yourapp>%40gmail.com:<app-password>@smtp.gmail.com:587
-   EMAIL_FROM=GoalNexa <<yourapp>@gmail.com>
+   EMAIL_FROM="GoalNexa <<yourapp>@gmail.com>"
    ```
 
+   Keep the quotes around `EMAIL_FROM`: `deploy.sh` sources this file as
+   shell, and a bare `<`/`>` is a syntax error that fails the deploy.
    `EMAIL_FROM` must be that address (or a "Send mail as" alias verified
    in Gmail's settings) - Gmail rewrites any other From. No DNS records
    needed: mail is signed as gmail.com (or your Workspace domain, once
