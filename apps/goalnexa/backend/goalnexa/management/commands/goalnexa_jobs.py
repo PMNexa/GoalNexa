@@ -7,7 +7,8 @@ what no request triggers:
 - every goal gets its daily snapshot, and due digests go out
   (`goalnexa.digest`);
 - the platform's own jobs run (`core_api.system.run_system_jobs`:
-  retrying queued email).
+  retrying queued email);
+- lifecycle email goes out (`core_api.lifecycle.run_lifecycle_jobs`).
 
 Each run reports a heartbeat - the admin's Status page shows when the
 scheduler last ran and whether it failed.
@@ -23,6 +24,7 @@ from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 from django.utils import timezone
 
+from core_api.lifecycle import run_lifecycle_jobs
 from core_api.system import count, heartbeat, run_system_jobs
 from goalnexa.digest import send_due_digests, snapshot_goals
 from goalnexa.models import Goal, GoalHealth
@@ -46,6 +48,8 @@ def run_once() -> dict:
         "digests": send_due_digests(),
         # The platform's own periodic work (retrying queued email).
         **run_system_jobs(),
+        # Lifecycle email: enroll, send due steps, attribute conversions.
+        **run_lifecycle_jobs(),
     }
 
 

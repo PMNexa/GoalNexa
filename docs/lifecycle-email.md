@@ -4,7 +4,9 @@ Design for the emails GoalNexa sends on its own initiative - onboarding,
 habit, team, win-back and (Cloud) upgrade - to move each user one step
 along **signup -> first check-in -> weekly habit -> team -> paid**, and
 to bring back the ones who drift. Roadmap: P-43..P-47 and C-22
-(`docs/roadmap.md`). Status: proposed, nothing built yet.
+(`docs/roadmap.md`). Status: P-43..P-45 built (foundation, onboarding,
+engagement, measurement); C-22, P-46 and P-47 not yet. "As built" below
+notes where the code differs from the first design.
 
 Transactional mail (verification, password reset, invitations, check-in
 reminders, the digest) already exists and is not changed here, except
@@ -143,15 +145,18 @@ subscribers (P-46).
    holdout -> category on -> address not suppressed -> frequency cap ->
    quiet hours (reschedule, don't drop) -> condition still true (else
    skip the step).
-5. **Templates.** Django templates in each module's package
-   (`<module>/templates/lifecycle/<journey>/<step>.{txt,html,subject}`),
-   one shared layout (logo, footer with the unsubscribe link and the
-   postal address CAN-SPAM requires), variables: name, goal, %, days left,
-   links.
-6. **Sending** through `send_email` (the existing outbox: retries,
-   delivery log) with `kind="lifecycle:<journey>.<step>"`. `send_email`
-   gains `headers=` (for `List-Unsubscribe`) and the SES configuration
-   set header (`X-SES-CONFIGURATION-SET`, from a setting).
+5. **Templates.** As built: a step's `render(ctx)` returns a `Message`
+   (subject, short paragraphs, one button, lines after it) or None to skip
+   - Python next to the step's condition, not template files. One shared
+   layout (`platform_lifecycle/layout.py`) makes the text and HTML; the
+   outbox adds the footer (why it came, unsubscribe link, the
+   `email.postal_address` setting) to every categorized email.
+6. **Sending** through the outbox (retries, delivery log) with
+   `kind="lifecycle:<journey>.<step>"`. `send_email` gained `category=`
+   (preference check, unsubscribe headers and footer) and `headers=`;
+   every message carries `X-SES-CONFIGURATION-SET` when
+   `email.ses_configuration_set` is set. The check-in reminder and digest
+   emails go under "Reminders & digest".
 7. **Unsubscribe.** Every non-account email carries `List-Unsubscribe:
    <https://.../api/v1/email/unsubscribe/<token>>` and
    `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (Gmail/Yahoo
@@ -225,8 +230,8 @@ subscribers (P-46).
 | Model | Fields | Notes |
 |---|---|---|
 | `Signal` | id, user_id, name, data (JSON), at | Append-only; kept 90 days (P-04's retention job) |
-| `Enrollment` | id, user_id, journey, step, status (active / done / exited / sunset), next_at, holdout, entered_at, exited_reason | One active enrollment per user and journey |
-| `Send` | id, enrollment, step, email (FK `OutgoingEmail`, null for holdout), sent_at, clicked_at, converted_at | Unique (enrollment, step) - the idempotency guard |
+| `Enrollment` | id, user_id, journey, key, data, status (active / done / exited), step, next_at, holdout, entered_at, ended_at, exit_reason | One per (user, journey, key) ever - `key` tells repeatable entries apart (a goal's milestone, one spell of inactivity); sunset is an exit reason |
+| `LifecycleSend` | id, enrollment, user_id, journey, step, subject, email (FK `OutgoingEmail`, null for holdout), holdout, target, sent_at, clicked_at, converted_at, unsubscribed_at | Unique (enrollment, step) - the idempotency guard |
 | `EmailPreference` | user_id, category, enabled, updated_at | Missing row = the category's default |
 | `Suppression` | email, reason (bounce / complaint / manual), source, created_at | Checked by every send, transactional included |
 
@@ -235,19 +240,31 @@ user's rows, and the export provider includes them.
 
 ### Placement
 
-- **platform-core** `platform_lifecycle`: models, engine, guards,
-  unsubscribe/click/SES endpoints, console pages, preferences UI. Generic
-  - nothing GoalNexa-specific.
-- **goalnexa** `goalnexa/lifecycle.py`: signals at its write points, the
-  onboarding / habit / team / win-back journeys and their templates.
-- **platform-auth / platform-org**: `signup`, `email_verified`,
-  `invite_*` signals.
+- **platform-core**: `core_api.lifecycle` (the facade: `Journey`,
+  `Step`, `Message`, `record_signal`, `on_signal`), `platform_lifecycle`
+  (Signal, Enrollment, LifecycleSend, the engine, clicks, the console
+  API). As built, what applies to all mail lives in `platform_system`:
+  `EmailPreference`, `Suppression`, the categories
+  (`core_api.system.EmailCategory`), unsubscribe and SES endpoints.
+  Frontend: the preferences page, the unsubscribe page, System >
+  Lifecycle email, the panel on a user's console page.
+- **goalnexa** `goalnexa/lifecycle.py`: the categories, signals at its
+  write points (`activity.record`, `refresh_goal`), the onboarding /
+  tips / milestones / win-back journeys, the weekly-digest default.
+- **The host** `config/lifecycle.py`: `signup` and `invite_sent` from
+  `post_save` on platform-auth's User and platform-org's invitation (so
+  neither module changes), and the team journeys, which join orgs, goals
+  and activity. The recipient lookup is `config/user_directory.py`'s
+  `lifecycle_users` (`PLATFORM_LIFECYCLE_USERS`).
 - **goalnexa-cloud** billing extension: the upgrade journey and plan
   signals (C-22).
-- **Settings**: `lifecycle.enabled` (default off; `saas` on),
-  `lifecycle.frequency_cap` (2 per 7 days), `lifecycle.quiet_hours`
-  (21-8), `lifecycle.holdout` (0.1), `email.ses_configuration_set`,
-  `email.postal_address` (footer).
+- **Settings**: `lifecycle.enabled` (`LIFECYCLE_ENABLED`; default off,
+  `saas` on), `lifecycle.frequency_cap` (2 per 7 days),
+  `lifecycle.quiet_start` / `quiet_end` (21 / 8), `lifecycle.holdout_percent`
+  (10), `lifecycle.sunset_days` (60), `email.ses_configuration_set`,
+  `email.ses_topic_arns` (only these SNS topics are accepted),
+  `email.postal_address` (footer), `retention.lifecycle_signals_days` (90).
+  Links need `PUBLIC_URL` (main: `GOALNEXA_PUBLIC_URL`).
 
 ### Deliverability
 

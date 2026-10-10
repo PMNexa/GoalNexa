@@ -12,7 +12,8 @@ import { consoleHome } from "./systemNav";
  * where an org's page manages members and invitations). The org list is
  * refreshed each time the menu opens (`refresh`), so an org created or
  * joined since shows up. Without `orgs.view` the org section is left out.
- * Then "My account", and for admins "System console" (system-shell.tsx).
+ * Then "My account", "Email preferences", and for admins "System
+ * console" (system-shell.tsx).
  */
 export function useUserMenu(accessToken: string | null, permissions: string[] | null) {
   const navigate = useNavigate();
@@ -54,7 +55,12 @@ export function useUserMenu(accessToken: string | null, permissions: string[] | 
     );
   }
   // Everyone's own account page: download my data, delete my account.
-  items.push(...(items.length ? [{ divider: true as const }] : []), { label: "My account", to: "/account" });
+  items.push(
+    ...(items.length ? [{ divider: true as const }] : []),
+    { label: "My account", to: "/account" },
+    // What we email them about (platform-core's preferences page).
+    { label: "Email preferences", to: "/email/preferences" },
+  );
   const consolePath = consoleHome(permissions);
   if (consolePath) items.push({ label: "System console", to: consolePath });
   return { items, refresh };

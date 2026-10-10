@@ -1,7 +1,8 @@
 """A goal's activity feed (`Activity`): `record` is called from the same
 writes that refresh progress - check-ins, metrics, the goal itself,
 comments, cycle closes - plus `goalnexa.progress.refresh_goal` when a
-goal's health changes. `changes` diffs the fields a feed shows."""
+goal's health changes. `changes` diffs the fields a feed shows. Each
+user action is also a lifecycle email signal (`goalnexa.lifecycle`)."""
 
 from __future__ import annotations
 
@@ -51,6 +52,10 @@ def snapshot(instance, fields: list[str]) -> dict:
 
 
 def record(goal_id, verb: str, actor_id=None, **data) -> Activity:
-    return Activity.objects.create(
+    activity = Activity.objects.create(
         goal_id=goal_id, verb=verb, actor_id=actor_id, data={k: _plain(v) for k, v in data.items()}
     )
+    from goalnexa.lifecycle import on_activity  # lifecycle email's signals (goal created, check-in, ...)
+
+    on_activity(actor_id, verb, goal_id)
+    return activity

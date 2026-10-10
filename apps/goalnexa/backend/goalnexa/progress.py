@@ -191,6 +191,10 @@ def refresh_goal(goal_id) -> Goal | None:
         from goalnexa.activity import record  # activity imports models only; kept lazy for the migration's sake
 
         record(goal.id, ActivityVerb.HEALTH_CHANGED, **{"from": goal.health, "to": fields["health"]})
+    if fields.get("progress") != goal.progress:
+        from goalnexa.lifecycle import on_progress  # milestone emails (50%, 100%)
+
+        on_progress(goal, goal.progress, fields.get("progress"))
     for name, value in fields.items():
         setattr(goal, name, value)
     return goal

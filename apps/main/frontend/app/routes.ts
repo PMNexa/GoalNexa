@@ -9,7 +9,7 @@ import {
   createRemindersRoutes,
 } from "goalnexa-frontend";
 import { createAccountRoutes, createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
-import { createCrudRoutes, createSystemRoutes } from "platform-core";
+import { createCrudRoutes, createEmailPublicRoutes, createEmailRoutes, createSystemRoutes } from "platform-core";
 import { createMcpRoutes } from "platform-mcp-frontend";
 import { createOrgAdminRoutes, createOrgsPublicRoutes, createOrgsRoutes } from "platform-org-frontend";
 import { createExtensionPublicRoutes, createExtensionRoutes, createExtensionSystemRoutes } from "./extensions";
@@ -34,6 +34,9 @@ export default [
   // A public dashboard link (/shared/:token) - opened by people who aren't
   // signed in, so outside the app shell too.
   ...createSharedDashboardRoutes("shared"),
+  // An email's unsubscribe link (/email/unsubscribe/:token) - signed out
+  // too; the same "email" mount as the preferences page below.
+  ...createEmailPublicRoutes("email"),
   // AppShell (sidemenu + sticky header) wraps post-login screens only -
   // login/signup stay bare. See
   // routes/app-shell.tsx.
@@ -79,6 +82,8 @@ export default [
     ...createMcpRoutes("mcp"),
     // The signed-in user's own account: download my data, delete my account.
     ...createAccountRoutes("account"),
+    // Which emails they get (platform-core): /email/preferences.
+    ...createEmailRoutes("email"),
     // A downstream build's own pages (e.g. hosted billing) - none in the
     // self-hosted build. See app/extensions/index.ts.
     ...createExtensionRoutes(),

@@ -9,6 +9,31 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Lifecycle email** (`docs/lifecycle-email.md`). GoalNexa can email
+  people at the right moments: onboarding from signup to the first
+  check-in (welcome, first goal, first check-in, check in by chat, one
+  week in), one feature tip a week for features they haven't used,
+  milestones (a goal at 50% and 100%, 4 and 12 weeks of check-ins in a
+  row), a win-back series after a week away that stops after 60 days,
+  an invite-your-team nudge, and a summary for an organization's owner
+  when its members stop checking in. At most 2 a week, none at night in
+  the user's time zone, and a 10% holdout gets none, so System >
+  Lifecycle email shows what each email changes (clicks, the action it
+  asks for within 72 hours, lift over the holdout, unsubscribes), with a
+  preview and "send a test to me" for every step. **Off when
+  self-hosted** (`LIFECYCLE_ENABLED`, or System > Settings); it needs
+  `GOALNEXA_PUBLIC_URL`. New accounts get the weekly digest by email
+  while it's on.
+- **Email preferences and one-click unsubscribe.** User menu > Email
+  preferences, and a signed-out page from every email's footer, turn off
+  "Reminders & digest", "Tips & getting started" or "Progress &
+  milestones"; mail clients get `List-Unsubscribe` one-click headers.
+  Account emails are always sent.
+- **Bounces and complaints from Amazon SES.** With a configuration set
+  and an SNS topic (`EMAIL_SES_CONFIGURATION_SET`, `EMAIL_SES_TOPIC_ARNS`,
+  `docs/deployment.md`), hard bounces and spam complaints put the address
+  on System > Suppressed addresses - nothing more is sent to it, account
+  mail included - and System > Status counts them.
 - **Connect wizard for AI assistants.** The "MCP access" page and the
   onboarding's AI agent path now start with "Which app do you use?" -
   Claude, ChatGPT, Gemini, Cursor, VS Code, Windsurf, Claude Code, Codex,

@@ -239,6 +239,30 @@ ssh deploy@<public-ip> nc -4 -vz -w 5 email-smtp.<region>.amazonaws.com 2587
    `smtp-relay.brevo.com:2525?tls=1` (login `xxx@smtp-brevo.com`, `@` as
    `%40`); it needs the sender's own domain authenticated and the
    Droplet's IP under Security > Authorized IPs if IP blocking is on.
+8. **Bounces and complaints** (System > Status counts them; a bounced or
+   complaining address goes on System > Suppressed addresses and gets no
+   more mail). In SNS, create a topic (e.g. `goalnexa-ses-events`) in the
+   SES region. In SES > Configuration sets, create one (e.g. `goalnexa`)
+   and add an event destination: event types **Hard bounces** and
+   **Complaints**, destination **Amazon SNS**, that topic. Then in
+   `.env.production`:
+
+   ```ini
+   EMAIL_SES_CONFIGURATION_SET=goalnexa
+   EMAIL_SES_TOPIC_ARNS=arn:aws:sns:<region>:<account>:goalnexa-ses-events
+   ```
+
+   Deploy, then in SNS add a subscription to the topic: protocol HTTPS,
+   endpoint `https://<app.yourdomain.com>/api/v1/email/ses-events`. The
+   app confirms it by itself (Status "Confirmed" after a refresh). Only
+   topics in `EMAIL_SES_TOPIC_ARNS` are accepted, and every message's
+   SNS signature is checked.
+9. **Lifecycle email** (onboarding, tips, milestones, win-back -
+   `docs/lifecycle-email.md`) is on in `saas` mode, off when self-hosted
+   (`LIFECYCLE_ENABLED=true` or System > Settings to turn it on). It needs
+   `GOALNEXA_PUBLIC_URL` for its links; System > Lifecycle email lists
+   whatever stops it from sending. Set System > Settings > Email >
+   "Postal address" - every email a user can unsubscribe from shows it.
 
 ## 10. First deploy
 

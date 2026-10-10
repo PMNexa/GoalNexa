@@ -37,6 +37,10 @@ x-backend: &backend
     # Outgoing email (see .env.sample); unset = not configured.
     EMAIL_URL: ${EMAIL_URL:-}
     EMAIL_FROM: ${EMAIL_FROM:-}
+    # Amazon SES bounces/complaints (platform_system/ses.py) and lifecycle email - docs/deployment.md.
+    EMAIL_SES_CONFIGURATION_SET: ${EMAIL_SES_CONFIGURATION_SET:-}
+    EMAIL_SES_TOPIC_ARNS: ${EMAIL_SES_TOPIC_ARNS:-}
+    LIFECYCLE_ENABLED: ${LIFECYCLE_ENABLED:-}
     # Single sign-on (OpenID Connect) - see .env.sample; unset = off.
     OIDC_ISSUER: ${OIDC_ISSUER:-}
     OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}

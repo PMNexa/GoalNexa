@@ -88,6 +88,9 @@ INSTALLED_APPS = [
     # System settings, audit log, email outbox (platform-core's) - see
     # core_api.system. Before the modules that register settings with it.
     'platform_system',
+    # Lifecycle email (onboarding, tips, win-back) - journeys registered by
+    # goalnexa and config/lifecycle.py; core_api.lifecycle.
+    'platform_lifecycle',
     'platform_auth',
     # Organization/OrgMembership. Its own JWTBearerAuthentication is
     # unused here - main's own DEFAULT_AUTHENTICATION_CLASSES
@@ -337,6 +340,9 @@ globals().update(email_settings(os.environ.get("EMAIL_URL"), os.environ.get("EMA
 # accounts must verify their email.
 SYSTEM_SETTING_DEFAULTS = {
     "auth.require_email_verification": DEPLOYMENT_MODE == "saas",
+    # A self-hoster's users didn't sign up for our onboarding emails -
+    # docs/lifecycle-email.md.
+    "lifecycle.enabled": DEPLOYMENT_MODE == "saas",
 }
 
 # --- goalnexa app config (all optional) ---
@@ -348,6 +354,11 @@ GOALNEXA_SHARED_DASHBOARD_RATE = os.environ.get("GOALNEXA_SHARED_DASHBOARD_RATE"
 # Where reminders link back to; unset = the host each user saved their
 # reminder settings from.
 GOALNEXA_PUBLIC_URL = os.environ.get("GOALNEXA_PUBLIC_URL", "")
+# Links in mail sent outside a request (lifecycle email, unsubscribe
+# links) - core_api.system.public_url.
+PUBLIC_URL = GOALNEXA_PUBLIC_URL
+# Who a lifecycle email goes to: email, name, active, confirmed, timezone.
+PLATFORM_LIFECYCLE_USERS = "config.user_directory.lifecycle_users"
 # Which Apprise URL schemes a user may send reminders to (None = any).
 # Hosted, only services with a fixed host: a webhook (json://, form://),
 # a self-hosted ntfy/gotify or an SMTP server would let a stranger make

@@ -103,8 +103,9 @@ def deliver(reminder_settings: ReminderSettings, title: str, body: str, kind: st
     if reminder_settings.email:
         address = user_email(reminder_settings.user_id)
         if address:
-            send_email(address, title, body, kind=kind, user_id=reminder_settings.user_id)
-            ok = True
+            # "Reminders & digest" - the user can turn it off from the email's own link.
+            ok = send_email(address, title, body, kind=kind, user_id=reminder_settings.user_id,
+                            category="reminders") or ok
     return ok
 
 

@@ -556,7 +556,8 @@ class InsightsTests(AdminTestCase):
         from platform_system.insights import apply_retention
 
         old = AuditEvent.objects.create(action="old.thing", created_at=timezone.now() - timedelta(days=40))
-        self.assertEqual(apply_retention(), {})  # default: keep forever
+        # Default: keep forever - except lifecycle signals, 90 days (nothing to purge here).
+        self.assertEqual(apply_retention(), {"lifecycle_signals": 0})
         self.assertTrue(AuditEvent.objects.filter(id=old.id).exists())
         self.assertEqual(self.set_setting("retention.audit_days", -1).status_code, 400)
         self.assertEqual(self.set_setting("retention.audit_days", 30).status_code, 200)

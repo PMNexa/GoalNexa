@@ -280,7 +280,8 @@ adds NEW permissions to existing roles whose patterns match.
 `core_api.system`, plus platform-auth/-org/-mcp and goalnexa hooks;
 pages under `/system/*`, admins only via RBAC - Member's patterns don't
 include `system-settings`, `audit-events`, `outgoing-emails`,
-`delivery-attempts`, `all-orgs`, `users`, `roles`).
+`delivery-attempts`, `lifecycle-emails`, `email-suppressions`, `all-orgs`,
+`users`, `roles`).
 - **The system console**: every one of those pages - and RBAC's users,
   roles, role assignments and permissions, mounted at `/system/<resource>`
   too - lives in its own layout, `routes/system-shell.tsx` ("System
@@ -308,7 +309,38 @@ include `system-settings`, `audit-events`, `outgoing-emails`,
   `OutgoingEmail` and sends on commit; the scheduler retries
   (`run_system_jobs`, called from `goalnexa_jobs`). Unset = nothing sent,
   logged as failed - and email verification isn't enforced, so an
-  instance without mail never locks people out.
+  instance without mail never locks people out. **Categories**:
+  `send_email(..., category=)` (a module registers `EmailCategory`s;
+  default = account mail, always sent) skips a user who turned it off
+  and adds `List-Unsubscribe` one-click headers + a footer with the
+  signed unsubscribe link (`platform_system/preferences.py`, no table:
+  the token is user + category; page `/email/unsubscribe/<token>`,
+  `createEmailPublicRoutes`, outside the shell; `/email/preferences`
+  inside). Links outside a request use `core_api.system.public_url`
+  (`settings.PUBLIC_URL` = `GOALNEXA_PUBLIC_URL`). **Suppression**: no
+  mail at all to a `Suppression` address (status `suppressed` in the
+  log); SES bounces/complaints arrive via SNS at `email/ses-events`
+  (`ses.py`: topic must be in `email.ses_topic_arns`, signature
+  verified).
+- **Lifecycle email** (`core_api.lifecycle` + `platform_lifecycle`;
+  design and as-built notes: `docs/lifecycle-email.md`): journeys in
+  code - `Journey(key, label, category, steps, trigger=<signal> |
+  enter=<scan>, exit=)`, `Step(key, delay-from-entry, render, target)`;
+  `render(ctx)` returns a `Message` or None (= skip, decided when due).
+  `record_signal(user_id, name, **data)` (no-op unless
+  `lifecycle.enabled`; a `key` in data = one enrollment per key). The
+  scheduler (`run_lifecycle_jobs` in `goalnexa_jobs`) claims due
+  enrollments with a conditional UPDATE, then: exit -> account/confirmed
+  (`PLATFORM_LIFECYCLE_USERS`) -> sunset -> category -> suppression ->
+  render -> holdout (recorded, not sent) -> cap / quiet hours (postpone)
+  -> send; `LifecycleSend` is unique per (enrollment, step). A send's
+  `target` signal within 72h stamps `converted_at` (`seen` = came back).
+  goalnexa's journeys: `goalnexa/lifecycle.py` (signals from
+  `activity.record` and `refresh_goal`); signup/invite signals and team
+  journeys: the host's `config/lifecycle.py` (`post_save`, so
+  platform-auth/-org don't know about it). Console: `/system/lifecycle`,
+  `UserLifecyclePanel` on a user's page. Tests: `tests/test_lifecycle.py`
+  - engine tests call `engine.run(now=...)` to move time.
 - **Audit**: `audit(action, request=..., target=...)` - logins (and
   failures, with IP), signup, resets, user/role/settings/org changes,
   impersonation. CSV export on the settings page.

@@ -56,6 +56,8 @@ urlpatterns = [
     path('api/v1/', include('goalnexa.urls')),
     # System settings, audit log, delivery log (admin only, via RBAC).
     path('api/v1/', include('platform_system.urls')),
+    # Lifecycle email: the console's API and the emails' tracked links (api/v1/l/...).
+    path('api/v1/', include('platform_lifecycle.urls')),
     # platform_mcp: the MCP server over every BaseViewSet above (orgs,
     # goals, metrics, check-ins) at api/v1/mcp - each tool call is an
     # internal sub-request to the same API as the caller, so the same
