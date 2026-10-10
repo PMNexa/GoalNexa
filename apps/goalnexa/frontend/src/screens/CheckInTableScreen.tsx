@@ -682,29 +682,19 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
       <div className="d-flex align-items-end gap-3 mb-3">
         <div>
           <FormLabel htmlFor="table-org">Organization</FormLabel>
-          <div className="d-flex gap-2">
-            <select
-              id="table-org"
-              className="form-select form-select-sm w-auto"
-              value={orgKey ?? ""}
-              onChange={(event) => setCurrentOrg(event.target.value)}
-            >
-              {(orgs ?? []).map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-              <option value={PERSONAL_ORG}>Personal (no organization)</option>
-            </select>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => addGoal(null)}
-              disabled={orgKey === null}
-            >
-              New goal
-            </button>
-          </div>
+          <select
+            id="table-org"
+            className="form-select form-select-sm w-auto"
+            value={orgKey ?? ""}
+            onChange={(event) => setCurrentOrg(event.target.value)}
+          >
+            {(orgs ?? []).map((org) => (
+              <option key={org.id} value={org.id}>
+                {org.name}
+              </option>
+            ))}
+            <option value={PERSONAL_ORG}>Personal (no organization)</option>
+          </select>
         </div>
         <div>
           <FormLabel>Goals</FormLabel>
@@ -715,6 +705,14 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
             disabled={!table}
           />
         </div>
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={() => addGoal(null)}
+          disabled={orgKey === null}
+        >
+          New goal
+        </button>
         <div className="ms-auto">
           <FormLabel htmlFor="table-snap">Snap to</FormLabel>
           <div className="d-flex gap-2">
