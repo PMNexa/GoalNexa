@@ -60,7 +60,10 @@ Swarm) and the previous one, and starts garbage collection without
 waiting (~10 min; the next deploy waits if it's still running). Only `scripts/deploy.sh` deploys - Swarm ignores
 `depends_on`, so the script migrates with the new image first, then
 `stack deploy`, then fails if a service rolled back. A migration must
-therefore work with the previous release's code too. **Production
+therefore work with the previous release's code too: a new NOT NULL
+column needs a `db_default` (the old code's INSERTs don't send it - see
+`Goal.position`), and nothing the old code reads is dropped or renamed
+in the same release. **Production
 deploys from the private `PMNexa/goalnexa-cloud` repo only** - this
 public repo has no `deploy` branch (never create one or open a release
 PR here). Releasing = run cloud's "Sync from public repo" workflow (merges
@@ -205,7 +208,12 @@ is remembered in localStorage (`goalnexa:dashboard-org`). There is no
 table view - charts only. The color tokens live on the `.gn-dashboard` root, not just on
 `.gn-viz`, because the filter card's color keys sit outside the charts.
 A user with no organization and no goals gets the onboarding wizard instead
-(`screens/onboarding/OnboardingWizard.tsx`). It first asks how they'll
+(`screens/onboarding/OnboardingWizard.tsx`); so does a picked organization
+with no goals (`existingOrg`: no org step; its heading's select switches
+org). "No goals" means none that the tree would show - archived ones
+don't count (an org whose only goal was archived showed an empty
+dashboard). Any empty state must test the same filter as the list it
+stands in for. It first asks how they'll
 use GoalNexa, and each answer has its own steps. **Website**: org name →
 goals (optional target date) → metrics per goal (start → target, must
 differ) → review, then it creates everything over the REST API
@@ -357,7 +365,14 @@ include `system-settings`, `audit-events`, `outgoing-emails`,
   a `bar`/`heat`). Sections that join several modules (activation funnel,
   cohorts, adoption) live in the HOST, `config/insights.py`, registered by
   `config.apps.HostConfig` - a module never imports another's models. The
-  onboarding wizard's first answer is goalnexa's `OnboardingChoice`.
+  backend Dockerfile copies only `config/` (plus `manage.py`) of
+  `apps/main/backend`, so host code goes in that package, not a new
+  top-level app. The onboarding wizard's first answer is goalnexa's
+  `OnboardingChoice`. Tests: `seen` and `count` keep per-process state
+  (the hourly gate, the buffer) that outlives a test's rolled-back
+  database - call `platform_system.insights.forget_seen()` /
+  `flush_counts()` in `setUp` (`InsightsTests` in `test_admin.py`); the
+  page itself flushes the buffer before reading.
 - **Data retention**: `register_retention_rule(RetentionRule(name, label,
   purge(cutoff)))` adds the setting `retention.<name>_days` (group "Data
   retention", 0 = forever); `run_system_jobs` applies every rule once a
@@ -909,7 +924,12 @@ here runs the whole stack at the pinned submodule commits - main's
 backend suites + migration check, every module frontend's install,
 goalnexa-frontend lint/build, main typecheck/build. Each `platform-*`
 repo has its own `ci.yml` for its standalone suite, checked out next to
-platform-core's main. Tests that send `Host: localhost` need
+platform-core's main - so a change spanning modules is pushed
+platform-core FIRST (others' CI imports its new API from `main`), then
+the other modules, then this repo with the submodule bumps. Locally, a
+module's own suite runs in the dev container:
+`cd /apps/<module>/backend && /apps/main/backend/.venv/bin/python manage.py test --settings=config.test_settings`
+(`config.settings` where there's no test_settings). Tests that send `Host: localhost` need
 `DJANGO_ALLOWED_HOSTS=localhost,testserver` outside compose. The job is
 skipped outside `PMNexa/GoalNexa`, so the hosted fork doesn't re-run it.
 
