@@ -134,6 +134,7 @@ without the website. Listed in priority order; all live in
 | P-26 | Public dashboard link | Share the dashboard's shown goals (up to 8) as a public, read-only, live link - no login, no notes or authors; each link revocable | Done | 2026-10-05. Asked for directly. `/shared/<token>`; goals the sharer can no longer see drop off the link |
 | P-27 | Tracked-only metrics | A metric with no target (target = start) is charted by its own values instead of a %, and counts toward nothing (progress, projection, health) | Done | 2026-10-07. Asked for directly. One value chart per metric under the goal's % chart; "Tracking" badge on a goal with only those |
 | P-30 | Manual order + drag and drop | Goals, sub-goals, metrics and sub-metrics keep an order the user sets by dragging rows in the dashboard tree and the check-in table, within the same parent | Done | 2026-10-09. Asked for directly. `position` + `POST goals|metrics/reorder`; moving under another parent stays in the edit form |
+| P-35 | Pick goals in the check-in table | The check-in table shows only the goals picked (several at once, each with its sub-goals); none picked = all; remembered per organization | Done | 2026-10-10. Asked for directly. `GoalPicker` beside "New goal"; columns follow the shown goals' check-ins |
 
 
 ### Next - Q1 2027 - Know how it's used

@@ -45,6 +45,7 @@ import {
   useSiblingDrag,
   type OrderKind,
 } from "../lib/ordering";
+import GoalPicker, { type GoalPickerOption } from "./GoalPicker";
 
 export interface CheckInTableScreenProps {
   accessToken: string;
@@ -52,6 +53,8 @@ export interface CheckInTableScreenProps {
 
 const CHUNK = 40;
 const COLLAPSED_KEY = "goalnexa:table-collapsed";
+/** Org key -> the goal ids picked to show there (none = all). */
+const PICKED_KEY = "goalnexa:table-goals";
 
 const PlusIcon = (
   <svg
@@ -258,6 +261,23 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
     () => new Set(readStored<string[]>(COLLAPSED_KEY, [])),
   );
   const [orderError, setOrderError] = useState<string | null>(null);
+  // Goals picked to show, per organization, remembered per browser.
+  const [pickedByOrg, setPickedByOrg] = useState<Record<string, string[]>>(
+    () => readStored<Record<string, string[]>>(PICKED_KEY, {}),
+  );
+  const picked = useMemo(
+    () => new Set(orgKey ? (pickedByOrg[orgKey] ?? []) : []),
+    [pickedByOrg, orgKey],
+  );
+
+  function changePicked(next: Set<string>) {
+    if (!orgKey) return;
+    setPickedByOrg((prev) => {
+      const updated = { ...prev, [orgKey]: [...next] };
+      writeStored(PICKED_KEY, updated);
+      return updated;
+    });
+  }
 
   // Drag and drop within a sibling group: shown at once, then saved; a
   // failed save reloads the table's order from the server.
@@ -356,7 +376,23 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
 
   const table = useMemo(() => {
     if (!data || data.org !== orgKey) return null;
-    const { goals, metrics, checkIns } = data;
+    // Picked goals and their sub-goals; a pick that no longer exists is ignored.
+    const parentOf = new Map(data.goals.map((g) => [g.id, g.parent]));
+    const isShown = (id: string | null): boolean => {
+      for (let at = id, hops = 0; at && hops <= data.goals.length; hops++) {
+        if (picked.has(at)) return true;
+        at = parentOf.get(at) ?? null;
+      }
+      return false;
+    };
+    const anyPicked = data.goals.some((g) => picked.has(g.id));
+    const goals = anyPicked
+      ? data.goals.filter((g) => isShown(g.id))
+      : data.goals;
+    const goalIds = new Set(goals.map((g) => g.id));
+    const metrics = data.metrics.filter((m) => goalIds.has(m.goal));
+    const metricIds = new Set(metrics.map((m) => m.id));
+    const checkIns = data.checkIns.filter((c) => metricIds.has(c.metric));
     const columns = [
       ...new Set(
         checkIns.map((c) =>
@@ -512,7 +548,21 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
       });
 
     return { columns, rows: goalRows(buildTree(goals), 0, []) };
-  }, [data, orgKey, snap, weekStart]);
+  }, [data, orgKey, snap, weekStart, picked]);
+
+  // The goal picker's list: every goal, in the table's tree order.
+  const goalOptions = useMemo(() => {
+    if (!data || data.org !== orgKey) return [];
+    const flatten = (
+      nodes: TreeNode<Goal>[],
+      depth: number,
+    ): GoalPickerOption[] =>
+      nodes.flatMap((n) => [
+        { id: n.item.id, title: n.item.title, depth },
+        ...flatten(n.children, depth + 1),
+      ]);
+    return flatten(buildTree(data.goals), 0);
+  }, [data, orgKey]);
 
   const filled = Object.entries(draftValues).filter(
     ([, v]) => v.trim() !== "" && Number.isFinite(Number(v)),
@@ -655,6 +705,15 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
               New goal
             </button>
           </div>
+        </div>
+        <div>
+          <FormLabel>Goals</FormLabel>
+          <GoalPicker
+            options={goalOptions}
+            selected={picked}
+            onChange={changePicked}
+            disabled={!table}
+          />
         </div>
         <div className="ms-auto">
           <FormLabel htmlFor="table-snap">Snap to</FormLabel>

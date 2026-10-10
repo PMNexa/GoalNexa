@@ -411,6 +411,10 @@ group only - in the dashboard tree (not on a shared link) and the
 check-in table, whose name cell is the handle so the row's inputs still
 select text (`lib/ordering.ts`'s `useSiblingDrag`); re-parenting stays in
 the edit form. Lists sort `position`, then title/name.
+The check-in table's "Goals" picker (`screens/GoalPicker.tsx`) narrows
+it to the ticked goals plus their sub-goals (none ticked = all; per org
+in localStorage, `goalnexa:table-goals`); its columns come from the
+shown goals' check-ins only.
 
 **Check-in time is `CheckIn.checked_in_at`**, not `created_at`. It's
 user-set and defaults to now when left blank (the form omits the key and

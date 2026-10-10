@@ -32,6 +32,10 @@ of you beyond the usual upgrade steps.
   a metric's chart color follows its place in the list.
 - **Collapsible rows in the check-in table** for goals and metrics with
   rows under them.
+- **Pick which goals the check-in table shows.** "Goals" next to "New
+  goal" lists every goal; tick one or more to see only those (with their
+  sub-goals and metrics), or "Show all". Remembered per organization in
+  the browser.
 - **Organization names in lists.** Generic lists (e.g. Goals) show a
   goal's organization by name instead of its id.
 - **Metrics without a target.** A metric whose target equals its start
