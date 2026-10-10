@@ -208,6 +208,11 @@ ssh deploy@<public-ip> nc -4 -vz -w 5 smtp-relay.brevo.com 2525
 4. **SMTP key.** Your name > SMTP & API > SMTP: copy the **Login**
    (`xxxx@smtp-brevo.com` - not your account email) and Generate a new
    SMTP key (shown once - keep it in the password manager).
+   Then Security > Authorized IPs: add the Droplet's public IP (every
+   node's, once there are more - and a new Droplet's BEFORE it takes
+   over) and turn on blocking of unauthorized IPs. A login from anywhere
+   else gets `525 5.7.1 Unauthorized IP address`; add your own IP for a
+   while to test from a laptop.
 5. **`EMAIL_URL`.** The login's `@` is written `%40`; port 2525 needs
    `?tls=1` (STARTTLS is only on by default for 587). Quote both values -
    `deploy.sh` sources this file as shell, and a bare `<`/`>` fails the
