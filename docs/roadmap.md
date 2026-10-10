@@ -156,6 +156,24 @@ Aggregates only, nothing sent to third parties. Listed in build order.
 | P-34 | Quality metrics             | API requests, p50/p95 latency and error rate per endpoint; MCP calls, errors and top tools; email/Apprise success rate per day; scheduler run time; failed logins, lockouts and rate-limit hits; database size                       | Done | 2026-10-09. `RequestMetricsMiddleware` (method + URL pattern, never ids), latency histograms, MCP tool counts, 429s, job run time; database size live |
 
 
+### Next - Q1 2027 - Bring people back (lifecycle email)
+
+Emails GoalNexa sends on its own initiative to move each user along
+signup -> first check-in -> weekly habit -> team -> paid, and to win
+back the ones who drift. Built in-house on the existing outbox and
+scheduler (behavior data stays on the server); off by default when
+self-hosted, on in `saas` mode; click tracking only, no open pixel;
+English first. Design: `docs/lifecycle-email.md`. Listed in build order.
+
+| ID   | Item                            | Requirement | Status   | Notes |
+| ---- | ------------------------------- | ----------- | -------- | ----- |
+| P-43 | Lifecycle email: foundation + onboarding | Email preferences by category (My account) and a signed-out unsubscribe page; one-click `List-Unsubscribe` headers; SES bounces/complaints via SNS into a suppression list every send checks, counted on Status; a journey engine (journeys in code, scheduler in `goalnexa_jobs`, idempotent sends, frequency cap 2/7 days, quiet hours in the user's timezone, 10% holdout); the onboarding journey (welcome by onboarding choice, first goal, first check-in, go mobile, first week; ends at the first check-in); console per-step counts | Proposed | Closes C-01's "bounces on Status". Cloud's privacy page needs a lifecycle-email paragraph first |
+| P-44 | Lifecycle email: engagement     | Habit (milestones at 50% / 100% / 4-week streak, one feature tip a week for unused features, weekly digest on by default for new users), team (invite a teammate after 2 active weeks; owner summary when members go quiet), win-back at 7 / 14 / 30 / 60 days then sunset | Proposed | Depends on P-43 |
+| P-45 | Lifecycle email: measurement    | Each step's target action within 72h stamped as a conversion, compared with the holdout; the messages a user got on their page in the console | Proposed | Depends on P-43; feeds P-31 |
+| P-46 | Broadcasts + newsletter         | Compose, segment, preview and schedule a broadcast from the console; "Product news" opt-in; lifecycle and broadcasts from their own sending subdomain and SES configuration set | Proposed | Depends on P-43 |
+| P-47 | Lifecycle email in other languages | Templates per language, chosen from the user's language; Vietnamese first | Proposed | With P-16 |
+
+
 ### Next - Q1 2027 - Own and share your data
 
 
@@ -201,6 +219,7 @@ through the sync, so P-01..P-03 land there before paid launch.
 | C-04 | Public status page     | Public uptime/incident page on its own host, fed by the health endpoint (P-03)                                                                                  | Proposed | Depends on P-03 (endpoint live, alerts not) |
 | C-05 | Signup funnel tracking | Privacy-friendly, cookieless counts: visit -&gt; signup -&gt; verified -&gt; first goal -&gt; first check-in -&gt; paid; shown to operators                     | Proposed |                                         |
 | C-21 | Public website | Landing page, pricing, terms, privacy, refund policy and contact pages on the hosted site; a "Use GoalNexa with Claude" guide | Done | 2026-10-05. In `goalnexa-cloud` (`app/extensions/`), mounted through the public-route seam. Legal texts await review before paid launch |
+| C-22 | Upgrade emails | The upgrade journey on P-43's engine: at 80% of a plan limit, 1h after a `402 plan_limit`, a Free org with 3+ active members, a welcome after upgrading, a one-question survey after cancelling; an "Offers" email category | Proposed | Depends on P-43, C-02. Design: `docs/lifecycle-email.md` |
 
 
 **Gate: paid launch** - billing, email and backups verified (a tested
