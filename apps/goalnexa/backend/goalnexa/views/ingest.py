@@ -19,6 +19,9 @@ import hmac
 import uuid
 
 from django.conf import settings
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
@@ -54,7 +57,58 @@ class MetricIngestView(APIView):
     authentication_classes = []
     permission_classes = []
     throttle_classes = [IngestThrottle]
+    # No authentication class to describe, so the scheme is declared here
+    # (core_api.openapi) - see docs/api-reference.md.
+    openapi_auth = {
+        "metricIngestToken": {
+            "type": "http",
+            "scheme": "bearer",
+            "description": "A metric's ingest token (`gnm_...`), from `POST /api/v1/metrics/{id}/ingest-token`. "
+            "Works for that metric's ingest endpoint only.",
+        }
+    }
+    # An unknown metric is a 401 too (see `post`); no roles involved.
+    openapi_errors = ("400", "401", "429")
 
+    @extend_schema(
+        operation_id="metrics_ingest",
+        tags=["metrics"],
+        summary="Check in with a metric's ingest token",
+        description="For scripts, cron jobs and webhooks: adds a check-in to one metric without a login. "
+        "Send the token as `Authorization: Bearer gnm_...`, or as `?token=` when the sender can't set headers "
+        "(it then shows up in access logs). Rate limited per metric. A wrong token and an unknown metric "
+        "both answer 401.",
+        parameters=[
+            OpenApiParameter("id", OpenApiTypes.UUID, OpenApiParameter.PATH, description="The metric's id."),
+            OpenApiParameter("token", str, OpenApiParameter.QUERY, required=False, description="The ingest token, if not in the header."),
+        ],
+        request=inline_serializer(
+            "MetricIngest",
+            {
+                "value": serializers.DecimalField(
+                    max_digits=14, decimal_places=2,
+                    help_text="The new reading - or, for a `sum` metric, the amount to add.",
+                ),
+                "note": serializers.CharField(required=False, allow_blank=True),
+                "checked_in_at": serializers.DateTimeField(required=False, help_text="When it happened; default now."),
+            },
+        ),
+        responses={
+            201: inline_serializer(
+                "MetricIngestResponse",
+                {
+                    "id": serializers.UUIDField(),
+                    "value": serializers.DecimalField(max_digits=14, decimal_places=2),
+                    "note": serializers.CharField(),
+                    "checked_in_at": serializers.DateTimeField(),
+                    "current_value": serializers.DecimalField(
+                        max_digits=14, decimal_places=2, help_text="The metric's value after this check-in."
+                    ),
+                },
+            )
+        },
+        examples=[OpenApiExample("Nightly job", value={"value": 42, "note": "nightly job"}, request_only=True)],
+    )
     def post(self, request, pk):
         metric = Metric.objects.filter(id=pk).first() if _is_uuid(pk) else None
         token = _token(request)

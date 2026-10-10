@@ -78,6 +78,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    # OpenAPI 3 schema + API docs at api/v1/schema, api/v1/docs.
+    'drf_spectacular',
+    'drf_spectacular_sidecar',  # the docs pages' JS/CSS, served from /static/
     # Backend rule mirrors the frontend one: a module's backend is an
     # importable Django app (packaged via that module's own
     # pyproject.toml, editable-installed here) rather than a copy - see
@@ -373,6 +376,9 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["platform_auth.authentication.ActorAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": [],
     "EXCEPTION_HANDLER": "core_api.exceptions.platform_exception_handler",
+    # OpenAPI: drf-spectacular plus platform-core's BaseViewSet conventions
+    # (core_api/openapi.py) - docs/api-reference.md.
+    "DEFAULT_SCHEMA_CLASS": "core_api.openapi.PlatformAutoSchema",
     "UNAUTHENTICATED_USER": None,
     # platform_auth's login/signup/setup limits (platform_auth/throttling.py).
     "DEFAULT_THROTTLE_RATES": {
@@ -386,6 +392,37 @@ REST_FRAMEWORK = {
     # balancer). Too low and every client shares the proxy's IP (one
     # limit for everyone); too high and a client can fake its IP.
     "NUM_PROXIES": int((os.environ.get("TRUSTED_PROXY_COUNT") or "1")),
+}
+
+# The OpenAPI document (/api/v1/schema) and its pages (/api/v1/docs,
+# /api/v1/redoc) - public; every operation still needs its own auth.
+# The pages' JS/CSS is drf-spectacular-sidecar's, served from /static/
+# (pinned in requirements.txt), not a CDN's latest.
+SPECTACULAR_SETTINGS = {
+    "TITLE": "GoalNexa API",
+    "DESCRIPTION": (
+        "Goals, metrics and check-ins, organizations and their members. "
+        "Sign in with `POST /api/v1/auth/login` and send its `access_token` as "
+        "`Authorization: Bearer <token>`. List endpoints return "
+        "`{items, total, page, page_size}`; errors return `{code, message, field_errors}`. "
+        "AI assistants use the MCP server at `/api/v1/mcp` instead."
+    ),
+    "VERSION": "v1",
+    "SCHEMA_PATH_PREFIX": r"/api/v1",
+    # Separate request/response components: read-only fields (id,
+    # progress, ...) aren't asked for in a create body.
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_AUTHENTICATION": [],
+    # One name per choice set that several fields share.
+    "ENUM_NAME_OVERRIDES": {
+        "GoalHealthEnum": "goalnexa.models.goal.GoalHealth",
+        "OrgRoleEnum": "platform_org.models.org_membership.OrgRole",
+    },
+    "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
 }
 
 # Extensions' own settings (e.g. a payment provider's API token), as one

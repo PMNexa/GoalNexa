@@ -14,7 +14,7 @@ class GoalSerializer(BaseSerializer):
 
     `org_id` is a bare `UUIDField`, not a real FK (see `Goal.org_id`'s own
     docstring - no cross-module DB access from goalnexa into
-    platform_org). `related_endpoints` tells `BaseViewSet.schema` to
+    platform_org). `related_endpoints` tells `BaseViewSet.resource_schema` to
     describe it as a relation anyway, purely so the frontend gets a real
     org picker instead of a raw-id text box - it's still a plain
     serializer field otherwise, written through `validated_data` like any

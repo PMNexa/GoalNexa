@@ -10,6 +10,8 @@ import uuid
 
 from django.db import transaction
 from django.db.models import Max
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -56,6 +58,16 @@ class ReorderMixin:
     (the access policy reads a custom POST as `update`), all with one
     parent; siblings left out keep their order after them."""
 
+    @extend_schema(
+        description="Put siblings in this order, first to last - sub-goals of one goal, an organization's "
+        "top-level goals (or your personal ones), or a goal's metrics under one parent metric. Siblings "
+        "left out keep their order after them. You need update rights on every one.",
+        request=inline_serializer(
+            "Reorder",
+            {"ids": serializers.ListField(child=serializers.UUIDField(), help_text="Ids of one sibling group, first to last.")},
+        ),
+        responses={204: None},
+    )
     @action(detail=False, methods=["post"])
     def reorder(self, request):
         ids = request.data.get("ids")

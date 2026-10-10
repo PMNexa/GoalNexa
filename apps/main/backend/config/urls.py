@@ -18,6 +18,7 @@ from importlib.util import find_spec
 
 from django.conf import settings
 from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 from config.health import health
 
@@ -25,6 +26,10 @@ from config.health import health
 # (/system in the frontend, over the same API and RBAC as everything else).
 urlpatterns = [
     path('api/v1/health', health),
+    # OpenAPI 3 document of everything below, and two pages over it.
+    path('api/v1/schema', SpectacularAPIView.as_view(), name='openapi-schema'),
+    path('api/v1/docs', SpectacularSwaggerView.as_view(url_name='openapi-schema'), name='openapi-docs'),
+    path('api/v1/redoc', SpectacularRedocView.as_view(url_name='openapi-schema'), name='openapi-redoc'),
     # platform_mcp's OAuth discovery documents - at the ROOT, where MCP
     # clients look (/.well-known/oauth-protected-resource/api/v1/mcp,
     # /.well-known/oauth-authorization-server); nginx routes

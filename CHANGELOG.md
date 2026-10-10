@@ -19,6 +19,10 @@ of you beyond the usual upgrade steps.
   screenshot for every step, and "Connected" shows a first question
   asked in a chat.
   ChatGPT and Gemini (web) are new.
+- **API reference.** Every instance serves its API as an OpenAPI 3
+  document at `/api/v1/schema`, browsable at `/api/v1/docs` (Swagger UI)
+  and `/api/v1/redoc`: goals, metrics, check-ins, organizations and the
+  rest, with their fields, filters, paging and error format.
 - **System > Insights.** A new console page shows how the instance is
   used and how well it runs, for the last 7, 30 or 90 days against the
   period before: daily numbers with sparklines (active users, sign-ups,

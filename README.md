@@ -255,6 +255,11 @@ the sibling `apps/*` directories (the submodules) must be checked out.
 | platform-mcp backend | `cd apps/platform-mcp/backend && python manage.py test tests --settings=config.test_settings` |
 | main frontend types | `cd apps/main/frontend && npm run typecheck` |
 
+**API reference**: `/api/v1/docs` (Swagger UI) or `/api/v1/redoc` on any
+instance; the OpenAPI 3 document itself is `/api/v1/schema`. Conventions,
+clients and how a module documents its endpoints:
+[`docs/api-reference.md`](docs/api-reference.md).
+
 **Upgrading and releases**: [`docs/upgrading.md`](docs/upgrading.md),
 [`CHANGELOG.md`](CHANGELOG.md). **Single sign-on**: [`docs/sso.md`](docs/sso.md).
 **What's planned**: [`docs/roadmap.md`](docs/roadmap.md).
