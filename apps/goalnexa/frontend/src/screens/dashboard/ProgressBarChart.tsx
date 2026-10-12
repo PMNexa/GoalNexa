@@ -5,6 +5,8 @@ import { formatPct, pctDomainMax, pctTicks, seriesColor, truncate, useElementWid
 export interface BarRow {
   progress: GoalProgress;
   slot: number;
+  /** The row's label; the goal's title when left out. */
+  label?: string;
 }
 
 const BAR = 20;
@@ -81,7 +83,7 @@ function ProgressBarChart({ rows }: { rows: BarRow[] }) {
               {/* Hit target: the whole row, not just the bar. */}
               <rect x={0} y={rowTop} width={width} height={ROW} fill="transparent" />
               <text className="gn-label" x={labelW} y={rowTop + ROW / 2} dy="0.32em" textAnchor="end">
-                {truncate(row.progress.goal.title, Math.floor(labelW / 7))}
+                {truncate(row.label ?? row.progress.goal.title, Math.floor(labelW / 7))}
               </text>
               {current === null ? (
                 <text className="gn-tick" x={margin.left + 6} y={rowTop + ROW / 2} dy="0.32em">
@@ -110,7 +112,7 @@ function ProgressBarChart({ rows }: { rows: BarRow[] }) {
         >
           <div className="gn-tooltip-row">
             <span className="gn-key" style={{ background: seriesColor(hover.row.slot) }} />
-            <span className="gn-name">{hover.row.progress.goal.title}</span>
+            <span className="gn-name">{hover.row.label ?? hover.row.progress.goal.title}</span>
             <span className="gn-num">
               {hover.row.progress.current === null ? "—" : formatPct(hover.row.progress.current)}
             </span>

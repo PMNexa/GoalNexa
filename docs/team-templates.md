@@ -279,7 +279,9 @@ Each of `Team`, `TeamMembership`, `GoalTemplate`, `TemplateGoal`,
 - **Team visibility** also lets a team's goal be seen by the leads of the
   teams above it - they set its targets, so hiding it from them made no
   sense. Members of a team above still don't see it.
-- **Totals** are titled "<goal> · <team> total" ("· Organization total"),
+- **Totals** exist only for teams with sub-teams, and the org: a team
+  without sub-teams would get a copy of its own goal (the board never
+  showed one). They're titled "<goal> · <team> total" ("· Organization total"),
   keep one synthetic check-in per day (today's is updated, so a trend is
   over days), never send milestone emails or write feed entries, and
   don't count toward an org's goal limit. Every write to an instance

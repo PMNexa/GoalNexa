@@ -6,6 +6,8 @@ import ProgressLineChart, { type ChartMarker } from "./ProgressLineChart";
 import ValueLineChart from "./ValueLineChart";
 import PeriodBarChart from "./PeriodBarChart";
 import { formatPct } from "./chartUtils";
+import { goalLabel, goalTeamName } from "../../lib/api/dashboard";
+import GoalTag from "./GoalTag";
 import { MAX_GOALS, type DashboardChartsData } from "./useDashboardCharts";
 
 const markerDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
@@ -31,6 +33,8 @@ export interface DashboardChartsProps {
   /** A goal's color slot (1-8) on the current-progress bars. */
   slotOf: (goalId: string) => number;
   loading?: boolean;
+  /** Team id -> name, to tag each team's copy of a template goal. */
+  teamNames?: Map<string, string>;
 }
 
 /**
@@ -40,7 +44,7 @@ export interface DashboardChartsProps {
  * and % scale (`panelDomains`) - then the current-progress bars. Read-only; the dashboard and a public link's page
  * both render it.
  */
-function DashboardCharts({ charts, slotOf, loading = false }: DashboardChartsProps) {
+function DashboardCharts({ charts, slotOf, loading = false, teamNames }: DashboardChartsProps) {
   const { progress, metricsByGoal, metricPanels, now, panelDomains } = charts;
   return (
     <div className="d-flex flex-column gap-3">
@@ -59,6 +63,7 @@ function DashboardCharts({ charts, slotOf, loading = false }: DashboardChartsPro
               <CardTitle>
                 <span className="d-inline-flex align-items-center gap-2">
                   {p.goal.title}
+                  <GoalTag goal={p.goal} team={goalTeamName(p.goal, teamNames)} />
                   {p.current !== null && <span className="gn-goal-pct">{formatPct(p.current)}</span>}
                   {projected !== null && (
                     <span
@@ -144,7 +149,7 @@ function DashboardCharts({ charts, slotOf, loading = false }: DashboardChartsPro
           {loading ? (
             <div className="text-secondary py-4 text-center">Loading…</div>
           ) : (
-            <ProgressBarChart rows={progress.map((p) => ({ progress: p, slot: slotOf(p.goal.id) }))} />
+            <ProgressBarChart rows={progress.map((p) => ({ progress: p, slot: slotOf(p.goal.id), label: goalLabel(p.goal, teamNames) }))} />
           )}
         </CardBody>
       </Card>

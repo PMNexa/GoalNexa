@@ -5,6 +5,8 @@ import { isCheckInDue, isTracked } from "../../lib/progress";
 import { formatPct, seriesColor, seriesKey } from "./chartUtils";
 import { readStored, writeStored } from "../../lib/storedState";
 import RowMenu from "./RowMenu";
+import GoalTag from "./GoalTag";
+import { goalTeamName } from "../../lib/api/dashboard";
 import { goalGroup, metricGroup, useSiblingDrag, type OrderKind } from "../../lib/ordering";
 
 /** A target per period, in the tree: "6 / 10 /day". */
@@ -38,6 +40,8 @@ export interface GoalFilterListProps {
   actions?: GoalFilterActions;
   /** Epoch ms - what "overdue" is measured against. */
   now: number;
+  /** Team id -> name, to tag each team's copy of a template goal. */
+  teamNames?: Map<string, string>;
 }
 
 export interface GoalFilterActions {
@@ -235,6 +239,7 @@ function GoalFilterList({
   loading,
   actions,
   now,
+  teamNames,
 }: GoalFilterListProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(readStored<string[]>(COLLAPSED_KEY, [])));
   const dragProps = useSiblingDrag((kind, dragged, target, after) => actions?.onMove(kind, dragged, target, after));
@@ -356,6 +361,8 @@ function GoalFilterList({
     const noMetrics = shown && !loading && metricTree.length === 0;
     const hasBranches = metricTree.length > 0 || noMetrics || subGoals.length > 0;
     const isCollapsed = collapsed.has(goal.id);
+    // A sub-goal is in its parent's team - only the top of a tree says which.
+    const team = nested ? null : goalTeamName(goal, teamNames);
     return (
       <li key={goal.id} className={`gn-goal-group${nested ? " gn-branch" : ""}${shown ? " is-shown" : ""}`}>
         <div
@@ -366,8 +373,12 @@ function GoalFilterList({
             className={`gn-key gn-goal-key${shown ? "" : " is-empty"}`}
             style={shown ? { background: seriesColor(slot) } : undefined}
           />
-          <NameCell title={withDescription(goal.title, goal.description)} onOpen={actions && (() => actions.onOpenGoal(goal.id))}>
+          <NameCell
+            title={withDescription(team ? `${goal.title} · ${team}` : goal.title, goal.description)}
+            onOpen={actions && (() => actions.onOpenGoal(goal.id))}
+          >
             <span className="gn-goal-title">{goal.title}</span>
+            <GoalTag goal={goal} team={team} />
           </NameCell>
           {hasBranches ? (
             <CollapseToggle collapsed={isCollapsed} name={goal.title} onToggle={() => toggleCollapsed(goal.id)} />

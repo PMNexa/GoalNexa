@@ -65,6 +65,22 @@ export function teamSubtree(teams: TeamOption[], teamId: string): Set<string> {
   return found;
 }
 
+/**
+ * A goal's team, to tell apart the copies a template makes per team (they
+ * share one title): the team's name for a team's goal, null for any other
+ * goal and for a total (its title already names its team).
+ */
+export function goalTeamName(goal: Goal, teamNames: Map<string, string> | undefined): string | null {
+  if (goal.is_rollup || !goal.team_id) return null;
+  return teamNames?.get(goal.team_id) ?? null;
+}
+
+/** A goal's title plus its team, where one line has to say both (the bar chart). */
+export function goalLabel(goal: Goal, teamNames: Map<string, string> | undefined): string {
+  const team = goalTeamName(goal, teamNames);
+  return team ? `${goal.title} · ${team}` : goal.title;
+}
+
 export function fetchOrgs(accessToken: string): Promise<OrgOption[]> {
   return fetchAll<OrgOption>("/api/v1/orgs?sort=name", accessToken);
 }

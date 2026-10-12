@@ -66,7 +66,9 @@ of you beyond the usual upgrade steps.
   furthest behind, per metric), with an optional planned (top-down)
   target and the gap to what the teams committed. The **Team board** is
   one grid per template and cycle - teams down, goals and metrics across
-  - to check in for several teams at once or set targets. A goal can be
+  - to check in for several teams at once or set targets. On the
+  dashboard, each team's copy is tagged with its team and a total with
+  "Total". A goal can be
   visible to its team only (and the teams under it, the leads above it,
   the org's owners and admins); it still counts in the totals. Closing a
   cycle rolls a team's copy over with blank targets. Assistants check in

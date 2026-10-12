@@ -259,6 +259,29 @@ export const DASHBOARD_CSS = `/* Tokens live on the dashboard root (and on .gn-v
   font-weight: 500;
   color: var(--gn-text-secondary);
 }
+/* "Total" or the team's name: a template's goals share one title per team. */
+.gn-goal-tag {
+  display: inline-block;
+  max-width: 100%;
+  margin-top: 0.125rem;
+  padding: 0 0.375rem;
+  border: 1px solid var(--gn-grid);
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1rem;
+  color: var(--gn-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.gn-goal-tag.is-total {
+  background: var(--tblr-bg-surface-secondary, #f6f8fb);
+}
+.gn-name-btn:not(.is-static):hover > .gn-goal-tag {
+  text-decoration: none;
+}
 .gn-goal-projection {
   font-size: 0.75rem;
   font-weight: 400;

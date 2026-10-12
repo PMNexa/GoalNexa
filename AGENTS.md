@@ -292,7 +292,8 @@ updates any tree; `push_template` runs after every template write; removal
 detaches rows with check-ins). Template-owned fields are refused on
 instances (`LOCKED_*_FIELDS`); base/target need `can_set_targets`, a
 check-in `can_check_in`. **Totals** (`goalnexa/rollups.py`) are rollup goal
-trees (`Goal.is_rollup`, `team_id` = the node, null = org) recomputed from
+trees (`Goal.is_rollup`, `team_id` = the node, null = org; only teams WITH
+sub-teams get one - a leaf's would copy its own goal) recomputed from
 EVERY instance in the subtree (never from child totals), per metric rule
 (`TemplateMetric.rollup`), with `Metric.planned_target`; values are
 synthetic check-ins (`source="rollup"`, one per day). They're triggered from
@@ -305,6 +306,8 @@ each cell's `shown` numbers in that period (`periods.shown`; totals by
 `_combine_shown`) for the board's "Show by" - goalnexa-frontend's
 `TeamBoardScreen` (`createTeamBoardRoutes("board")`; templates' pages:
 `createTemplatesRoutes()`). `Goal.visibility = "team"` (`access._team_visible`).
+The dashboard tags a team's goal with its team and a total with "Total"
+(`GoalTag`, `goalTeamName`) - a template's goals share one title.
 Closing a cycle rolls an instance over with blank targets
 (`roll_over_instance`); totals are rebuilt. The dashboard has a team filter.
 Tests: `apps/main/backend/tests/test_team_templates.py`.

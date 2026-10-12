@@ -1,7 +1,8 @@
 """Team totals (docs/team-templates.md "Rollup"). For a template and a
-cycle, every team with an instance somewhere under it - and the org
-itself (`team_id` null) - gets a read-only rollup goal tree mirroring the
-template. A node's numbers come from EVERY instance in its subtree
+cycle, every team with sub-teams and an instance somewhere under it - and
+the org itself (`team_id` null) - gets a read-only rollup goal tree
+mirroring the template. A team without sub-teams gets none: its total
+would only repeat its own instance. A node's numbers come from EVERY instance in its subtree
 (its own included), never from the rollups below it: an average of
 averages would weigh a 2-team department like a 10-team one.
 
@@ -178,12 +179,14 @@ def recompute(template_id, cycle_id) -> None:
     )
     parents = team_parents(template.org_id)
     teams = {g.team_id for g in instances}
+    has_children = set(parents.values())
     nodes: set = set()
     if instances:
         nodes.add(None)
         for team_id in teams:
             if team_id is not None and team_id in parents:
-                nodes.add(team_id)
+                if team_id in has_children:
+                    nodes.add(team_id)
                 nodes.update(ancestors(parents, team_id))
     rollups = Goal.objects.filter(template_goal__template_id=template_id, cycle_id=cycle_id, is_rollup=True)
     stale = rollups.exclude(team_id__in=[n for n in nodes if n is not None])

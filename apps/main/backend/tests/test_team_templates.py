@@ -224,10 +224,8 @@ class TeamTemplateTests(TestCase):
         self.check_in(self.dave, self.instance_metric(self.north, self.mrr), 40)
         self.check_in(self.erin, self.instance_metric(self.south, self.mrr), 20)
         self.check_in(self.alice, self.instance_metric(self.sales, self.mrr), 5)
-        north_total = self.total(self.mrr, self.north)
         sales_total = self.total(self.mrr, self.sales)
         org_total = self.total(self.mrr)
-        self.assertEqual((north_total.current_value, north_total.target_value), (Decimal(40), Decimal(100)))
         # Sales' own instance plus both teams under it.
         self.assertEqual((sales_total.current_value, sales_total.target_value), (Decimal(65), Decimal(300)))
         self.assertEqual(org_total.current_value, Decimal(65))
@@ -235,6 +233,17 @@ class TeamTemplateTests(TestCase):
         self.assertEqual(org_total.goal.progress, Decimal("10.83"))
         # Stored as check-ins, so charts and health work.
         self.assertEqual(CheckIn.objects.filter(metric=sales_total, source="rollup").last().value, Decimal(65))
+
+    def test_a_team_without_sub_teams_has_no_total(self):
+        # North's total would only repeat North's own numbers.
+        self.apply(self.north, self.south)
+        totals = Goal.objects.filter(is_rollup=True, parent__isnull=True, cycle_id=self.cycle["id"])
+        self.assertEqual({g.team_id and str(g.team_id) for g in totals}, {self.sales["id"], None})
+        # A team that gains a sub-team gets one.
+        east = self.ok(self.alice, "teams", org=self.org["id"], name="East", parent=self.north["id"])
+        self.assertEqual(self.total(self.mrr, self.north).goal.title, "Grow revenue · North total")
+        self.client_patch(self.alice, f"teams/{east['id']}", parent=self.south["id"])
+        self.assertFalse(Goal.objects.filter(is_rollup=True, team_id=self.north["id"]).exists())
 
     def test_average_and_lowest_rules(self):
         self.apply(self.north, self.south)
@@ -261,10 +270,10 @@ class TeamTemplateTests(TestCase):
         self.apply(self.north, self.south)
         self.check_in(self.dave, self.instance_metric(self.north, self.mrr), 50)
         org_total = self.total(self.mrr)
-        north_total = self.total(self.mrr, self.north)
+        sales_total = self.total(self.mrr, self.sales)
         # Leads plan only below their own team; owners/admins anywhere.
         self.set_target(self.dave, org_total, None, status=400)  # a total's target isn't settable
-        self.post_plan(self.dave, north_total, 80, status=403)
+        self.post_plan(self.dave, sales_total, 80, status=403)
         self.post_plan(self.alice, org_total, 250)
         org_total.refresh_from_db()
         self.assertEqual((org_total.planned_target, org_total.target_value), (Decimal(250), Decimal(250)))
@@ -280,7 +289,8 @@ class TeamTemplateTests(TestCase):
 
     def test_a_lead_plans_the_teams_below(self):
         lead = self.ok(self.alice, "team-members", team=self.sales["id"], user_id=self.frank.user_id, role="lead")
-        self.apply(self.north)
+        east = self.ok(self.alice, "teams", org=self.org["id"], name="East", parent=self.north["id"])
+        self.apply(self.north, east)
         self.post_plan(self.frank, self.total(self.mrr, self.north), 90)
         self.post_plan(self.frank, self.total(self.mrr, self.sales), 90, status=403)
         self.assertTrue(lead)
@@ -313,7 +323,7 @@ class TeamTemplateTests(TestCase):
         self.assertEqual((south["can_check_in"], south["can_set_targets"]), (True, False))
         self.assertEqual(north["can_check_in"], False)
         self.assertEqual(north["metrics"][self.mrr["id"]]["target_value"], 100.0)
-        self.assertEqual(set(board["totals"]), {"org", self.sales["id"], self.north["id"], self.south["id"]})
+        self.assertEqual(set(board["totals"]), {"org", self.sales["id"]})
         self.assertFalse(board["can_manage"])
 
     def test_bulk_check_ins_are_all_or_nothing(self):
@@ -386,7 +396,7 @@ class TeamTemplateTests(TestCase):
         hiring = Goal.objects.get(template_goal_id=self.hiring_goal["id"], team_id=self.north["id"], cycle_id=next_cycle["id"],
                                   is_rollup=False)
         self.assertEqual(hiring.parent_id, new.goal_id)
-        self.assertEqual(Goal.objects.filter(cycle_id=next_cycle["id"], is_rollup=True, parent__isnull=True).count(), 3)
+        self.assertEqual(Goal.objects.filter(cycle_id=next_cycle["id"], is_rollup=True, parent__isnull=True).count(), 2)
 
     # --- the agent path --------------------------------------------------------
 
@@ -395,7 +405,7 @@ class TeamTemplateTests(TestCase):
         rows = self.erin.get(f"{API}/metrics", {"filter{name.icontains}": "MRR", "page_size": 100}).json()["items"]
         mine = [r for r in rows if r["in_my_team"]]
         self.assertEqual([r["id"] for r in mine], [str(self.instance_metric(self.south, self.mrr).id)])
-        self.assertEqual(sum(r["is_total"] for r in rows), 4)
+        self.assertEqual(sum(r["is_total"] for r in rows), 2)
 
     # --- plumbing --------------------------------------------------------------
 

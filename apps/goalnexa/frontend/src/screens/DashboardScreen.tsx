@@ -160,6 +160,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   // The team filter: "" = every goal, else a team id (it and the teams under it).
   const [teams, setTeams] = useState<TeamOption[]>([]);
   const [teamKey, setTeamKey] = useState("");
+  const teamNames = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams]);
   // goal id -> color slot, in selection order. A goal keeps its slot for
   // as long as it's selected, so (de)selecting others never repaints it.
   const [selected, setSelected] = useState<Map<string, number>>(new Map());
@@ -723,6 +724,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
                   onMove: moveRow,
                 }}
                 now={now}
+                teamNames={teamNames}
               />
             )}
             {atLimit && shownGoals.length > MAX_GOALS && (
@@ -740,7 +742,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
             </CardBody>
           </Card>
         ) : (
-          <DashboardCharts charts={charts} slotOf={slotOf} loading={loadingSeries} />
+          <DashboardCharts charts={charts} slotOf={slotOf} loading={loadingSeries} teamNames={teamNames} />
         )}
       </div>
     </div>
