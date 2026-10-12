@@ -217,6 +217,9 @@ of you beyond the usual upgrade steps.
   latest date of all shown goals - a quarterly goal no longer sits in a
   sliver of a yearly one's timeline.
 - **The dashboard leaves out archived goals.**
+- **Unarchiving a goal, or moving one into an organization, counts
+  against the organization's goal limit** (like creating one), so it can't
+  take the organization over it.
 
 ### Removed
 

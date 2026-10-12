@@ -102,11 +102,18 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         if visibility == GoalVisibility.TEAM and not team_id:
             raise ValidationError({"visibility": ["Only a team's goal can be visible to its team - pick a team first."]})
 
+    @staticmethod
+    def _check_goal_limit(org_id, exclude_id=None):
+        """One more counted goal in `org_id` (not archived, not a total)?"""
+        current = Goal.objects.filter(org_id=org_id, is_rollup=False).exclude(status=GoalStatus.ARCHIVED)
+        if exclude_id is not None:
+            current = current.exclude(id=exclude_id)
+        check_org_limit(org_id, "max_goals", current.count(), "goals")
+
     def perform_create(self, serializer):
         org_id = serializer.validated_data.get("org_id")
         if org_id:
-            current = Goal.objects.filter(org_id=org_id, is_rollup=False).exclude(status=GoalStatus.ARCHIVED).count()
-            check_org_limit(org_id, "max_goals", current, "goals")
+            self._check_goal_limit(org_id)
         self._check_team(serializer.validated_data.get("team_id"), org_id, serializer.validated_data.get("visibility"))
         cycle = self._resolve_cycle(org_id)
         parent = self._resolve_parent()
@@ -148,6 +155,11 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         before = snapshot(instance, FEED_FIELDS)
         old_siblings = sibling_key(instance)
         org_id = serializer.validated_data.get("org_id", instance.org_id)
+        # Unarchived, or moved into another org: it counts there from now on.
+        archived = serializer.validated_data.get("status", instance.status) == GoalStatus.ARCHIVED
+        counted_before = instance.status != GoalStatus.ARCHIVED and str(instance.org_id or "") == str(org_id or "")
+        if org_id and not archived and not counted_before:
+            self._check_goal_limit(org_id, exclude_id=instance.id)
         if "cycle" in self.request.data:
             cycle = self._resolve_cycle(org_id)
         elif instance.cycle_id and str(instance.cycle.org_id or "") != str(org_id or ""):

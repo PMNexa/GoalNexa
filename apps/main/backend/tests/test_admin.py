@@ -378,6 +378,21 @@ class SupportTests(AdminTestCase):
         self.assertEqual(invite.json()["code"], "limit_reached")
         self.assertEqual(self.admin.patch(f"{API}/all-orgs/{org['id']}", {"limits": {"max_goals": -1}}, format="json").status_code, 400)
 
+    def test_unarchiving_or_moving_a_goal_counts_against_the_limit(self):
+        org = self.bob.post(f"{API}/orgs", {"name": "Small"}, format="json").json()
+        self.set_setting("limits.max_goals", 1)
+        first = self.bob.post(f"{API}/goals", {"title": "One", "org_id": org["id"]}, format="json").json()
+        self.assertEqual(self.bob.patch(f"{API}/goals/{first['id']}", {"status": "archived"}, format="json").status_code, 200)
+        second = self.bob.post(f"{API}/goals", {"title": "Two", "org_id": org["id"]}, format="json").json()
+        refused = self.bob.patch(f"{API}/goals/{first['id']}", {"status": "in_progress"}, format="json")
+        self.assertEqual((refused.status_code, refused.json()["code"]), (403, "limit_reached"))
+        self.assertEqual(Goal.objects.get(id=first["id"]).status, "archived")
+        personal = self.bob.post(f"{API}/goals", {"title": "Personal"}, format="json").json()
+        moved = self.bob.patch(f"{API}/goals/{personal['id']}", {"org_id": org["id"]}, format="json")
+        self.assertEqual(moved.json()["code"], "limit_reached")
+        # Editing a counted goal is fine, even with the org at its limit.
+        self.assertEqual(self.bob.patch(f"{API}/goals/{second['id']}", {"title": "2"}, format="json").status_code, 200)
+
     def test_view_as_user_is_read_only_and_audited(self):
         bob = User.objects.get(email="bob@example.com")
         self.bob.post(f"{API}/goals", {"title": "Bob's"}, format="json")
