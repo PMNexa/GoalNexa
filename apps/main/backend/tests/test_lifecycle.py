@@ -38,7 +38,7 @@ DEFAULTS = {
 @override_settings(PUBLIC_URL="https://gn.test", SYSTEM_SETTING_DEFAULTS=DEFAULTS)
 class LifecycleTestCase(AdminTestCase):
     def setUp(self):
-        engine._last_scan = 0.0
+        engine._last_scan = None
         super().setUp()
 
     def run_engine(self, after=timedelta(0)):
