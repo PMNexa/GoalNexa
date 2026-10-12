@@ -26,16 +26,19 @@ import calendar
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
-from django.db.models import Sum
 from django.utils import timezone
 
-from goalnexa.models import ActivityVerb, CheckIn, CheckInCadence, Goal, GoalHealth, Metric, MetricAggregation
+from goalnexa import periods
+from goalnexa.models import ActivityVerb, CheckIn, CheckInCadence, Goal, GoalHealth, Metric, MetricAggregation, ProgressBy
 
 #: Projected progress at or above this (but under 100%) is AT_RISK; below it, OFF_TRACK.
 AT_RISK_FLOOR = 80.0
 
 
 def metric_pct(value, metric: Metric) -> float | None:
+    if getattr(metric, "target_per", ""):
+        # A target per period: against every period's quota, or the hit rate (goalnexa.periods).
+        return periods.pct(value, metric)
     base = float(metric.base_value)
     span = float(metric.target_value) - base
     if span == 0:
@@ -43,13 +46,23 @@ def metric_pct(value, metric: Metric) -> float | None:
     return max(0.0, (float(value) - base) / span * 100)
 
 
-def metric_readings(metric: Metric, check_ins) -> list[tuple[datetime, float]]:
-    """(when, value) per check-in, oldest first - SUM metrics as running totals."""
-    ordered = sorted(check_ins, key=lambda c: (c.checked_in_at, c.created_at))
+def metric_readings(metric: Metric, check_ins, zone=None) -> list[tuple[datetime, float]]:
+    """(when, value) per check-in, oldest first - SUM metrics as running
+    totals. With one reading per period (`one_per`), a SUM check-in is its
+    period's total so far: it replaces the period's earlier one in the total."""
+    ordered = sorted(check_ins, key=lambda c: (c.checked_in_at, c.created_at or c.checked_in_at))
     if metric.aggregation != MetricAggregation.SUM:
         return [(c.checked_in_at, float(c.value)) for c in ordered]
-    total = float(metric.base_value)
+    base = float(metric.base_value)
     readings = []
+    if metric.one_per:
+        zone = zone or periods.zone_for(metric.goal)
+        by_period: dict = {}
+        for c in ordered:
+            by_period[periods.bucket(c, metric.one_per, zone)] = float(c.value)
+            readings.append((c.checked_in_at, base + sum(by_period.values())))
+        return readings
+    total = base
     for c in ordered:
         total += float(c.value)
         readings.append((c.checked_in_at, total))
@@ -85,13 +98,17 @@ def target_datetime(target_date: date) -> datetime:
     return timezone.make_aware(datetime.combine(target_date, time.min))
 
 
-def goal_health(progress: float | None, projected: float | None, target_date: date | None, today: date) -> str:
-    """ACHIEVED at 100%+. Otherwise, with a target date: past it = OFF_TRACK;
-    before it, from the projection - 100%+ ON_TRACK, AT_RISK_FLOOR+ AT_RISK,
-    below OFF_TRACK. UNKNOWN without metrics, a target date or a trend."""
+def goal_health(
+    progress: float | None, projected: float | None, target_date: date | None, today: date, *, can_achieve: bool = True
+) -> str:
+    """ACHIEVED at 100%+ (unless `can_achieve` is off: a hit rate at 100%
+    before the end isn't done yet). Otherwise, with a target date: past it
+    = OFF_TRACK; before it, from the projection - 100%+ ON_TRACK,
+    AT_RISK_FLOOR+ AT_RISK, below OFF_TRACK. UNKNOWN without metrics, a
+    target date or a trend."""
     if progress is None:
         return GoalHealth.UNKNOWN
-    if progress >= 100:
+    if progress >= 100 and can_achieve:
         return GoalHealth.ACHIEVED
     if target_date is None:
         return GoalHealth.UNKNOWN
@@ -128,20 +145,30 @@ def refresh_metric(metric_id, *, sync_value: bool = True) -> Metric | None:
     off, or it has no check-ins - then a value set directly stays),
     `last_checked_in_at` and `check_in_due_at` - clearing `reminded_at`
     when the due date moves."""
-    metric = Metric.objects.filter(id=metric_id).first()
+    metric = Metric.objects.filter(id=metric_id).select_related("goal__cycle").first()
     if metric is None:
         return None
-    check_ins = CheckIn.objects.filter(metric_id=metric_id)
-    latest = check_ins.order_by("-checked_in_at", "-created_at").values("value", "checked_in_at").first()
-    updates = {"last_checked_in_at": latest["checked_in_at"] if latest else None}
+    check_ins = list(CheckIn.objects.filter(metric_id=metric_id))
+    zone = periods.zone_for(metric.goal) if metric.one_per or metric.target_per else None
+    # One reading per period: only the last check-in of each counts (goalnexa.periods.counted).
+    kept, replaced = periods.counted(metric, check_ins, zone)
+    latest = kept[-1] if kept else None
+    updates = {"last_checked_in_at": latest.checked_in_at if latest else None}
     if sync_value and latest is not None:
         if metric.aggregation == MetricAggregation.SUM:
-            updates["current_value"] = metric.base_value + (check_ins.aggregate(total=Sum("value"))["total"] or 0)
+            updates["current_value"] = metric.base_value + sum((c.value for c in kept), Decimal(0))
         else:
-            updates["current_value"] = latest["value"]
+            updates["current_value"] = latest.value
+    if any(c.replaced != (c.id in replaced) for c in check_ins):
+        CheckIn.objects.filter(metric_id=metric_id, id__in=replaced, replaced=False).update(replaced=True)
+        CheckIn.objects.filter(metric_id=metric_id, replaced=True).exclude(id__in=replaced).update(replaced=False)
     old_due = metric.check_in_due_at
     for name, value in updates.items():
         setattr(metric, name, value)
+    if not metric.goal.is_rollup:  # a total's period numbers are its teams' (goalnexa.rollups)
+        updates.update(periods.compute(metric, metric.goal, kept, zone=zone))
+        for name in ("period_value", "cumulative_target", "expected_value", "hit_rate", "streak"):
+            setattr(metric, name, updates[name])
     metric.check_in_due_at = updates["check_in_due_at"] = next_due(metric)
     if metric.check_in_due_at != old_due:
         # A new due date starts a new reminder cycle (goalnexa.reminders).
@@ -159,15 +186,29 @@ def compute_goal(goal: Goal, metrics: list[Metric], check_ins_by_metric: dict, t
     projected = None
     if goal.target_date is not None:
         target = target_datetime(goal.target_date)
-        values = [project_value(metric_readings(m, check_ins_by_metric.get(m.id, [])), target) for m in usable]
-        if any(v is not None for v in values):
+        zones = {m.id: periods.zone_for(goal) for m in usable if m.one_per}
+        # A target per period projects by pace (goalnexa.periods), not by trend.
+        values = [
+            None if m.target_per else project_value(metric_readings(m, check_ins_by_metric.get(m.id, []), zones.get(m.id)), target)
+            for m in usable
+        ]
+        paces = [periods.pace_pct(m) if m.target_per else None for m in usable]
+        if any(v is not None for v in values) or any(p is not None for p in paces):
             projected = sum(
-                metric_pct(v, m) if v is not None else metric_pct(m.current_value, m) for m, v in zip(usable, values)
+                pace if m.target_per and pace is not None
+                else metric_pct(v, m) if v is not None
+                else metric_pct(m.current_value, m)
+                for m, v, pace in zip(usable, values, paces)
             ) / len(usable)
+    # A hit rate is at 100% from the first period hit - it's done only once its goal ends.
+    open_hit_rate = any(
+        m.target_per and m.progress_by == ProgressBy.HIT_RATE and (goal.target_date is None or today <= goal.target_date)
+        for m in usable
+    )
     return {
         "progress": _pct(progress),
         "projected_progress": _pct(projected),
-        "health": goal_health(progress, projected, goal.target_date, today),
+        "health": goal_health(progress, projected, goal.target_date, today, can_achieve=not open_hit_rate),
     }
 
 
@@ -187,16 +228,22 @@ def refresh_goal(goal_id) -> Goal | None:
             check_ins_by_metric.setdefault(check_in.metric_id, []).append(check_in)
     fields = compute_goal(goal, metrics, check_ins_by_metric, timezone.localdate())
     Goal.objects.filter(id=goal_id).update(**fields)
-    if fields["health"] != goal.health and fields["health"] != GoalHealth.UNKNOWN:
+    # A team total (goalnexa.rollups) is the system's own: no feed entry,
+    # no milestone email for the template's owner.
+    if fields["health"] != goal.health and fields["health"] != GoalHealth.UNKNOWN and not goal.is_rollup:
         from goalnexa.activity import record  # activity imports models only; kept lazy for the migration's sake
 
         record(goal.id, ActivityVerb.HEALTH_CHANGED, **{"from": goal.health, "to": fields["health"]})
-    if fields.get("progress") != goal.progress:
+    if fields.get("progress") != goal.progress and not goal.is_rollup:
         from goalnexa.lifecycle import on_progress  # milestone emails (50%, 100%)
 
         on_progress(goal, goal.progress, fields.get("progress"))
     for name, value in fields.items():
         setattr(goal, name, value)
+    if goal.template_goal_id and not goal.is_rollup:
+        from goalnexa.rollups import on_goal_refreshed  # the team totals this instance counts in
+
+        on_goal_refreshed(goal)
     return goal
 
 

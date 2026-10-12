@@ -92,6 +92,9 @@ function describe(activity: Activity): string {
     case "metric_removed":
       return `removed metric ${metric}`;
     case "checked_in":
+      // One reading per period: a check-in replaces the period's earlier one (or was itself replaced by a later one).
+      if (d.replaces !== undefined) return `checked in ${amount} on ${metric}, replacing ${String(d.replaces)}${via}`;
+      if (d.replaced) return `checked in ${amount} on ${metric} - a later one in its period counts instead${via}`;
       return (d.adds ? `added ${amount} to ${metric}` : `checked in ${amount} on ${metric}`) + via;
     case "check_in_changed":
       return `edited a check-in on ${metric} (now ${amount})`;

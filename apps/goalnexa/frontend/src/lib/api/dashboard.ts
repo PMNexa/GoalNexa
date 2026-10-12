@@ -13,6 +13,8 @@ import type { Metric } from "./metrics";
 export interface OrgOption {
   id: string;
   name: string;
+  /** The caller's role in it (platform-org's `my_role`). */
+  my_role?: "owner" | "admin" | "member" | null;
 }
 
 interface Page<T> {
@@ -32,6 +34,35 @@ export async function fetchAll<T>(path: string, accessToken: string): Promise<T[
     items.push(...result.items);
     if (result.items.length === 0 || items.length >= result.total) return items;
   }
+}
+
+/** A team of an org (platform-org's `/api/v1/teams`, HTTP only) - for the team filter. */
+export interface TeamOption {
+  id: string;
+  name: string;
+  parent: string | null;
+}
+
+export function fetchTeams(accessToken: string, orgId: string): Promise<TeamOption[]> {
+  return fetchAll<TeamOption>(`/api/v1/teams?filter{org}=${encodeURIComponent(orgId)}&sort=name`, accessToken).catch(
+    () => [], // a host without teams
+  );
+}
+
+/** `teamId` and every team under it. */
+export function teamSubtree(teams: TeamOption[], teamId: string): Set<string> {
+  const found = new Set<string>([teamId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const team of teams) {
+      if (team.parent && found.has(team.parent) && !found.has(team.id)) {
+        found.add(team.id);
+        grew = true;
+      }
+    }
+  }
+  return found;
 }
 
 export function fetchOrgs(accessToken: string): Promise<OrgOption[]> {

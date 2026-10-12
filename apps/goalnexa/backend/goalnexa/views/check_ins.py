@@ -16,9 +16,14 @@ who logged it and from where (`author_id`, `source`: web, or an AI agent
 when it's an MCP tool call).
 """
 
+from django.db import transaction
 from django.shortcuts import get_object_or_404
-from rest_framework.exceptions import ValidationError
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from core_api.system import AGENT, WEB, seen
 from core_api.viewsets import BaseViewSet
@@ -26,11 +31,38 @@ from goalnexa.access import visible_goals
 from goalnexa.activity import record, request_source
 from goalnexa.models import ActivityVerb, CheckIn, CheckInSource, Metric
 from goalnexa.progress import refresh_metric_and_goal
+from goalnexa.rollups import batched
 from goalnexa.serializers import CheckInSerializer
+from goalnexa.teams import can_check_in
+
+#: Cells one bulk request may save (the team board).
+MAX_BULK = 500
+TOTAL = "This is a team total - it's calculated from the teams' check-ins. Check in on a team's own metric."
+
+
+def check_can_check_in(request, metric) -> None:
+    """A team total takes no check-ins; a template instance only from its
+    team (`goalnexa.teams.can_check_in`)."""
+    goal = metric.goal
+    if goal.is_rollup:
+        raise ValidationError({"metric": [TOTAL]})
+    if goal.template_goal_id and not can_check_in(request, goal):
+        raise PermissionDenied("Only the team's members can check in on its goals.")
 
 
 def record_check_in(check_in: CheckIn, verb: str, actor_id) -> None:
     metric = check_in.metric
+    extra = {}
+    if metric.one_per and verb != ActivityVerb.CHECK_IN_REMOVED:
+        # One reading per period: say what it replaced, or that it was replaced.
+        from goalnexa.periods import replaced_by
+
+        check_in.refresh_from_db(fields=["replaced"])
+        earlier = replaced_by(check_in)
+        if check_in.replaced:
+            extra["replaced"] = True
+        elif earlier is not None:
+            extra["replaces"] = earlier.value
     record(
         metric.goal_id,
         verb,
@@ -42,6 +74,7 @@ def record_check_in(check_in: CheckIn, verb: str, actor_id) -> None:
         adds=metric.aggregation == "sum",
         source=check_in.source,
         check_in=check_in.id,
+        **extra,
     )
 
 
@@ -69,7 +102,9 @@ class CheckInViewSet(BaseViewSet):
 
     def perform_create(self, serializer):
         source = request_source(self.request)
-        check_in = serializer.save(metric=self._resolve_metric(), author_id=self.request.user.id, source=source)
+        metric = self._resolve_metric()
+        check_can_check_in(self.request, metric)
+        check_in = serializer.save(metric=metric, author_id=self.request.user.id, source=source)
         refresh_metric_and_goal(check_in.metric_id)
         record_check_in(check_in, ActivityVerb.CHECKED_IN, self.request.user.id)
         seen(self.request.user.id, AGENT if source == CheckInSource.AGENT else WEB)
@@ -81,7 +116,10 @@ class CheckInViewSet(BaseViewSet):
         # change which check-in is latest on either side.
         instance = serializer.instance
         old_metric_id = instance.metric_id
+        check_can_check_in(self.request, instance.metric)
         metric = self._resolve_metric() if "metric" in self.request.data else instance.metric
+        if metric.id != old_metric_id:
+            check_can_check_in(self.request, metric)
         check_in = serializer.save(metric=metric)
         refresh_metric_and_goal(check_in.metric_id)
         if old_metric_id != check_in.metric_id:
@@ -89,7 +127,44 @@ class CheckInViewSet(BaseViewSet):
         record_check_in(check_in, ActivityVerb.CHECK_IN_CHANGED, self.request.user.id)
 
     def perform_destroy(self, instance):
+        check_can_check_in(self.request, instance.metric)
         metric_id = instance.metric_id
         record_check_in(instance, ActivityVerb.CHECK_IN_REMOVED, self.request.user.id)
         instance.delete()
         refresh_metric_and_goal(metric_id)
+
+    @extend_schema(
+        description="Save several check-ins at once, all or nothing - the team board's Save. Each item is a "
+        "check-in's fields (metric, value, note, checked_in_at); team totals are recalculated once at the end.",
+        request=inline_serializer("BulkCheckIns", {
+            "items": serializers.ListField(child=inline_serializer("BulkCheckIn", {
+                "metric": serializers.UUIDField(),
+                "value": serializers.DecimalField(max_digits=14, decimal_places=2),
+                "note": serializers.CharField(required=False, allow_blank=True),
+                "checked_in_at": serializers.DateTimeField(required=False),
+            })),
+        }),
+        responses={201: CheckInSerializer(many=True)},
+    )
+    @action(detail=False, methods=["post"])
+    def bulk(self, request):
+        items = request.data.get("items")
+        if not isinstance(items, list) or not items or len(items) > MAX_BULK:
+            raise ValidationError({"items": [f"A list of 1 to {MAX_BULK} check-ins."]})
+        source = request_source(request)
+        created = []
+        with transaction.atomic(), batched():
+            for index, item in enumerate(items):
+                if not isinstance(item, dict) or not item.get("metric"):
+                    raise ValidationError({"items": [f"Item {index + 1}: a metric is required."]})
+                metric = get_object_or_404(Metric.objects.filter(visible_goals(request, "goal__")), id=item["metric"])
+                check_can_check_in(request, metric)
+                serializer = self.get_serializer(data={k: v for k, v in item.items() if k != "metric"})
+                if not serializer.is_valid():
+                    raise ValidationError({"items": [f"Item {index + 1}: {serializer.errors}"]})
+                created.append(serializer.save(metric=metric, author_id=request.user.id, source=source))
+            for check_in in created:
+                refresh_metric_and_goal(check_in.metric_id)
+                record_check_in(check_in, ActivityVerb.CHECKED_IN, request.user.id)
+        seen(request.user.id, AGENT if source == CheckInSource.AGENT else WEB)
+        return Response(self.get_serializer(created, many=True).data, status=201)

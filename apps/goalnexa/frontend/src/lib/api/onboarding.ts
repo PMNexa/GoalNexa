@@ -9,8 +9,18 @@ import type { Metric } from "./metrics";
  * `dashboard.ts`.
  */
 
+/** The browser's time zone (IANA), or "" when it can't tell. */
+export function browserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** A new org counts its days (daily/weekly targets) in the creator's time zone. */
 export function createOrg(accessToken: string, name: string): Promise<{ id: string; name: string }> {
-  return apiRequest("/api/v1/orgs", accessToken, { method: "POST", data: { name } });
+  return apiRequest("/api/v1/orgs", accessToken, { method: "POST", data: { name, timezone: browserTimeZone() } });
 }
 
 export function createGoal(

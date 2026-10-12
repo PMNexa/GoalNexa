@@ -61,6 +61,12 @@ export { default as DashboardScreen } from "./screens/DashboardScreen";
 export type { DashboardScreenProps } from "./screens/DashboardScreen";
 export { createDashboardRoutes, createSharedDashboardRoutes } from "./dashboardRoutes";
 export { createCheckInTableRoutes } from "./checkInTableRoutes";
+// Teams running one goal system: the team board (check-ins, targets and
+// totals per team) and the goal templates' pages.
+export { createTeamBoardRoutes, createTemplatesRoutes } from "./teamBoardRoutes";
+export { default as TeamBoardScreen } from "./screens/TeamBoardScreen";
+export type { TeamBoardScreenProps } from "./screens/TeamBoardScreen";
+export type { Board, GoalTemplate } from "./lib/api/teamBoard";
 export { default as CheckInTableScreen } from "./screens/CheckInTableScreen";
 // What a public dashboard link shows - mounted outside the app shell.
 export { default as SharedDashboardScreen } from "./screens/SharedDashboardScreen";

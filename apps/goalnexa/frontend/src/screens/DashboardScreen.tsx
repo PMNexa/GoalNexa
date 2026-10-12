@@ -8,6 +8,7 @@ import {
   CrudDetailScreen,
   Drawer,
   FormLabel,
+  FormSelect,
   Icon,
   type LinkComponent,
 } from "platform-core";
@@ -22,14 +23,18 @@ import {
   fetchGoals,
   fetchMetrics,
   fetchOrgs,
+  fetchTeams,
+  teamSubtree,
   type OrgOption,
+  type TeamOption,
 } from "../lib/api/dashboard";
 import type { CheckIn } from "../lib/api/checkIns";
 import { fetchCycles, type Cycle } from "../lib/api/cycles";
+import { SNAP_LABELS, type Snap } from "../lib/periods";
 import CheckInModal from "./dashboard/CheckInModal";
 import CreateRecordModal, { type CreateTarget } from "./dashboard/CreateRecordModal";
 import DashboardCharts from "./dashboard/DashboardCharts";
-import GoalFilterList from "./dashboard/GoalFilterList";
+import GoalFilterList, { withDescendants } from "./dashboard/GoalFilterList";
 import ShareDashboardModal from "./dashboard/ShareDashboardModal";
 import { MAX_GOALS, useDashboardCharts } from "./dashboard/useDashboardCharts";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
@@ -101,7 +106,14 @@ function goalFromUrl(): string | null {
 }
 
 const HIDDEN_METRICS_KEY = "goalnexa:dashboard-hidden-metrics";
+/** "As logged" (none) or a period the charts snap to - remembered per browser. */
+const SNAP_KEY = "goalnexa:dashboard-snap";
 const SHOWN_GOALS_KEY = "goalnexa:dashboard-shown-goals";
+
+/** What the shown goals are remembered under: org + cycle, + team when one is picked (the old key otherwise). */
+function shownKey(orgKey: string | null, cycleKey: string, teamKey: string): string {
+  return `${orgKey}|${cycleKey}${teamKey ? `|${teamKey}` : ""}`;
+}
 
 /** The shown goals (id -> color slot) remembered for an org + cycle, or null if never chosen. */
 function readShown(scope: string): Map<string, number> | null {
@@ -145,6 +157,9 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   const [goalsLoaded, setGoalsLoaded] = useState(0);
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [cycleKey, setCycleKey] = useState<string>(ALL_CYCLES);
+  // The team filter: "" = every goal, else a team id (it and the teams under it).
+  const [teams, setTeams] = useState<TeamOption[]>([]);
+  const [teamKey, setTeamKey] = useState("");
   // goal id -> color slot, in selection order. A goal keeps its slot for
   // as long as it's selected, so (de)selecting others never repaints it.
   const [selected, setSelected] = useState<Map<string, number>>(new Map());
@@ -221,11 +236,13 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
     setGoals(null);
     setSelected(new Map());
     const org = orgKey === PERSONAL_ORG ? null : orgKey;
-    Promise.all([fetchGoals(accessToken, org), fetchCycles(accessToken, org)])
-      .then(([items, orgCycles]) => {
+    Promise.all([fetchGoals(accessToken, org), fetchCycles(accessToken, org), org ? fetchTeams(accessToken, org) : []])
+      .then(([items, orgCycles, orgTeams]) => {
         if (cancelled) return;
         setGoals(items);
         setCycles(orgCycles);
+        setTeams(orgTeams);
+        setTeamKey((key) => (orgTeams.some((team) => team.id === key) ? key : ""));
         // Open on the cycle running today, if there is one - unless a
         // linked goal isn't in it.
         const focus = items.find((goal) => goal.id === focusGoalRef.current);
@@ -239,16 +256,16 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
     };
   }, [accessToken, orgKey, goalsVersion]);
 
-  // The goals the cycle filter lets through, minus archived ones - what the tree lists.
-  const shownGoals = useMemo(
-    () =>
-      (goals ?? []).filter(
-        (goal) =>
-          goal.status !== "archived" &&
-          (cycleKey === ALL_CYCLES ? true : cycleKey === NO_CYCLE ? goal.cycle === null : goal.cycle === cycleKey),
-      ),
-    [goals, cycleKey],
-  );
+  // The goals the cycle and team filters let through, minus archived ones - what the tree lists.
+  const shownGoals = useMemo(() => {
+    const inTeams = teamKey ? teamSubtree(teams, teamKey) : null;
+    return (goals ?? []).filter(
+      (goal) =>
+        goal.status !== "archived" &&
+        (cycleKey === ALL_CYCLES ? true : cycleKey === NO_CYCLE ? goal.cycle === null : goal.cycle === cycleKey) &&
+        (inTeams === null || (goal.team_id != null && inTeams.has(goal.team_id))),
+    );
+  }, [goals, cycleKey, teamKey, teams]);
 
   // A new org or cycle starts with its first few goals selected, so the page opens on a chart.
   useEffect(() => {
@@ -260,7 +277,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         return;
       }
     }
-    const remembered = readShown(`${orgKey}|${cycleKey}`);
+    const remembered = readShown(shownKey(orgKey, cycleKey, teamKey));
     if (remembered) {
       setSelected(new Map([...remembered].filter(([id]) => shownGoals.some((goal) => goal.id === id))));
       return;
@@ -268,7 +285,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
     setSelected(new Map(shownGoals.slice(0, MAX_GOALS).map((goal, i) => [goal.id, i + 1])));
     // Not on every `shownGoals` change: creating a goal mustn't reset the selection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goalsLoaded, cycleKey]);
+  }, [goalsLoaded, cycleKey, teamKey]);
 
   const selectedIds = useMemo(() => [...selected.keys()].sort(), [selected]);
   const selectedKey = selectedIds.join(",");
@@ -298,7 +315,8 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, selectedKey, seriesVersion]);
 
-  const charts = useDashboardCharts(goals, selected, metrics, checkIns, disabledMetrics);
+  const [snap, setSnap] = useState<Snap | null>(() => readStored<Snap | null>(SNAP_KEY, null));
+  const charts = useDashboardCharts(goals, selected, metrics, checkIns, disabledMetrics, snap);
   const { progress, metricsByGoal, metricSlot, now } = charts;
 
   const checkInMetric = metrics.find((metric) => metric.id === checkInFor) ?? null;
@@ -318,7 +336,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   function chooseShown(update: (prev: Map<string, number>) => Map<string, number>) {
     setSelected((prev) => {
       const next = update(prev);
-      writeShown(`${orgKey}|${cycleKey}`, next);
+      writeShown(shownKey(orgKey, cycleKey, teamKey), next);
       return next;
     });
   }
@@ -326,7 +344,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   function toggleGoal(goalId: string) {
     chooseShown((prev) => {
       const next = new Map(prev);
-      if (next.has(goalId)) next.delete(goalId);
+      if (next.has(goalId)) for (const id of withDescendants(goals ?? [], goalId)) next.delete(id);
       else if (next.size < MAX_GOALS) next.set(goalId, freeSlot(next));
       return next;
     });
@@ -424,10 +442,11 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   const slotOf = (goalId: string) => selected.get(goalId) ?? 1;
   const atLimit = selected.size >= MAX_GOALS;
 
-  const orgSelect = (id: string, className = "form-select form-select-sm", ariaLabel?: string) => (
-    <select
+  const orgSelect = (id: string, size: "sm" | "md" = "sm", className?: string, ariaLabel?: string) => (
+    <FormSelect
       id={id}
       aria-label={ariaLabel}
+      size={size}
       className={className}
       value={orgKey ?? ""}
       disabled={orgs === null}
@@ -443,7 +462,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         </option>
       ))}
       <option value={PERSONAL_ORG}>Personal (no organization)</option>
-    </select>
+    </FormSelect>
   );
 
   // A chosen organization with no goals (archived ones don't count) gets the setup wizard, not an empty dashboard.
@@ -458,7 +477,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         key={emptyOrg.id}
         accessToken={accessToken}
         existingOrg={{ id: emptyOrg.id, name: emptyOrg.name }}
-        orgPicker={orgSelect("setup-org", "form-select w-auto fw-semibold", "Organization")}
+        orgPicker={orgSelect("setup-org", "md", "w-auto fw-semibold", "Organization")}
         onComplete={() => setGoalsVersion((v) => v + 1)}
         onSkip={() => setSetupSkipped((prev) => new Set(prev).add(emptyOrg.id))}
       />
@@ -588,9 +607,8 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
             {cycles.length > 0 && (
               <div className="mb-3">
                 <FormLabel htmlFor="dashboard-cycle">Cycle</FormLabel>
-                <select
+                <FormSelect
                   id="dashboard-cycle"
-                  className="form-select form-select-sm"
                   value={cycleKey}
                   onChange={(event) => setCycleKey(event.target.value)}
                 >
@@ -602,7 +620,50 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
                     </option>
                   ))}
                   <option value={NO_CYCLE}>Not in a cycle</option>
-                </select>
+                </FormSelect>
+              </div>
+            )}
+
+            <div className="mb-3">
+              <FormLabel htmlFor="dashboard-snap">Show check-ins by</FormLabel>
+              <FormSelect
+                id="dashboard-snap"
+                value={snap ?? ""}
+                onChange={(event) => {
+                  const next = (event.target.value || null) as Snap | null;
+                  setSnap(next);
+                  writeStored(SNAP_KEY, next);
+                }}
+              >
+                <option value="">As logged</option>
+                {(Object.keys(SNAP_LABELS) as Snap[]).map((per) => (
+                  <option key={per} value={per}>
+                    {SNAP_LABELS[per]}
+                  </option>
+                ))}
+              </FormSelect>
+              {snap && (
+                <small className="form-hint">
+                  Lines keep each metric's last reading per {snap}; amounts to add also show as bars per {snap}.
+                </small>
+              )}
+            </div>
+
+            {teams.length > 0 && (
+              <div className="mb-3">
+                <FormLabel htmlFor="dashboard-team">Team</FormLabel>
+                <FormSelect
+                  id="dashboard-team"
+                  value={teamKey}
+                  onChange={(event) => setTeamKey(event.target.value)}
+                >
+                  <option value="">All goals</option>
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </FormSelect>
               </div>
             )}
 
@@ -634,7 +695,11 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
               <div className="text-secondary small">Loading goals…</div>
             ) : shownGoals.length === 0 ? (
               <div className="text-secondary small">
-                {!hasActiveGoals ? "No goals in this organization yet." : "No goals in this cycle yet."}
+                {!hasActiveGoals
+                  ? "No goals in this organization yet."
+                  : teamKey
+                    ? "No goals for this team here yet."
+                    : "No goals in this cycle yet."}
               </div>
             ) : (
               <GoalFilterList

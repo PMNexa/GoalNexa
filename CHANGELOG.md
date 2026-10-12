@@ -9,6 +9,49 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **One reading per period** (`docs/period-targets.md`). A metric can
+  count only the last check-in of each day, week, month, quarter or year
+  ("Which check-ins count"): a later check-in replaces the earlier one,
+  and for amounts each check-in is the period's total so far ("10,500
+  steps today"). Earlier check-ins are kept, marked replaced. The
+  check-in form says what it replaces and fills it in, the feed says
+  "replacing 8,000", the dashboard snaps such a metric to its period, and
+  the assistant sends the period's total and says what it replaced.
+  Goal templates and the template wizard carry it.
+- **Targets per period** (`docs/period-targets.md`). A metric whose
+  check-ins are amounts to add can have its target per day, week, month,
+  quarter or year ("10 calls a day"), counting every day or weekdays
+  only, in the organization's new **time zone** setting. Its progress is
+  either the total against every period's target or how often the target
+  is hit (with a streak); health follows the pace - where it should be by
+  now. Goal templates and the template wizard carry it; team totals add
+  the targets up or average the hit rates. The board and the goal tree
+  show this period ("Today 6/10"); the dashboard draws bars per period
+  and can show check-ins by day/week/month/quarter/year; a reminder goes
+  out in the evening of a period's last day when it's still short. A
+  running total with a target date shows the pace needed per day or week.
+- **Team board**: "+ New" opens a template wizard (name, goals, metrics,
+  teams, review), an empty template has "Set it up", and a team that
+  doesn't use the template can be added from its row. Organization
+  owners and admins can click a goal or metric column header to edit it
+  in a drawer; every team's copy follows.
+- **Teams, goal templates and team totals** (`docs/team-templates.md`).
+  An organization's teams form a tree (Organizations > Teams; a
+  department is a team with sub-teams), with leads and members. A **goal
+  template** (Goal tracking > Goal templates, owners and admins only)
+  holds one goal system - goals, sub-goals, metrics - that several teams
+  run: added to a team, it gives the team its own copy, whose titles and
+  metrics follow the template (every change reaches every team) while the
+  targets and check-ins are the team's. Totals add the teams up for every
+  department and the whole organization (sum, average or the team
+  furthest behind, per metric), with an optional planned (top-down)
+  target and the gap to what the teams committed. The **Team board** is
+  one grid per template and cycle - teams down, goals and metrics across
+  - to check in for several teams at once or set targets. A goal can be
+  visible to its team only (and the teams under it, the leads above it,
+  the org's owners and admins); it still counts in the totals. Closing a
+  cycle rolls a team's copy over with blank targets. Assistants check in
+  on the speaker's own team's copy (`in_my_team` on metrics).
 - **Lifecycle email** (`docs/lifecycle-email.md`). GoalNexa can email
   people at the right moments: onboarding from signup to the first
   check-in (welcome, first goal, first check-in, check in by chat, one

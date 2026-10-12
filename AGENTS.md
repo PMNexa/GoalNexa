@@ -194,8 +194,8 @@ over a class). The goal picker is
 `screens/dashboard/GoalFilterList.tsx`, a tree with no checkboxes; archived goals are left out. A
 goal node is color key, title (up to 2 lines), % pill and eye, with a
 thin progress bar in the goal's color. A goal's branches are its metrics
-(while it's shown), then its sub-goals (always - each is shown/hidden on
-its own); a metric's sub-metrics nest under it (`parent` on both;
+(while it's shown), then its sub-goals (always - each is shown on its
+own; hiding a goal hides its sub-goals too, `withDescendants`); a metric's sub-metrics nest under it (`parent` on both;
 `buildTree`). Tree lines are drawn in CSS from each key (`.gn-branch`).
 A metric row is: name
 (truncates, with a tooltip), current / target, "+" menu, eye; a goal
@@ -275,6 +275,62 @@ server-side - "agent" when platform-mcp's sub-request carries
 in chart tooltips and the feed. New resources get RBAC by adding their
 patterns to main's `RBAC_DEFAULT_ROLES`: platform-auth's `sync_catalog`
 adds NEW permissions to existing roles whose patterns match.
+
+**Teams, goal templates, totals, the team board** (P-48..P-53; design and
+rules: `docs/team-templates.md`). **Teams** are platform-org's (`Team`
+tree + `TeamMembership` lead/member, `/api/v1/teams`, `/api/v1/team-members`;
+org owners/admins change them; leaving the org leaves its teams; deleting
+a team moves its sub-teams up and sends `core_api.system.team_removed`,
+`?instances=move|archive`; every tree change sends `team_changed`).
+goalnexa reads teams through core's registry by endpoint, never platform-org's
+models (`goalnexa/teams.py`, also the permission rules). A **template**
+(`GoalTemplate` -> `TemplateGoal` tree -> `TemplateMetric`, org owners/admins
+only) owns the shape; an **instance** is an ordinary goal tree with
+`Goal.template_goal`/`team_id`/`cycle` and `Metric.template_metric`, one per
+(template, team, cycle) - `goalnexa/templates.py` (`sync_tree` makes or
+updates any tree; `push_template` runs after every template write; removal
+detaches rows with check-ins). Template-owned fields are refused on
+instances (`LOCKED_*_FIELDS`); base/target need `can_set_targets`, a
+check-in `can_check_in`. **Totals** (`goalnexa/rollups.py`) are rollup goal
+trees (`Goal.is_rollup`, `team_id` = the node, null = org) recomputed from
+EVERY instance in the subtree (never from child totals), per metric rule
+(`TemplateMetric.rollup`), with `Metric.planned_target`; values are
+synthetic check-ins (`source="rollup"`, one per day). They're triggered from
+`refresh_goal` on any instance goal; wrap multi-writes in `rollups.batched()`.
+Totals are read-only everywhere and don't count toward `max_goals`.
+**Team board**: `GET goal-templates/<id>/board?cycle=` (one call with the
+grid), `POST goal-templates/<id>/targets`, `POST goal-templates/<id>/apply`,
+`POST check-ins/bulk` (all or nothing) - goalnexa-frontend's
+`TeamBoardScreen` (`createTeamBoardRoutes("board")`; templates' pages:
+`createTemplatesRoutes()`). `Goal.visibility = "team"` (`access._team_visible`).
+Closing a cycle rolls an instance over with blank targets
+(`roll_over_instance`); totals are rebuilt. The dashboard has a team filter.
+Tests: `apps/main/backend/tests/test_team_templates.py`.
+
+**Targets per period** (P-54..P-59; `docs/period-targets.md`): a SUM
+metric with `target_per` (day/week/month/quarter/year) has `target_value` =
+base + quota per period, over `count_days` (all/weekdays), in the goal's
+zone (`Organization.timezone`, else the owner's `ReminderSettings.timezone`,
+else UTC). `goalnexa/periods.py` computes and stores `period_value`,
+`cumulative_target`, `expected_value`, `hit_rate`, `streak` (from
+`refresh_metric`; `goalnexa_jobs` refreshes every period metric each run).
+`metric_pct` then measures against `cumulative_target` (`progress_by`
+total) or by `hit_rate`; projection is pace (`pace_pct`), not trend; an open
+hit rate is never "achieved". `lib/progress.ts` mirrors it from the stored
+fields (`metricPct`, `pacePct`, `goalHealth(..., {canAchieve})`). Totals:
+`rollups.combine_period`. `pace` (serializer, `pace_hint`) is "what's left"
+for screens and agents. Template metrics carry the three fields (locked in
+instances). Client periods (`lib/periods.ts`: bars, `snapSeries` for the
+dashboard's "Show check-ins by") count in the browser's zone. End-of-period
+nudges: `reminders.short_of_quota` (`period_reminded_for`). **One reading
+per period** (P-60..P-62): `Metric.one_per` counts only the last check-in
+of each period (`periods.counted`; a SUM check-in is then the period's
+total so far) - every check-in is kept, the others get `CheckIn.replaced`
+(stored by `refresh_metric`); a single check-in's response carries
+`replaces`. Never replace rows at write time (team members would
+overwrite each other). The client mirrors it (`replayer` in
+`lib/progress.ts`, `metricSnap`). Tests:
+`tests/test_period_targets.py`.
 
 **System administration** (platform-core's `platform_system` app behind
 `core_api.system`, plus platform-auth/-org/-mcp and goalnexa hooks;

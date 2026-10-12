@@ -1,6 +1,8 @@
 """Which goals a caller may see: their personal goals (no org), plus the
 goals filed under an org they belong to - every PUBLIC one, and a PRIVATE
-one only if they own it or are one of its members (`GoalMember`). An
+one only if they own it or are one of its members (`GoalMember`), and a
+TEAM one if it's their team's or a team above theirs (`goalnexa.teams`),
+or they're an owner/admin of the org. An
 org's goals belong to its members, so leaving the org ends access even to
 goals you created or were added to there. Which orgs those are is
 platform-org's call, asked through core's registry (`visible_rows`)
@@ -28,8 +30,25 @@ def visible_goals(request, path: str = "") -> Q:
         Q(**{f"{path}visibility": GoalVisibility.PUBLIC})
         | own
         | Q(**{f"{path}id__in": GoalMember.objects.filter(user_id=user_id).values("goal_id")})
+        | _team_visible(request, path)
     )
     return (own & Q(**{f"{path}org_id__isnull": True})) | (Q(**{f"{path}org_id__in": orgs.values("id")}) & shared)
+
+
+def _team_visible(request, path: str) -> Q:
+    """TEAM-visibility goals the caller sees: their teams' and the teams
+    above theirs, and every one in an org they're an owner/admin of."""
+    from goalnexa.teams import MANAGER_ROLES, teams_installed, visible_team_ids
+
+    if not teams_installed():
+        return Q(pk__in=[])
+    team = Q(**{f"{path}visibility": GoalVisibility.TEAM})
+    allowed = Q(**{f"{path}team_id__in": list(visible_team_ids(request.user.id, request))})
+    members = visible_rows(ORG_MEMBERS_ENDPOINT, request)
+    if members is not None:
+        managed = members.filter(user_id=request.user.id, role__in=MANAGER_ROLES).values("org_id")
+        allowed |= Q(**{f"{path}org_id__in": managed})
+    return team & allowed
 
 
 def visible_cycles(request, path: str = "") -> Q:

@@ -1,6 +1,6 @@
 # GoalNexa: Features &amp; Roadmap
 
-Last updated: 2026-10-02. Saved from the "GoalNexa: Features &amp; Roadmap"
+Last updated: 2026-10-12. Saved from the "GoalNexa: Features &amp; Roadmap"
 doc ([https://claude.ai/artifact/FgFt1UZsxgEmKTo554rxX5](https://claude.ai/artifact/FgFt1UZsxgEmKTo554rxX5), 2026-10-01).
 **This file is the source of truth for item status.**
 
@@ -206,6 +206,46 @@ English first. Design: `docs/lifecycle-email.md`. Listed in build order.
 | P-09 | Import from CSV, Notion | Import goals/metrics/check-ins from CSV with column mapping and a preview before writing; Notion via its CSV export                                                                  | Proposed |                          |
 | P-10 | Progress badges, embeds | Per-goal opt-in public link: SVG badge (progress %, health) and an embeddable read-only chart; revocable token, no login                                                             | Proposed | P-26 covers a read-only live link to a dashboard; left: per-goal SVG badge and an iframe embed |
 | P-11 | Homepage widget         | JSON endpoint + ready-made configs for Homepage / Homarr / Dashy showing goals and progress                                                                                          | Proposed |                          |
+
+
+### Next - Q1 2027 - One goal system, many teams
+
+Several departments/teams running the same goals and metrics, each with
+its own targets and check-ins, and totals at every level - without
+copying goal trees by hand. A template owns the shape (goals, sub-goals,
+metrics), pushed automatically; each team's instance owns its numbers;
+rollups sum them up the team tree. Design: `docs/team-templates.md`.
+Listed in build order.
+
+| ID   | Item                 | Requirement | Status   | Notes |
+| ---- | -------------------- | ----------- | -------- | ----- |
+| P-48 | Teams                | Teams inside an org as a tree of any depth (a department is a team with children); team membership with lead/member roles, managed by org owner/admin; `Goal.team_id`; team filter on the dashboard | Done | 2026-10-12. platform-org `Team`/`TeamMembership`; `team_removed`/`team_changed` signals in platform-core; Organizations > Teams pages with a members panel |
+| P-49 | Goal templates       | A template (org owner/admin only) is a goal tree with metrics; "apply to teams" (leaf or middle) creates one linked instance per team; template-owned fields (titles, metric name/unit/aggregation/schedule, structure) are locked in instances; template edits are pushed to every instance automatically (removed items with check-ins are detached, not deleted; aggregation can't change once there are check-ins); teams may add local sub-goals and metrics | Done | 2026-10-12. `goalnexa/templates.py`; generic pages under Goal tracking > Goal templates; apply from the team board (Targets) |
+| P-50 | Team board           | One grid per template and cycle: team tree rows x goal/sub-goal/metric columns; Check in mode (one input per cell, due clock, progress heat, notes, saved in one `POST check-ins/bulk`) and Targets mode (base/target per team, planned target on totals, apply to teams, "needs target" badges); cells editable only for the team, its lead, the instance owner and org owner/admin | Done | 2026-10-12. `TeamBoardScreen` at `/board`; `GET goal-templates/<id>/board`, `POST .../targets`, `POST check-ins/bulk`. Phones: the grid scrolls sideways (no card view); no spreadsheet paste yet |
+| P-51 | Rollups              | A read-only rollup goal tree per team node and for the org, computed from every instance in the subtree (never from child rollups) by each metric's rule (sum / avg / min / none) and stored as synthetic check-ins so charts, projection and health work; a planned (top-down) target on any node, set by org owner/admin or a team lead below their team, shown against the teams' sum with the gap; next cycle's targets start blank | Done | 2026-10-12. `goalnexa/rollups.py`; totals titled "<goal> · <team> total"; one synthetic check-in per day |
+| P-52 | Team-aware check-ins | An assistant's check-in goes to the instance of the speaker's team; in several teams, it asks which; rollup metrics refuse check-ins | Done | 2026-10-12. `in_my_team`/`is_total` on metrics; MCP instructions, check-in and review skills. Not yet re-run with a real client |
+| P-53 | Team visibility      | A `team` goal visibility: only the team's subtree and org owner/admin see the instance; it still counts in its ancestors' totals | Done | 2026-10-12. Team-only visibility includes leads of teams above (they set those targets) |
+
+
+### Next - Q1 2027 - Quotas per period (daily, weekly, ...)
+
+Metrics whose target is per period - "10 calls a day", "3 workouts a
+week" - where the goal counts either the total ("900 this quarter") or how
+often the quota is hit ("every day"), per metric. Periods: day, week,
+month, quarter, year. Design: `docs/period-targets.md`. Listed in build
+order.
+
+| ID   | Item                    | Requirement | Status   | Notes |
+| ---- | ----------------------- | ----------- | -------- | ----- |
+| P-54 | Organization time zone  | An organization has a time zone (IANA), set by its owners/admins, defaulting to the creator's browser zone; a day starts there for every goal of the org (personal goals: the owner's zone) | Done | 2026-10-12. `Organization.timezone` (validated IANA name, editable on the org page); new orgs from the onboarding wizard get the browser's zone. Blank = the goal owner's zone, else UTC |
+| P-55 | Pace for running totals | For a sum metric: what's needed per day/week to reach the target by the target date, and the amount checked in this period, on the board, the dashboard and in the assistant's replies; the dashboard can show bars per period with the running total | Done | 2026-10-12. `pace` on every metric (`goalnexa.periods.pace_hint`): per day/week to land on target; on the board and to the assistant; bars per period from the dashboard's "Show check-ins by" |
+| P-56 | Targets per period      | A sum metric's target can be per day, week, month, quarter or year (or the whole goal, the default), counting every day or weekdays only; the server derives this period's value, the cumulative target (quota x counted periods, prorated), expected so far and pace health; goal progress uses the cumulative target, so totals and charts keep working; goal templates and the template wizard carry the fields; team totals add the quotas up | Done | 2026-10-12. `Metric`/`TemplateMetric` `target_per`, `count_days`, `progress_by`; `goalnexa/periods.py` (stored `period_value`, `cumulative_target`, `expected_value`); recomputed by `goalnexa_jobs` every run |
+| P-57 | Hit rate and streaks    | A period metric's progress can be how often the quota is hit instead of the total: hit rate (periods hit / periods so far) and current streak, stored for agents and filters; health from the hit rate; team totals average the teams' rates or take the lowest | Done | 2026-10-12. Stored `hit_rate`/`streak`; a 100% hit rate isn't "achieved" before the goal ends |
+| P-58 | Period views            | The board shows a period metric's current period large ("Today 6/10") with the total or hit rate and streak; the dashboard draws bars per period against the quota line, and can show any reading metric snapped to a period (its last reading in each day/week/month/quarter/year, display only); an end-of-period reminder when the current period is under quota; the assistant's check-in and review skills report period value, what's left, hit rate and streaks | Done | 2026-10-12. Board cells, dashboard bars + "Show check-ins by" snap, tree shows this period, end-of-period nudge from 18:00 local on a period's last counted day, skills updated (not re-run with a real client). Client bars count in the browser's zone, without proration |
+| P-59 | Add a team from the board | In the team board's Check in mode, a team that doesn't use the template has an "Add" button (organization owners and admins), not only the tickbox in Targets mode | Done | 2026-10-12 |
+| P-60 | One reading per period  | A metric can keep one reading per day, week, month, quarter or year (`Metric.one_per`, blank = every check-in counts): every check-in is kept, but only the last one in each period (by `checked_in_at`, in the goal's zone; same time = the later saved) counts. A reading metric: no change to its value, its series has one point per period. An amount metric: each check-in is "the period's total so far" - the running total, period value, hit rate and streak add up the last check-in of each period. Goal templates carry it (locked in team copies); changing it recomputes the history | Done | 2026-10-12. `Metric.one_per`/`TemplateMetric.one_per`, `CheckIn.replaced` (kept by `refresh_metric`); `goalnexa.periods.counted`/`replaced_by`; a single check-in's response carries `replaces` |
+| P-61 | Replaced check-ins in the UI | The check-in form says when it replaces one ("Replaces today's 8,000 (09:12)", prefilled); check-in lists, the activity feed and chart tooltips show replaced check-ins greyed as "replaced"; the dashboard's "Show check-ins by" defaults to the metric's period (a coarser one can still be picked) | Done | 2026-10-12. Check-in form: "Replaces today's 8,000 (09:12)", prefilled, warns when a later one in that period keeps counting; feed: "replacing 8,000"; board cells: "total today"; dashboard snaps the metric to at least its period - so replaced check-ins aren't drawn and tooltips have none to grey; the generic check-in list shows a Replaced column. Client buckets count in the browser's zone |
+| P-62 | Replacing check-ins by assistant | The MCP instructions and the check-in skill send the period's total for such a metric (not the difference) and reply with what it replaced ("8,000 -> 10,500 today, replaces the earlier one"); the review skill reads the counted values | Done | 2026-10-12. MCP instructions, check-in, plan and review skills. Not yet re-run with a real client |
 
 
 ### Later - Q2-Q3 2027 - Fit into your stack

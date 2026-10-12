@@ -24,12 +24,17 @@ import urllib.request
 # Per resource, the fields a person entered - what an upgrade must never
 # change. Computed fields (progress, health, due dates) may be recomputed.
 RESOURCES = {
-    "orgs": ["name"],
+    "orgs": ["name", "timezone"],
     "goals": ["title", "description", "target_date", "status"],
     "metrics": ["name", "unit", "base_value", "target_value", "current_value"],
     "check-ins": ["value", "note", "checked_in_at"],
     "cycles": ["name", "starts_on", "ends_on"],
     "goal-comments": ["body"],
+    "teams": ["name"],
+    "team-members": ["user_id", "role"],
+    "goal-templates": ["title", "description"],
+    "template-goals": ["title", "description"],
+    "template-metrics": ["name", "unit", "default_base", "default_target"],
     # A shared link must keep working: same token, same goals.
     "dashboard-shares": ["title", "token", "goals"],
 }

@@ -7,6 +7,7 @@ import {
   computeMetricSeries,
   computeValueSeries,
   goalTargetTime,
+  isHitRate,
   isTracked,
   projectGoal,
   projectMetric,
@@ -14,6 +15,12 @@ import {
   type ProgressPoint,
 } from "../../lib/progress";
 import { fitDomain, pctDomainMax, type ChartDomain } from "./chartUtils";
+import { metricSnap, periodBars, snapSeries, type PeriodBar, type Snap } from "../../lib/periods";
+
+/** A series snapped to its period, or as checked in (`per` null). */
+function snapped<T extends Parameters<typeof snapSeries>[0][number]>(points: T[], per: Snap | null): T[] {
+  return per ? snapSeries(points, per) : points;
+}
 import { byPosition } from "../../lib/ordering";
 
 /** Palette has 8 validated categorical slots - a 9th series would need a generated hue, so selection stops at 8. */
@@ -37,6 +44,8 @@ export function useDashboardCharts(
   metrics: Metric[],
   checkIns: CheckIn[],
   disabledMetrics: Set<string>,
+  /** Show check-ins snapped to a period: each line keeps its last reading per period, and every amount-to-add metric gets bars per period. */
+  snap: Snap | null = null,
 ) {
   // What a goal's % averages: its root metrics (sub-metrics break a root
   // down, they don't count), minus hidden ones.
@@ -97,11 +106,13 @@ export function useDashboardCharts(
       progress.map((p) => {
         const goalMetrics = metricsByGoal.get(p.goal.id) ?? [];
         const shownMetrics = goalMetrics.filter((metric) => !disabledMetrics.has(metric.id));
-        const series = shownMetrics.filter((metric) => !isTracked(metric)).map((metric) => ({
+        // A hit rate isn't a line over time - it's drawn as bars per period below.
+        const lined = shownMetrics.filter((metric) => !isTracked(metric) && !isHitRate(metric));
+        const series = lined.map((metric) => ({
           id: metric.id,
           label: metric.name,
           slot: metricSlot.get(metric.id) as number,
-          points: computeMetricSeries(metric, checkIns),
+          points: snapped(computeMetricSeries(metric, checkIns), metricSnap(snap, metric)),
           projection: projections.byMetric.get(metric.id) ?? null,
           formatDetail: (point: ProgressPoint) =>
             point.value === undefined
@@ -120,8 +131,23 @@ export function useDashboardCharts(
             label: metric.name,
             unit: metric.unit,
             slot: metricSlot.get(metric.id) as number,
-            points: computeValueSeries(metric, checkIns),
+            points: snapped(computeValueSeries(metric, checkIns), metricSnap(snap, metric)),
           })),
+          // Amounts per period: every metric with a target per period (against
+          // its quota), and - when snapped - every other amount-to-add one.
+          bars: shownMetrics
+            .filter((metric) => metric.aggregation === "sum" && (metric.target_per || snap) && !isTracked(metric))
+            .map((metric) => {
+              const per = (metric.target_per || snap) as Snap;
+              return {
+                id: metric.id,
+                label: `${metric.name} per ${per}`,
+                unit: metric.unit,
+                slot: metricSlot.get(metric.id) as number,
+                quota: metric.target_per ? Number(metric.target_value) - Number(metric.base_value) : null,
+                bars: periodBars(metric, checkIns, per, Date.now()) as PeriodBar[],
+              };
+            }),
           shownCount: shownMetrics.length,
           // Fits this panel's own lines (min 100%).
           yMax: pctDomainMax(
@@ -129,7 +155,7 @@ export function useDashboardCharts(
           ),
         };
       }),
-    [progress, projections, metricsByGoal, disabledMetrics, metricSlot, checkIns],
+    [progress, projections, metricsByGoal, disabledMetrics, metricSlot, checkIns, snap],
   );
 
   // Each panel's own time range (goals can run over different periods),

@@ -46,10 +46,13 @@ class GoalSerializer(BaseSerializer):
             "health": {"read_only": True, "help_text": "On track, at risk or off track, judged from the projection. Calculated for you."},
             "cycle": {"help_text": "The period (for example a quarter) this goal is set for. Optional."},
             "parent": {"help_text": "Makes this a sub-goal of another goal."},
+            "team_id": {"label": "Team", "help_text": "The team this goal is for, in its organization. Optional."},
+            "template_goal": {"read_only": True, "help_text": "The goal template this goal follows - its title and structure are the template's."},
+            "is_rollup": {"read_only": True, "help_text": "A team total: calculated from the teams' own goals, read-only."},
         }
         # members: see above. The feed, comments and cycle scores have their
         # own panels (GoalActivityPanel, the cycle page) - not generic tabs.
         auto_exclude = [
             "created_at", "updated_at", "members", "activities", "comments", "scores", "snapshots", "rolled_from",
         ]
-        related_endpoints = {"org_id": "/api/v1/orgs"}
+        related_endpoints = {"org_id": "/api/v1/orgs", "team_id": "/api/v1/teams"}

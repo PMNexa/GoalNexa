@@ -18,6 +18,39 @@ class CheckInCadence(models.TextChoices):
     MONTHLY = "monthly", "Monthly"
 
 
+class TargetPer(models.TextChoices):
+    """What a metric's target is for (docs/period-targets.md)."""
+
+    WHOLE = "", "The whole goal"
+    DAY = "day", "Each day"
+    WEEK = "week", "Each week"
+    MONTH = "month", "Each month"
+    QUARTER = "quarter", "Each quarter"
+    YEAR = "year", "Each year"
+
+
+class CountDays(models.TextChoices):
+    ALL = "all", "Every day"
+    WEEKDAYS = "weekdays", "Weekdays only (Mon-Fri)"
+
+
+class ProgressBy(models.TextChoices):
+    TOTAL = "total", "The total against every period's target"
+    HIT_RATE = "hit_rate", "How often the target is hit"
+
+
+class OnePer(models.TextChoices):
+    """Which check-ins count (P-60): every one, or only the last one in each
+    period - "the number so far today" replaces the earlier one."""
+
+    EVERY = "", "Every check-in counts"
+    DAY = "day", "The last one each day"
+    WEEK = "week", "The last one each week"
+    MONTH = "month", "The last one each month"
+    QUARTER = "quarter", "The last one each quarter"
+    YEAR = "year", "The last one each year"
+
+
 class Metric(TimestampedModel):
     """A tracked, numeric measure of progress toward a `Goal` (1-n, like
     `OrgMembership.org` -> `related_name="memberships"`) - e.g. "revenue"
@@ -103,6 +136,46 @@ class Metric(TimestampedModel):
     # `db_default` so the previous release's code can still insert rows
     # while a deploy migrates first.
     position = models.PositiveIntegerField(default=0, db_default=0)
+
+    # The template metric this instance (or rollup) metric follows - its
+    # name, unit and how check-ins add up are the template's.
+    template_metric = models.ForeignKey(
+        "goalnexa.TemplateMetric", on_delete=models.SET_NULL, null=True, blank=True, db_column="template_metric_id",
+        related_name="instances",
+    )
+    # A rollup metric only: the top-down target leadership set, which its
+    # progress is measured against instead of the teams' own sum.
+    planned_target = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+
+    # A target per period (docs/period-targets.md, `goalnexa.periods`): with
+    # `target_per` set (a SUM metric only), `target_value` is the quota per
+    # period, counted in the org's time zone over `count_days`, and the
+    # goal's progress is the total against every period's quota
+    # (`progress_by` TOTAL) or the share of periods hit (HIT_RATE). The
+    # server keeps the derived numbers below.
+    target_per = models.CharField(
+        "target is for", max_length=8, choices=TargetPer.choices, default=TargetPer.WHOLE, db_default=TargetPer.WHOLE,
+        blank=True,
+    )
+    count_days = models.CharField(max_length=8, choices=CountDays.choices, default=CountDays.ALL, db_default=CountDays.ALL)
+    progress_by = models.CharField(
+        max_length=8, choices=ProgressBy.choices, default=ProgressBy.TOTAL, db_default=ProgressBy.TOTAL
+    )
+    period_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    cumulative_target = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    expected_value = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    hit_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    streak = models.PositiveIntegerField(null=True, blank=True)
+    # One reading per period (docs/period-targets.md): only the last check-in
+    # of each period (in the goal's zone) counts - for a SUM metric each one
+    # is "the period's total so far". Earlier ones are kept, marked
+    # `CheckIn.replaced`.
+    one_per = models.CharField(
+        "one reading per", max_length=8, choices=OnePer.choices, default=OnePer.EVERY, db_default=OnePer.EVERY,
+        blank=True,
+    )
+    # The period (its first day) an "under quota" nudge last went out for.
+    period_reminded_for = models.DateField(null=True, blank=True)
 
     class Meta:
         db_table = "metric"

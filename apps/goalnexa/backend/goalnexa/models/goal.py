@@ -14,6 +14,7 @@ class GoalStatus(models.TextChoices):
 class GoalVisibility(models.TextChoices):
     PUBLIC = "public", "Public"
     PRIVATE = "private", "Private"
+    TEAM = "team", "Team"
 
 
 class GoalHealth(models.TextChoices):
@@ -67,7 +68,8 @@ class Goal(TimestampedModel):
         choices=GoalVisibility.choices,
         default=GoalVisibility.PUBLIC,
         db_default=GoalVisibility.PUBLIC,
-        help_text="Public: every member of its organization sees it. Private: only you and the goal's members.",
+        help_text="Public: every member of its organization sees it. Private: only you and the goal's members. "
+        "Team: its team (and the teams under it) and the organization's owners and admins.",
     )
     progress = models.DecimalField(
         max_digits=9, decimal_places=2, null=True, blank=True, help_text="Mean progress of its root metrics, in %."
@@ -104,6 +106,19 @@ class Goal(TimestampedModel):
     # `db_default` so the previous release's code can still insert rows
     # while a deploy migrates first.
     position = models.PositiveIntegerField(default=0, db_default=0)
+
+    # Teams and templates (docs/team-templates.md). `team_id` is a bare id
+    # (platform-org's Team), in the goal's org. A template instance has
+    # `template_goal` set: its shape (title, structure) follows the
+    # template, its numbers are the team's. A rollup goal (`is_rollup`) is
+    # the total of every instance under `team_id` (null: the whole org) -
+    # written by `goalnexa.rollups`, read-only to everyone.
+    team_id = models.UUIDField(null=True, blank=True)
+    template_goal = models.ForeignKey(
+        "goalnexa.TemplateGoal", on_delete=models.SET_NULL, null=True, blank=True, db_column="template_goal_id",
+        related_name="instances",
+    )
+    is_rollup = models.BooleanField(default=False, db_default=False)
 
     class Meta:
         db_table = "goal"

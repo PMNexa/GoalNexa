@@ -3,6 +3,7 @@ from goalnexa.serializers.cycle import ActivitySerializer, CycleSerializer, Goal
 from goalnexa.serializers.goal import GoalSerializer
 from goalnexa.serializers.goal_member import GoalMemberSerializer
 from goalnexa.serializers.metric import MetricSerializer
+from goalnexa.serializers.template import GoalTemplateSerializer, TemplateGoalSerializer, TemplateMetricSerializer
 
 __all__ = [
     "ActivitySerializer",
@@ -12,5 +13,8 @@ __all__ = [
     "GoalMemberSerializer",
     "GoalScoreSerializer",
     "GoalSerializer",
+    "GoalTemplateSerializer",
     "MetricSerializer",
+    "TemplateGoalSerializer",
+    "TemplateMetricSerializer",
 ]

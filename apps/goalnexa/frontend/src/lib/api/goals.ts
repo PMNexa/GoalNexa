@@ -1,7 +1,7 @@
 export type GoalStatus = "not_started" | "in_progress" | "completed" | "archived";
 
 /** Public: the whole org sees an org goal. Private: its owner and members only. */
-export type GoalVisibility = "public" | "private";
+export type GoalVisibility = "public" | "private" | "team";
 
 /** Server-computed, from the projection to the target date - see the backend's `goalnexa.progress`. */
 export type GoalHealth = "unknown" | "on_track" | "at_risk" | "off_track" | "achieved";
@@ -25,4 +25,10 @@ export interface Goal {
   health: GoalHealth;
   /** The cycle (period) it's set for - a bare id, `null` for none. */
   cycle: string | null;
+  /** The team it's for (platform-org's), `null` for none. */
+  team_id?: string | null;
+  /** Set on a team's copy of a goal template's goal - its title and structure are the template's. */
+  template_goal?: string | null;
+  /** A team total (a department's, or the org's when `team_id` is null) - calculated, read-only. */
+  is_rollup?: boolean;
 }

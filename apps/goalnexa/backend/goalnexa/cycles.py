@@ -8,6 +8,12 @@
   from its original base again - it counts a new period's amounts.
 - DROP: the goal is archived; its outcome is DROPPED whatever the score.
 
+A team's template instance (docs/team-templates.md) rolls over as a
+whole into the team's instance in the next cycle, every target blank so
+the team commits again (`goalnexa.templates.roll_over_instance`); a team
+total (rollup) is scored but never copied - the next cycle's totals are
+rebuilt from its instances.
+
 A score defaults to the goal's progress / 100, capped at 1.0 (the OKR
 scale). Its outcome: ACHIEVED from 0.7 (the usual "stretch goal met"
 line), PARTIAL from 0.3, else MISSED. All of it runs in one transaction.
@@ -97,13 +103,30 @@ def roll_over(goal: Goal, next_cycle: Cycle, actor_id) -> Goal:
 def close_cycle(cycle: Cycle, decisions: dict, *, next_cycle: Cycle | None, retro: str, actor_id) -> list[GoalScore]:
     """`decisions`: goal id (str) -> `{"action", "score"?, "reflection"?}`.
     A goal with no decision is scored by default and marked DONE."""
+    from goalnexa.rollups import batched
+
+    with batched():
+        return _close_cycle(cycle, decisions, next_cycle=next_cycle, retro=retro, actor_id=actor_id)
+
+
+def _rolled_copy(goal: Goal, next_cycle: Cycle, actor_id) -> Goal | None:
+    if goal.is_rollup:
+        return None
+    if goal.template_goal_id:
+        from goalnexa.templates import roll_over_instance
+
+        return roll_over_instance(goal, next_cycle)
+    return roll_over(goal, next_cycle, actor_id)
+
+
+def _close_cycle(cycle: Cycle, decisions: dict, *, next_cycle: Cycle | None, retro: str, actor_id) -> list[GoalScore]:
     scores = []
     for goal in Goal.objects.filter(cycle=cycle).select_related("cycle").order_by("created_at"):
         decision = decisions.get(str(goal.id), {})
         action = decision.get("action", DONE)
         score = decision.get("score")
         score = default_score(goal) if score is None else Decimal(str(score)).quantize(Decimal("0.01"))
-        rolled_to = roll_over(goal, next_cycle, actor_id) if action == ROLLOVER else None
+        rolled_to = _rolled_copy(goal, next_cycle, actor_id) if action == ROLLOVER else None
         scores.append(
             GoalScore.objects.create(
                 goal=goal,

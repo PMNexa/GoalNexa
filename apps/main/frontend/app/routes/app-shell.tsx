@@ -13,7 +13,7 @@ import {
 import { createMcpNavItems } from "platform-mcp-frontend";
 import { createOrgsNavItems } from "platform-org-frontend";
 import { createExtensionNavItems } from "../extensions";
-import { DashboardIcon, GoalsIcon, TableIcon } from "../lib/navIcons";
+import { DashboardIcon, GoalsIcon, TableIcon, TeamsIcon } from "../lib/navIcons";
 import { ShellLink } from "../lib/ShellLink";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
 import { useUserMenu } from "../lib/useUserMenu";
@@ -31,12 +31,14 @@ import { useUserMenu } from "../lib/useUserMenu";
 const NAV_ITEMS: NavEntry[] = [
   { label: "Dashboard", to: "/dashboard", icon: DashboardIcon },
   { label: "Check-in table", to: "/table", icon: TableIcon },
+  { label: "Team board", to: "/board", icon: TeamsIcon, permission: "goal-templates.view" },
   {
     label: "Goal tracking",
     icon: GoalsIcon,
     children: [
       { label: "Goals", to: "/goals" },
       { label: "Cycles", to: "/cycles" },
+      { label: "Goal templates", to: "/goal-templates", permission: "goal-templates.view" },
       { label: "Metrics", to: "/metrics" },
       { label: "Check-ins", to: "/check-ins" },
       { label: "Reminders", to: "/reminders" },

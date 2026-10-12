@@ -42,6 +42,20 @@ The server keeps these up to date on every goal - read them, don't recompute:
 - `health`: `on_track` (projected ≥ 100%), `at_risk` (≥ 80%), `off_track` (less,
   or the target date passed), `achieved`, or `unknown` (no metrics, no target
   date, or fewer than two check-ins to trend from).
+- A metric with `target_per` has a quota per day/week/month/quarter/year:
+  report this period (`pace`: done / quota, what's left), then the
+  `hit_rate` and `streak` (`progress_by: "hit_rate"`) or the total against
+  `expected_value` - where it should be by now. For a running total with a
+  target date, `pace.per_day` is the pace needed from here.
+- A metric with `one_per` counts only the last check-in of each period - the
+  server's numbers already do; check-ins with `replaced: true` don't count.
+- Teams: when several teams of an organization run the same goal template, each
+  team has its own copy of the goal (`team_id`), and a goal with
+  `is_rollup: true` is a **total** - a department's (its `team_id`) or the whole
+  organization's (`team_id` null) - calculated from the teams' copies. Review a
+  team's own copy, and use the totals for the big picture; a total's metric may
+  have a `planned_target`, leadership's number, that its progress is measured
+  against.
 
 **Overdue metrics**: a metric with a schedule (`check_in_every`) has
 `check_in_due_at`; it's overdue once that's passed -

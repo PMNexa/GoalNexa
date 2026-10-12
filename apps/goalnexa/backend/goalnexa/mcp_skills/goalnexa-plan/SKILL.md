@@ -42,6 +42,11 @@ From what the user said, propose:
     `aggregation: "sum"`: each check-in is then the amount done, not the new
     total. Readings (weight, revenue to date, a score) keep the default,
     `"latest"`.
+  - A number reported as "so far today" (steps, a daily count from a device)
+    gets `one_per: "day"` (or week/month/...): only the last check-in of each
+    period counts, so a later report replaces the earlier one. It can't be
+    longer than a `target_per`. Not for amounts logged as they happen ("3 more
+    calls").
   - Suggest a check-in schedule, `check_in_every`: `"daily"`, `"weekly"` or
     `"monthly"` (default none). An overdue metric is flagged on the dashboard and
     reminded, if the user has reminders set up (step 4).

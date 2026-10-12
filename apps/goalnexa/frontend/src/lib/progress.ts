@@ -1,6 +1,7 @@
 import type { Goal, GoalHealth } from "./api/goals";
 import type { Metric } from "./api/metrics";
 import type { CheckIn, CheckInSource } from "./api/checkIns";
+import { periodStart } from "./periods";
 
 /**
  * A goal's progress = the mean of its ROOT metrics' progress (see
@@ -52,16 +53,59 @@ export function isTracked(metric: Metric): boolean {
 
 export function metricPct(value: string | number, metric: Metric): number {
   const base = Number(metric.base_value);
+  if (metric.target_per) {
+    // A target per period (backend `goalnexa.periods.pct`): the hit rate, or
+    // the total against every period's target added up.
+    if (metric.progress_by === "hit_rate") return Number(metric.hit_rate ?? 0);
+    const span = Number(metric.cumulative_target ?? metric.target_value) - base;
+    return span > 0 ? Math.max(0, ((Number(value) - base) / span) * 100) : 0;
+  }
   return Math.max(0, ((Number(value) - base) / (Number(metric.target_value) - base)) * 100);
+}
+
+/** Whether `metric` has a target per period counted by how often it's hit. */
+export function isHitRate(metric: Metric): boolean {
+  return !!metric.target_per && metric.progress_by === "hit_rate";
+}
+
+/**
+ * Where a target-per-period metric is heading, in % - backend
+ * `goalnexa.periods.pace_pct`: its hit rate, or its total against what was
+ * expected by now (on pace = 100%). Null without enough to go on.
+ */
+export function pacePct(metric: Metric): number | null {
+  if (isHitRate(metric)) return metric.hit_rate == null ? null : Number(metric.hit_rate);
+  if (metric.expected_value == null) return null;
+  const expected = Number(metric.expected_value) - Number(metric.base_value);
+  if (expected <= 0) return null;
+  return Math.max(0, ((Number(metric.current_value) - Number(metric.base_value)) / expected) * 100);
 }
 
 function mean(values: number[]): number {
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
-/** The metric's value once `checkIn` is applied to `previous` (its value so far). */
-function applyCheckIn(metric: Metric, previous: number, checkIn: CheckIn): number {
-  return metric.aggregation === "sum" ? previous + Number(checkIn.value) : Number(checkIn.value);
+/**
+ * Replays one metric's check-ins (call it in time order): each call returns
+ * the metric's value once that check-in is in - a reading, or a running
+ * total for `sum`. With one reading per period (`one_per`), a sum check-in
+ * is its period's total so far, so it replaces the period's earlier one.
+ */
+function replayer(metric: Metric): (checkIn: CheckIn) => number {
+  const base = Number(metric.base_value);
+  if (metric.aggregation !== "sum") return (checkIn) => Number(checkIn.value);
+  const per = metric.one_per;
+  if (per) {
+    const byPeriod = new Map<number, number>();
+    return (checkIn) => {
+      byPeriod.set(periodStart(Date.parse(checkIn.checked_in_at), per), Number(checkIn.value));
+      let total = base;
+      for (const value of byPeriod.values()) total += value;
+      return total;
+    };
+  }
+  let total = base;
+  return (checkIn) => (total += Number(checkIn.value));
 }
 
 /**
@@ -90,11 +134,12 @@ export function computeGoalProgress(goals: Goal[], metrics: Metric[], checkIns: 
     // Replay check-ins in time order. Before its first check-in a metric
     // reads its base - where `Metric.current_value` starts too.
     const values = new Map(usable.map((m) => [m.id, Number(m.base_value)]));
+    const replays = new Map(usable.map((m) => [m.id, replayer(m)]));
     const series: ProgressPoint[] = [];
     for (const checkIn of sortedCheckIns) {
       const metric = metricById.get(checkIn.metric);
       if (!metric || metric.goal !== goal.id || !values.has(metric.id)) continue;
-      values.set(metric.id, applyCheckIn(metric, values.get(metric.id) ?? Number(metric.base_value), checkIn));
+      values.set(metric.id, (replays.get(metric.id) as (c: CheckIn) => number)(checkIn));
       series.push({
         t: Date.parse(checkIn.checked_in_at),
         pct: mean(usable.map((m) => metricPct(values.get(m.id) ?? Number(m.base_value), m))),
@@ -129,13 +174,12 @@ export interface ValuePoint {
 
 /** One metric's value at each of its check-ins, oldest first (a running total for `sum`) - any metric, tracked ones too. */
 export function computeValueSeries(metric: Metric, checkIns: CheckIn[]): ValuePoint[] {
-  let value = Number(metric.base_value);
+  const apply = replayer(metric);
   return checkIns
     .filter((checkIn) => checkIn.metric === metric.id)
     .sort((a, b) => Date.parse(a.checked_in_at) - Date.parse(b.checked_in_at))
     .map((checkIn) => {
-      value = applyCheckIn(metric, value, checkIn);
-      return { t: Date.parse(checkIn.checked_in_at), value, source: checkIn.source };
+      return { t: Date.parse(checkIn.checked_in_at), value: apply(checkIn), source: checkIn.source };
     });
 }
 
@@ -155,6 +199,11 @@ export function goalTargetTime(goal: Goal): number | null {
  * check-in.
  */
 export function projectMetric(metric: Metric, checkIns: CheckIn[], targetT: number): ProgressPoint | null {
+  if (metric.target_per) {
+    // By pace, not trend - the quota says exactly where it should be.
+    const pct = pacePct(metric);
+    return pct === null ? null : { t: targetT, pct };
+  }
   const series = computeMetricSeries(metric, checkIns);
   if (series.length < 2) return null;
   const last = series[series.length - 1];
@@ -196,9 +245,16 @@ export const AT_RISK_FLOOR = 80;
  * to it, hidden metrics left out): achieved at 100%+; otherwise, with a
  * target date, off track once it's passed, else from the projection.
  */
-export function goalHealth(current: number | null, projected: number | null, targetT: number | null, now: number): GoalHealth {
+export function goalHealth(
+  current: number | null,
+  projected: number | null,
+  targetT: number | null,
+  now: number,
+  { canAchieve = true }: { canAchieve?: boolean } = {},
+): GoalHealth {
   if (current === null) return "unknown";
-  if (current >= 100) return "achieved";
+  // A hit rate is at 100% from its first period hit - done only once the goal ends.
+  if (current >= 100 && canAchieve) return "achieved";
   if (targetT === null) return "unknown";
   // The target is the START of its day - past it once that day is over.
   if (now >= targetT + 24 * 60 * 60 * 1000) return "off_track";

@@ -19,7 +19,7 @@ import secrets
 
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -30,6 +30,9 @@ from goalnexa.models import ActivityVerb, Goal, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
 from goalnexa.progress import refresh_goal, refresh_metric, refresh_metric_and_goal
 from goalnexa.serializers import MetricSerializer
+from goalnexa.teams import can_set_targets
+from goalnexa.templates import LOCKED_METRIC_FIELDS
+from goalnexa.views.goals import SET_BY_TEMPLATE, TOTAL_READ_ONLY, locked_changes
 
 #: What every ingest token starts with - recognizable if it leaks.
 INGEST_TOKEN_PREFIX = "gnm_"
@@ -51,7 +54,13 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
     scope_field = "goal__org_id"  # its goal's org - see GoalViewSet
 
     def get_queryset(self):
-        return super().get_queryset().filter(visible_goals(self.request, "goal__")).order_by("-created_at")
+        return (
+            super()
+            .get_queryset()
+            .filter(visible_goals(self.request, "goal__"))
+            .select_related("goal")
+            .order_by("-created_at")
+        )
 
     def _resolve_goal(self):
         goal_id = self.request.data.get("goal")
@@ -78,7 +87,10 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         extra = {}
         if "current_value" not in self.request.data:
             extra["current_value"] = serializer.validated_data.get("base_value", 0)
-        metric = serializer.save(goal=self._resolve_goal(), parent=self._resolve_parent(), **extra)
+        goal = self._resolve_goal()
+        if goal.is_rollup:
+            raise ValidationError({"goal": [TOTAL_READ_ONLY]})
+        metric = serializer.save(goal=goal, parent=self._resolve_parent(), **extra)
         metric.position = next_position(metric)
         metric.save(update_fields=["position"])
         refresh_metric_and_goal(metric.id)
@@ -94,10 +106,19 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         # 400s via `_resolve_goal` (it's required, unlike `parent`).
         instance = serializer.instance
         data = self.request.data
+        if instance.goal.is_rollup:
+            raise PermissionDenied(TOTAL_READ_ONLY + " Set its planned target on the team board.")
+        if instance.template_metric_id:
+            locked = locked_changes(self.request, serializer, instance, LOCKED_METRIC_FIELDS)
+            if locked:
+                raise ValidationError({name: [SET_BY_TEMPLATE] for name in locked})
+            numbers = {"base_value", "target_value", "current_value"} & set(serializer.validated_data)
+            if numbers and not can_set_targets(self.request, instance.goal):
+                raise PermissionDenied("Only the team's lead, the goal's owner or the organization's owners and admins can set its targets.")
         goal = self._resolve_goal() if "goal" in data else instance.goal
         parent = (self._resolve_parent(exclude_id=instance.id) if data.get("parent") else None) if "parent" in data else instance.parent
         old_goal_id = instance.goal_id
-        old_value_rule = (instance.aggregation, instance.base_value)
+        old_value_rule = (instance.aggregation, instance.base_value, instance.one_per)
         before = snapshot(instance, FEED_FIELDS)
         old_siblings = sibling_key(instance)
         metric = serializer.save(goal=goal, parent=parent)
@@ -105,8 +126,9 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
             metric.position = next_position(metric)
             metric.save(update_fields=["position"])
         # A current value set by hand stays - unless what check-ins add up
-        # to just changed (a SUM metric counts from its base).
-        refresh_metric(metric.id, sync_value=(metric.aggregation, metric.base_value) != old_value_rule)
+        # to just changed (a SUM metric counts from its base; which
+        # check-ins count follows `one_per`).
+        refresh_metric(metric.id, sync_value=(metric.aggregation, metric.base_value, metric.one_per) != old_value_rule)
         refresh_goal(metric.goal_id)
         if old_goal_id != metric.goal_id:
             refresh_goal(old_goal_id)
@@ -116,6 +138,10 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
             record(metric.goal_id, ActivityVerb.METRIC_CHANGED, self.request.user.id, metric=metric.id, metric_name=metric.name, changes=diff)
 
     def perform_destroy(self, instance):
+        if instance.goal.is_rollup:
+            raise PermissionDenied(TOTAL_READ_ONLY)
+        if instance.template_metric_id:
+            raise ValidationError({"template_metric": ["Part of a goal template - remove it from the template."]})
         goal_id = instance.goal_id
         record(goal_id, ActivityVerb.METRIC_REMOVED, self.request.user.id, metric_name=instance.name)
         instance.delete()

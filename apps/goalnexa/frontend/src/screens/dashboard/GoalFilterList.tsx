@@ -7,6 +7,10 @@ import { readStored, writeStored } from "../../lib/storedState";
 import RowMenu from "./RowMenu";
 import { goalGroup, metricGroup, useSiblingDrag, type OrderKind } from "../../lib/ordering";
 
+/** A target per period, in the tree: "6 / 10 /day". */
+const PER_SHORT: Record<string, string> = { day: "/day", week: "/wk", month: "/mo", quarter: "/qtr", year: "/yr" };
+const PER_WORDS: Record<string, string> = { day: "per day", week: "per week", month: "per month", quarter: "per quarter", year: "per year" };
+
 const COLLAPSED_KEY = "goalnexa:dashboard-collapsed";
 
 export interface GoalFilterListProps {
@@ -190,11 +194,21 @@ export function buildTree<T extends { id: string; parent: string | null }>(items
   return roots;
 }
 
+/** `id` and every row nested under it (by `parent`) - hiding a goal hides its sub-goals too. */
+export function withDescendants<T extends { id: string; parent: string | null }>(items: T[], id: string): string[] {
+  const ids = [id];
+  for (let i = 0; i < ids.length; i++) {
+    for (const item of items) if (item.parent === ids[i] && !ids.includes(item.id)) ids.push(item.id);
+  }
+  return ids;
+}
+
 /**
  * The dashboard's goal picker, as a tree: each goal is a node (color key,
  * title, current % pill, eye) with a thin progress bar in its series
  * color. Its branches: its metrics (only while the goal is shown), then
- * its sub-goals (always - a sub-goal is shown/hidden on its own). A
+ * its sub-goals (always - shown on their own; hiding a goal hides them
+ * too). A
  * metric row is line-color key + name, current / target, "+" menu
  * (check in, add a sub-metric), eye, with its sub-metrics nested under it; a
  * clock after the name flags a scheduled check-in that's due (click: check
@@ -285,6 +299,20 @@ function GoalFilterList({
             >
               {formatCompact(metric.current_value)}
               {metric.unit && <span className="gn-metric-target"> {metric.unit}</span>}
+            </span>
+          ) : metric.target_per && metric.pace ? (
+            <span
+              className="gn-metric-value"
+              title={`${metric.pace.in_period === false ? "No target this period" : `${metric.pace.period_label}: ${formatAmount(String(metric.pace.done ?? 0))} / ${formatAmount(String(metric.pace.quota ?? 0))}`}${
+                metric.unit ? ` ${metric.unit}` : ""
+              } - target ${PER_WORDS[metric.target_per]}${metric.progress_by === "hit_rate" ? `, hit ${Math.round(Number(metric.hit_rate ?? 0))}% of the time` : ""}`}
+            >
+              {metric.pace.in_period === false ? "—" : formatCompact(String(metric.pace.done ?? 0))}
+              <span className="gn-metric-target">
+                {" / "}
+                {formatCompact(String(metric.pace.quota ?? Number(metric.target_value) - Number(metric.base_value)))}
+                {` ${PER_SHORT[metric.target_per]}`}
+              </span>
             </span>
           ) : (
             <span

@@ -1,9 +1,10 @@
 import { Card, CardBody, CardHeader, CardTitle } from "platform-core";
 import type { Goal, GoalHealth } from "../../lib/api/goals";
-import { goalHealth, goalTargetTime } from "../../lib/progress";
+import { goalHealth, goalTargetTime, isHitRate } from "../../lib/progress";
 import ProgressBarChart from "./ProgressBarChart";
 import ProgressLineChart, { type ChartMarker } from "./ProgressLineChart";
 import ValueLineChart from "./ValueLineChart";
+import PeriodBarChart from "./PeriodBarChart";
 import { formatPct } from "./chartUtils";
 import { MAX_GOALS, type DashboardChartsData } from "./useDashboardCharts";
 
@@ -50,7 +51,7 @@ function DashboardCharts({ charts, slotOf, loading = false }: DashboardChartsPro
           </CardBody>
         </Card>
       ) : (
-        metricPanels.map(({ progress: p, projected, series, tracked, shownCount }) => {
+        metricPanels.map(({ progress: p, projected, series, tracked, bars, shownCount }) => {
           const panelDomain = panelDomains.get(p.goal.id);
           return (
           <Card key={p.goal.id}>
@@ -73,7 +74,10 @@ function DashboardCharts({ charts, slotOf, loading = false }: DashboardChartsPro
                     </span>
                   )}
                   {(() => {
-                    const health = goalHealth(p.current, projected?.pct ?? null, goalTargetTime(p.goal), now);
+                    const target = goalTargetTime(p.goal);
+                    // An open hit rate (before the goal's end) isn't "achieved" at 100%.
+                    const openHitRate = (metricsByGoal.get(p.goal.id) ?? []).some(isHitRate) && (target === null || now < target + 86400000);
+                    const health = goalHealth(p.current, projected?.pct ?? null, target, now, { canAchieve: !openHitRate });
                     return health === "unknown" ? null : (
                       <span className={`gn-health is-${health}`} title="From the projection: on track = 100% by the target date, at risk = 80%+">
                         {HEALTH_LABELS[health]}
@@ -110,6 +114,16 @@ function DashboardCharts({ charts, slotOf, loading = false }: DashboardChartsPro
                   <div className="gn-tracked-grid">
                     {tracked.map((line) => (
                       <ValueLineChart key={line.id} {...line} tMin={panelDomain.tMin} tMax={panelDomain.tMax} now={now} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {bars.length > 0 && (
+                <div className={series.length > 0 || tracked.length > 0 ? "mt-3" : undefined}>
+                  <div className="subheader mb-2">Per period</div>
+                  <div className="gn-tracked-grid">
+                    {bars.map((bar) => (
+                      <PeriodBarChart key={bar.id} label={bar.label} unit={bar.unit} slot={bar.slot} bars={bar.bars} quota={bar.quota} />
                     ))}
                   </div>
                 </div>

@@ -18,6 +18,9 @@ from goalnexa.models import (
     Goal,
     GoalComment,
     GoalMember,
+    GoalStatus,
+    GoalTemplate,
+    Metric,
     OnboardingChoice,
     ReminderSettings,
 )
@@ -31,6 +34,7 @@ def on_user_removed(sender, user_id, transfer_to=None, **kwargs):
     if transfer_to:
         Goal.objects.filter(owner_id=user_id).update(owner_id=transfer_to)
         Cycle.objects.filter(owner_id=user_id).update(owner_id=transfer_to)
+        GoalTemplate.objects.filter(owner_id=user_id).update(owner_id=transfer_to)
         for member in GoalMember.objects.filter(user_id=user_id):
             if GoalMember.objects.filter(goal_id=member.goal_id, user_id=transfer_to).exists() or Goal.objects.filter(
                 id=member.goal_id, owner_id=transfer_to
@@ -40,6 +44,9 @@ def on_user_removed(sender, user_id, transfer_to=None, **kwargs):
                 GoalMember.objects.filter(id=member.id).update(user_id=transfer_to)
         return
     GoalMember.objects.filter(user_id=user_id).delete()
+    # A template and its teams' instances are the org's: they stay, owned by
+    # nobody in particular (an org owner/admin edits a template anyway).
+    _keep_org_work(user_id)
     Goal.objects.filter(owner_id=user_id).delete()
     Cycle.objects.filter(owner_id=user_id, org_id__isnull=True).delete()
     GoalComment.objects.filter(author_id=user_id).delete()
@@ -47,10 +54,51 @@ def on_user_removed(sender, user_id, transfer_to=None, **kwargs):
     Activity.objects.filter(actor_id=user_id).update(actor_id=None)
 
 
+def _keep_org_work(user_id) -> None:
+    """Team instances and totals of an erased user: handed to the
+    template's owner (else the instance's other team work stays orphaned)."""
+    for goal in Goal.objects.filter(owner_id=user_id, template_goal__isnull=False).select_related("template_goal__template"):
+        owner = goal.template_goal.template.owner_id
+        if str(owner) != str(user_id):
+            Goal.objects.filter(id=goal.id).update(owner_id=owner)
+
+
 def on_org_removed(sender, org_id, **kwargs):
-    """An org's goals (with their metrics and check-ins) and cycles go with it."""
+    """An org's goals (with their metrics and check-ins), cycles and goal templates go with it."""
     Goal.objects.filter(org_id=org_id).delete()
     Cycle.objects.filter(org_id=org_id).delete()
+    GoalTemplate.objects.filter(org_id=org_id).delete()
+
+
+def on_team_removed(sender, team_id, org_id, parent_id=None, instances="move", **kwargs):
+    """A deleted team's goals move to its parent team, or are archived
+    (`instances`). Its template instances move only if the parent team has
+    none of its own in that cycle (one instance per team); otherwise - and
+    always for a top-level team - they're archived and detached from the
+    template, so their history stays as ordinary goals. Its totals go."""
+    from goalnexa.templates import tree_goals
+
+    Goal.objects.filter(team_id=team_id, is_rollup=True).delete()
+    goals = Goal.objects.filter(team_id=team_id)
+    roots = goals.filter(template_goal__isnull=False, template_goal__parent__isnull=True).select_related("template_goal")
+    for root in roots:
+        template_id = root.template_goal.template_id
+        ids = list(tree_goals(template_id, team_id, root.cycle_id, False).values_list("id", flat=True))
+        taken = parent_id is None or tree_goals(template_id, parent_id, root.cycle_id, False).exists()
+        if instances == "archive" or taken:
+            Metric.objects.filter(goal_id__in=ids).update(template_metric=None)
+            Goal.objects.filter(id__in=ids).update(template_goal=None, status=GoalStatus.ARCHIVED)
+    if instances == "archive":
+        goals.update(status=GoalStatus.ARCHIVED)
+    Goal.objects.filter(team_id=team_id).update(team_id=parent_id)
+
+
+def on_team_changed(sender, team_id=None, org_id=None, **kwargs):
+    """The team tree changed - every total of the org follows it."""
+    from goalnexa.rollups import recompute_org
+
+    if org_id:
+        recompute_org(org_id)
 
 
 def usage() -> list[dict]:
@@ -106,6 +154,9 @@ def export(user_id: str) -> dict:
         "onboarding_choice": onboarding.choice if onboarding else None,
         "goals": goals,
         "cycles": CycleSerializer(Cycle.objects.filter(owner_id=user_id), many=True).data,
+        "goal_templates": [
+            {"id": str(t.id), "title": t.title, "org_id": str(t.org_id)} for t in GoalTemplate.objects.filter(owner_id=user_id)
+        ],
         "goal_memberships": [str(g) for g in GoalMember.objects.filter(user_id=user_id).values_list("goal_id", flat=True)],
         "comments": GoalCommentSerializer(GoalComment.objects.filter(author_id=user_id), many=True).data,
         "check_ins_on_other_goals": CheckInSerializer(

@@ -11,6 +11,7 @@ class CheckInSource(models.TextChoices):
     WEB = "web", "Web"
     AGENT = "agent", "AI agent"
     INGEST = "ingest", "Ingest URL"
+    ROLLUP = "rollup", "Team total"
 
 
 class CheckIn(TimestampedModel):
@@ -45,6 +46,9 @@ class CheckIn(TimestampedModel):
     source = models.CharField(
         max_length=16, choices=CheckInSource.choices, default=CheckInSource.WEB, db_default=CheckInSource.WEB
     )
+    # A later check-in in the same period replaced this one (its metric's
+    # `one_per`): kept, but it doesn't count. Kept by `refresh_metric`.
+    replaced = models.BooleanField(default=False, db_default=False)
 
     class Meta:
         db_table = "check_in"

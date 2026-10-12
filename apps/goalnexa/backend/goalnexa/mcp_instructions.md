@@ -14,12 +14,29 @@ names, notes) stay in the user's own words and language.
 ## When the user reports a number ("ran 12 km", "we're at 420 users")
 
 1. Find the metric: `metrics_list` with `filter: {"name.icontains": "<keyword>"}`
-   and `include: ["goal"]`. Several matches: ask which. None: offer to create it.
+   and `include: ["goal"]`. Skip team totals (`is_total: true`) - they're
+   calculated and refuse check-ins. When several teams run the same goal
+   template, each has its own copy of the metric: take the one with
+   `in_my_team: true`; if several are (the user is in more than one team),
+   ask which team. Otherwise several matches: ask which. None: offer to create it.
 2. Work out the value from the metric's `aggregation`: `sum` = the amount
    done (send 12 for "ran 12 km"); `latest` = the new reading (send the
    total). Never add up `current_value` yourself - the server does.
+   A metric with `one_per` (day/week/...) keeps one reading per period:
+   only the last check-in of each period counts. For a `sum` one, send the
+   period's TOTAL so far ("10,500 steps today" -> 10500), never the
+   difference; the response's `replaces` is the earlier check-in it
+   replaced - say so ("8,000 -> 10,500 today, replaces the earlier one").
+   `replaced: true` on the response means a later one in that period
+   already counts (a backdated check-in).
 3. `check_ins_create` with `metric`, `value`, an optional `note`, and
    `checked_in_at` (ISO 8601) only when it wasn't now.
+   A metric with `target_per` (day/week/month/quarter/year) has a quota per
+   period: its `target_value` is the amount per period and `pace` says
+   what's done and left this period - lead with that ("6/10 today - 4 to
+   go"), then its `hit_rate`/`streak` if `progress_by` is `hit_rate`.
+   A running total with a target date has `pace.per_day` (and `per_week`):
+   use it for the next action.
 4. Reply briefly: old -> new value, the metric's progress %, the goal's
    `progress`, `projected_progress` and `health` (`goals_get`), days left to
    its `target_date`, and one or two concrete next actions sized to what's

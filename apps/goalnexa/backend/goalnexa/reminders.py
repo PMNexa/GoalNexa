@@ -34,6 +34,9 @@ from django.utils import timezone
 from core_api.system import get_setting, log_delivery, send_email
 from goalnexa.models import GoalStatus, Metric, ReminderSettings
 
+#: An end-of-period nudge goes out from this hour (local) on a period's last counted day.
+NUDGE_HOUR = 18
+
 logger = logging.getLogger(__name__)
 
 
@@ -139,30 +142,98 @@ def _message(metrics: list[Metric], app_url: str, now) -> tuple[str, str]:
     return title, body
 
 
+def short_of_quota(now=None) -> list[tuple[Metric, object, float]]:
+    """Metrics with a target per period whose current period ends today
+    (its last counted day, from NUDGE_HOUR local time) still under quota,
+    not nudged for this period yet: `(metric, period, quota)`."""
+    from goalnexa.periods import current_quota, local_date, zone_for
+
+    now = now or timezone.now()
+    zones: dict = {}
+    found = []
+    candidates = (
+        Metric.objects.exclude(target_per="")
+        .filter(goal__is_rollup=False)
+        .exclude(goal__status__in=[GoalStatus.COMPLETED, GoalStatus.ARCHIVED])
+        .select_related("goal__cycle")
+    )
+    for metric in candidates:
+        if metric.target_value == metric.base_value:
+            continue
+        zone = zone_for(metric.goal, zones)
+        local = now.astimezone(zone)
+        today = local_date(now, zone)
+        period, quota = current_quota(metric, metric.goal, today=today, zone=zone)
+        if period is None or period.last != today or local.hour < NUDGE_HOUR:
+            continue
+        if metric.period_reminded_for == period.start or float(metric.period_value or 0) >= quota:
+            continue
+        found.append((metric, period, quota))
+    return found
+
+
+def _nudge_lines(nudges) -> list[str]:
+    from goalnexa.periods import PERIOD_NOUNS
+
+    lines = []
+    for metric, _period, quota in nudges:
+        done = float(metric.period_value or 0)
+        unit = f" {metric.unit}" if metric.unit else ""
+        label = PERIOD_NOUNS[metric.target_per][0]
+        lines.append(
+            f"- {metric.goal.title} → {metric.name}: {done:g}/{quota:g}{unit} {label} ({quota - done:g} to go)"
+        )
+    return lines
+
+
 def send_due_reminders(now=None) -> int:
-    """Sends every due reminder; returns how many users were messaged."""
+    """Sends every due reminder - overdue check-ins and quotas still short
+    at the end of their period - one message per goal owner; returns how
+    many users were messaged."""
     now = now or timezone.now()
     by_owner: dict[str, list[Metric]] = defaultdict(list)
     for metric in overdue_metrics(now):
         by_owner[str(metric.goal.owner_id)].append(metric)
-    if not by_owner:
+    nudges_by_owner: dict[str, list] = defaultdict(list)
+    for nudge in short_of_quota(now):
+        nudges_by_owner[str(nudge[0].goal.owner_id)].append(nudge)
+    if not by_owner and not nudges_by_owner:
         return 0
     settings_by_user = {
-        str(s.user_id): s for s in ReminderSettings.objects.filter(user_id__in=list(by_owner), enabled=True)
+        str(s.user_id): s
+        for s in ReminderSettings.objects.filter(user_id__in=list(set(by_owner) | set(nudges_by_owner)), enabled=True)
     }
     sent = 0
-    for owner_id, metrics in by_owner.items():
+    for owner_id in set(by_owner) | set(nudges_by_owner):
         reminder_settings = settings_by_user.get(owner_id)
         if reminder_settings is None or not has_channel(reminder_settings):
             continue
         claimed = [
             m
-            for m in metrics
+            for m in by_owner.get(owner_id, [])
             if Metric.objects.filter(id=m.id, reminded_at__isnull=True).update(reminded_at=now)
         ]
-        if not claimed:
+        # Claimed like reminders - two schedulers can't both nudge.
+        nudges = [
+            (m, period, quota)
+            for m, period, quota in nudges_by_owner.get(owner_id, [])
+            if Metric.objects.filter(id=m.id)
+            .exclude(period_reminded_for=period.start)
+            .update(period_reminded_for=period.start)
+        ]
+        if not claimed and not nudges:
             continue
-        title, body = _message(claimed, reminder_settings.app_url, now)
+        if claimed:
+            title, body = _message(claimed, reminder_settings.app_url, now)
+            if nudges:
+                body = body.replace("\n\nCheck in:", "\n\nStill short:\n" + "\n".join(_nudge_lines(nudges)) + "\n\nCheck in:", 1)
+                if "Still short:" not in body:
+                    body += "\n\nStill short:\n" + "\n".join(_nudge_lines(nudges))
+        else:
+            title = f"GoalNexa: {len(nudges)} target{'s' if len(nudges) != 1 else ''} still short"
+            body = "\n".join(_nudge_lines(nudges))
+            if reminder_settings.app_url:
+                body += f"\n\nCheck in: {reminder_settings.app_url.rstrip('/')}/dashboard"
         ok = deliver(reminder_settings, title, body)
         if ok:
             sent += 1

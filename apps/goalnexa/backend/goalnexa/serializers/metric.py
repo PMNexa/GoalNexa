@@ -1,5 +1,17 @@
+from rest_framework import serializers
+
 from core_api.serializers import BaseSerializer
 from goalnexa.models import Metric
+
+
+def validate_one_per(one_per: str, target_per: str) -> None:
+    """One reading per period can't be longer than the target's period."""
+    from goalnexa.periods import PERIOD_RANK
+
+    if one_per and target_per and PERIOD_RANK[one_per] > PERIOD_RANK[target_per]:
+        raise serializers.ValidationError(
+            {"one_per": [f"Can't be longer than the target's period: a target per {target_per} needs at most one reading per {target_per}."]}
+        )
 
 
 class MetricSerializer(BaseSerializer):
@@ -14,7 +26,17 @@ class MetricSerializer(BaseSerializer):
     `ingest_token_hint` are the server's to keep (`goalnexa.progress`,
     `MetricViewSet.ingest_token`); `reminded_at` and the token's hash
     aren't shown at all.
+
+    `template_metric` links an instance (or team total) metric to its goal
+    template; `planned_target` is a team total's top-down target (set on
+    the team board). `is_total` says the metric is a team total
+    (read-only); `in_my_team` that it's in the caller's team's instance -
+    what an assistant picks when several teams share a metric's name.
     """
+
+    is_total = serializers.SerializerMethodField()
+    in_my_team = serializers.SerializerMethodField()
+    pace = serializers.SerializerMethodField()
 
     class Meta:
         model = Metric
@@ -34,4 +56,55 @@ class MetricSerializer(BaseSerializer):
             "last_checked_in_at": {"read_only": True, "help_text": "When the latest check-in happened."},
             "check_in_due_at": {"read_only": True, "help_text": "When the next check-in is due, from the schedule."},
             "ingest_token_hint": {"read_only": True, "help_text": "The end of the metric's automatic check-in token, to tell tokens apart."},
+            "template_metric": {"read_only": True, "help_text": "The goal template's metric this one follows - its name, unit and how check-ins add up are the template's."},
+            "planned_target": {"read_only": True, "help_text": "A team total's top-down target, set on the team board. Its progress is measured against it."},
+            "target_per": {"help_text": "What the target is for: the whole goal, or each day/week/month/quarter/year (a quota - for metrics whose check-ins are amounts to add). With a period, the target is the amount per period."},
+            "count_days": {"help_text": "For a target per day or week: count every day, or weekdays only."},
+            "progress_by": {"help_text": "For a target per period: progress is the total against every period's target, or how often the target is hit."},
+            "one_per": {"help_text": "Which check-ins count: every one, or only the last one each day/week/month/quarter/year - a later check-in replaces the earlier one (for amounts to add: each check-in is the period's total so far)."},
+            "period_value": {"read_only": True, "help_text": "Amount checked in during the current period (a target per period)."},
+            "cumulative_target": {"read_only": True, "help_text": "Every period's target added up over the goal's dates - what the total is measured against."},
+            "expected_value": {"read_only": True, "help_text": "Where the total should be by now if every period's target were met."},
+            "hit_rate": {"read_only": True, "help_text": "Share of periods at or over target so far, in %."},
+            "streak": {"read_only": True, "help_text": "Periods in a row at or over target, up to now."},
+            "period_reminded_for": {"read_only": True},
         }
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        instance = self.instance
+        target_per = attrs.get("target_per", getattr(instance, "target_per", ""))
+        aggregation = attrs.get("aggregation", getattr(instance, "aggregation", "latest"))
+        progress_by = attrs.get("progress_by", getattr(instance, "progress_by", "total"))
+        if target_per and aggregation != "sum":
+            raise serializers.ValidationError({"target_per": ["A target per period needs check-ins that are amounts to add (Sum)."]})
+        if progress_by == "hit_rate" and not target_per:
+            raise serializers.ValidationError({"progress_by": ["How often the target is hit needs a target per period."]})
+        validate_one_per(attrs.get("one_per", getattr(instance, "one_per", "")), target_per)
+        return attrs
+
+    def get_pace(self, obj) -> dict | None:
+        """What's left: this period's amount and quota (a target per
+        period), or the amount needed per day/week to land on target by the
+        goal's target date (a running total)."""
+        if not obj.goal_id or obj.goal.is_rollup and not obj.target_per:
+            return None
+        from goalnexa.periods import pace_hint, zone_for
+
+        zones = self.context.setdefault("_zones", {})
+        return pace_hint(obj, obj.goal, zone=zone_for(obj.goal, zones))
+
+    def get_is_total(self, obj) -> bool:
+        return bool(obj.goal.is_rollup) if obj.goal_id else False
+
+    def get_in_my_team(self, obj) -> bool:
+        """Whether this metric's goal is the instance of one of the caller's teams."""
+        request = self.context.get("request")
+        if request is None or not obj.goal_id or obj.goal.team_id is None or obj.goal.is_rollup:
+            return False
+        mine = self.context.get("_my_team_ids")
+        if mine is None:
+            from goalnexa.teams import my_team_ids
+
+            mine = self.context["_my_team_ids"] = my_team_ids(request.user.id, request)
+        return obj.goal.team_id in mine

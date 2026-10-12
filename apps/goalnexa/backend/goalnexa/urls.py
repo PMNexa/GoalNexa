@@ -2,7 +2,19 @@ from django.urls import path
 from rest_framework.routers import SimpleRouter
 
 from core_api.registry import register_model_endpoint
-from goalnexa.models import Activity, CheckIn, Cycle, Goal, GoalComment, GoalMember, GoalScore, Metric
+from goalnexa.models import (
+    Activity,
+    CheckIn,
+    Cycle,
+    Goal,
+    GoalComment,
+    GoalMember,
+    GoalScore,
+    GoalTemplate,
+    Metric,
+    TemplateGoal,
+    TemplateMetric,
+)
 from goalnexa.views import (
     ActivityViewSet,
     CheckInViewSet,
@@ -11,6 +23,7 @@ from goalnexa.views import (
     DashboardShareListView,
     GoalCommentViewSet,
     GoalScoreViewSet,
+    GoalTemplateViewSet,
     GoalMemberViewSet,
     GoalViewSet,
     MetricIngestView,
@@ -19,6 +32,8 @@ from goalnexa.views import (
     ReminderSettingsView,
     ReminderTestView,
     SharedDashboardView,
+    TemplateGoalViewSet,
+    TemplateMetricViewSet,
 )
 
 # trailing_slash=False - same convention platform_org.urls uses (no
@@ -32,6 +47,10 @@ router.register("cycles", CycleViewSet, basename="cycles")
 router.register("goal-scores", GoalScoreViewSet, basename="goal-scores")
 router.register("activities", ActivityViewSet, basename="activities")
 router.register("goal-comments", GoalCommentViewSet, basename="goal-comments")
+# One goal system for several teams (docs/team-templates.md, views/templates.py).
+router.register("goal-templates", GoalTemplateViewSet, basename="goal-templates")
+router.register("template-goals", TemplateGoalViewSet, basename="template-goals")
+router.register("template-metrics", TemplateMetricViewSet, basename="template-metrics")
 
 # Lets a relation field's schema (e.g. Metric.goal) tell the frontend
 # where to fetch ITS OWN rows from for a picker - see core_api.registry's
@@ -44,6 +63,9 @@ register_model_endpoint(Cycle, "/api/v1/cycles")
 register_model_endpoint(GoalScore, "/api/v1/goal-scores")
 register_model_endpoint(Activity, "/api/v1/activities")
 register_model_endpoint(GoalComment, "/api/v1/goal-comments")
+register_model_endpoint(GoalTemplate, "/api/v1/goal-templates")
+register_model_endpoint(TemplateGoal, "/api/v1/template-goals")
+register_model_endpoint(TemplateMetric, "/api/v1/template-metrics")
 
 urlpatterns = [
     # Token-authenticated check-ins from scripts/webhooks (views/ingest.py).

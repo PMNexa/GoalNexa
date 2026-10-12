@@ -17,10 +17,29 @@ from core_api.viewsets import BaseViewSet
 from goalnexa.access import visible_cycles, visible_goals
 from goalnexa.activity import changes, record, snapshot
 from core_api.system import check_org_limit
-from goalnexa.models import ActivityVerb, CheckIn, Cycle, CycleStatus, Goal, GoalStatus, Metric
+from goalnexa.models import ActivityVerb, CheckIn, Cycle, CycleStatus, Goal, GoalStatus, GoalVisibility, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
 from goalnexa.progress import metric_pct, metric_readings, refresh_goal, root_metrics
 from goalnexa.serializers import GoalSerializer
+from goalnexa.teams import can_set_targets, team_org
+from goalnexa.templates import LOCKED_GOAL_FIELDS, tree_goals
+
+TOTAL_READ_ONLY = "This is a team total - it's calculated from the teams' own goals."
+SET_BY_TEMPLATE = "Set by the goal template - change it there."
+
+
+def locked_changes(request, serializer, instance, fields) -> list[str]:
+    """The template-owned `fields` this write would change on `instance`.
+    Relations (`parent`, `goal`, `cycle`) count by presence in the body,
+    like the views' own `_resolve_*`."""
+    changed = []
+    for name in fields:
+        if name in ("parent", "goal", "cycle"):
+            if name in request.data and str(request.data.get(name) or "") != str(getattr(instance, f"{name}_id") or ""):
+                changed.append(name)
+        elif name in serializer.validated_data and serializer.validated_data[name] != getattr(instance, name):
+            changed.append(name)
+    return changed
 
 
 #: The goal fields a change of which goes in its feed.
@@ -77,13 +96,23 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
             raise ValidationError({"cycle": ["That cycle is closed."]})
         return cycle
 
+    def _check_team(self, team_id, org_id, visibility):
+        if team_id and str(team_org(team_id) or "") != str(org_id or ""):
+            raise ValidationError({"team_id": ["Pick a team of the goal's organization."]})
+        if visibility == GoalVisibility.TEAM and not team_id:
+            raise ValidationError({"visibility": ["Only a team's goal can be visible to its team - pick a team first."]})
+
     def perform_create(self, serializer):
         org_id = serializer.validated_data.get("org_id")
         if org_id:
-            current = Goal.objects.filter(org_id=org_id).exclude(status=GoalStatus.ARCHIVED).count()
+            current = Goal.objects.filter(org_id=org_id, is_rollup=False).exclude(status=GoalStatus.ARCHIVED).count()
             check_org_limit(org_id, "max_goals", current, "goals")
+        self._check_team(serializer.validated_data.get("team_id"), org_id, serializer.validated_data.get("visibility"))
         cycle = self._resolve_cycle(org_id)
-        goal = serializer.save(owner_id=self.request.user.id, parent=self._resolve_parent(), cycle=cycle)
+        parent = self._resolve_parent()
+        if parent is not None and parent.is_rollup:
+            raise ValidationError({"parent": [TOTAL_READ_ONLY]})
+        goal = serializer.save(owner_id=self.request.user.id, parent=parent, cycle=cycle)
         goal.position = next_position(goal)
         goal.save(update_fields=["position"])
         record(goal.id, ActivityVerb.GOAL_CREATED, self.request.user.id, title=goal.title)
@@ -100,9 +129,22 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         # that into "leave untouched" would make clearing a parent
         # impossible from the UI.
         instance = serializer.instance
+        if instance.is_rollup:
+            raise PermissionDenied(TOTAL_READ_ONLY)
+        if instance.template_goal_id:
+            locked = locked_changes(self.request, serializer, instance, LOCKED_GOAL_FIELDS)
+            if locked:
+                raise ValidationError({name: [SET_BY_TEMPLATE] for name in locked})
         visibility = serializer.validated_data.get("visibility", instance.visibility)
-        if visibility != instance.visibility and str(instance.owner_id) != str(self.request.user.id):
+        if visibility != instance.visibility and str(instance.owner_id) != str(self.request.user.id) and not (
+            instance.template_goal_id and can_set_targets(self.request, instance)
+        ):
             raise PermissionDenied("Only the goal's owner can change who sees it.")
+        self._check_team(
+            serializer.validated_data.get("team_id", instance.team_id),
+            serializer.validated_data.get("org_id", instance.org_id),
+            visibility,
+        )
         before = snapshot(instance, FEED_FIELDS)
         old_siblings = sibling_key(instance)
         org_id = serializer.validated_data.get("org_id", instance.org_id)
@@ -118,6 +160,9 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         else:
             parent = instance.parent
         goal = serializer.save(parent=parent, cycle=cycle)
+        if goal.template_goal_id and visibility != before.get("visibility"):
+            # An instance is seen as a whole: its other goals follow.
+            tree_goals(goal.template_goal.template_id, goal.team_id, goal.cycle_id, False).update(visibility=visibility)
         if sibling_key(goal) != old_siblings:  # moved under another parent/org - it goes last there
             goal.position = next_position(goal)
             goal.save(update_fields=["position"])
@@ -127,6 +172,24 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         diff = changes(before, goal, FEED_FIELDS)
         if diff:
             record(goal.id, ActivityVerb.GOAL_CHANGED, self.request.user.id, changes=diff)
+
+    def perform_destroy(self, instance):
+        """A team total can't be deleted (it follows its teams); a template
+        instance only as a whole, from its top goal - removing one of its
+        goals is the template's call."""
+        if instance.is_rollup:
+            raise PermissionDenied(TOTAL_READ_ONLY)
+        tg = instance.template_goal
+        if tg is None:
+            instance.delete()
+            return
+        if tg.parent_id is not None:
+            raise ValidationError({"template_goal": ["Part of a goal template - remove it from the template, or delete the team's whole instance from its top goal."]})
+        from goalnexa.rollups import schedule
+
+        template_id, cycle_id = tg.template_id, instance.cycle_id
+        tree_goals(template_id, instance.team_id, cycle_id, False).delete()
+        schedule(template_id, cycle_id)
 
     @action(detail=True, methods=["get"])
     def chart(self, request, pk=None):

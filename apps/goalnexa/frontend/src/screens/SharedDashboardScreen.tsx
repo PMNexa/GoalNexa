@@ -5,7 +5,7 @@ import type { Goal } from "../lib/api/goals";
 import type { Metric } from "../lib/api/metrics";
 import { fetchSharedDashboard, type SharedDashboard } from "../lib/api/shares";
 import DashboardCharts from "./dashboard/DashboardCharts";
-import GoalFilterList from "./dashboard/GoalFilterList";
+import GoalFilterList, { withDescendants } from "./dashboard/GoalFilterList";
 import { MAX_GOALS, useDashboardCharts } from "./dashboard/useDashboardCharts";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
 
@@ -126,7 +126,11 @@ function SharedDashboardScreen({ token }: SharedDashboardScreenProps) {
                   selected={selected}
                   atLimit={false}
                   maxGoals={MAX_GOALS}
-                  onToggleGoal={(id) => setHiddenGoals((prev) => toggle(prev, id))}
+                  onToggleGoal={(id) =>
+                    setHiddenGoals((prev) =>
+                      prev.has(id) ? toggle(prev, id) : new Set([...prev, ...withDescendants(goals, id)]),
+                    )
+                  }
                   metricsByGoal={charts.metricsByGoal}
                   metricSlot={charts.metricSlot}
                   disabledMetrics={hidden}

@@ -24,9 +24,24 @@ their own words.
   - `"sum"`: an *amount done* ("ran 12 km", "3 more calls"). `current_value` is
     `base_value` plus every check-in.
   The server recomputes `current_value` either way - never add it up yourself.
+- A metric with **one reading per period** (`one_per`: day, week, month,
+  quarter or year) counts only the LAST check-in of each period, in the
+  organization's time zone; earlier ones are kept with `replaced: true`. On a
+  `"sum"` metric each check-in is then **the period's total so far** ("10,500
+  steps today"), not an amount to add.
 - A metric can go down on purpose (response time 12h → 2h: target below base).
 - Progress = `(current - base) / (target - base)`, and a goal's progress is the
   mean of its root metrics' (`parent` null) - sub-metrics don't count toward it.
+
+- A metric can have a **target per period** (`target_per`: day, week, month,
+  quarter or year, counting every day or weekdays only - `count_days`): then
+  `target_value` is the quota per period, counted in the organization's time
+  zone. Its progress is either the total against every period's quota
+  (`progress_by: "total"`, measured against `cumulative_target`) or the share
+  of periods hit (`"hit_rate"`, with a `streak`). `period_value` is what's
+  checked in this period, and `pace` sums it up: `{"period_label": "today",
+  "done": 6, "quota": 10, "left": 4}`. For a plain running total with a
+  target date, `pace.per_day` / `per_week` is what's needed to land on target.
 
 ## Steps
 
@@ -34,11 +49,23 @@ their own words.
    `filter: {"name.icontains": "<keyword>"}` and `include: ["goal"]` so you see
    which goal each match belongs to. Try a second keyword if the first finds
    nothing (e.g. "km" → "distance", "subs" → "subscribers").
+   - Leave out team totals (`is_total: true`): they add the teams up and refuse
+     check-ins.
+   - Several teams running the same goal template each have their own copy of
+     the metric (same name, different `goal.team_id`). Take the one with
+     `in_my_team: true` - the user's own team's. More than one (they're in
+     several teams): ask which team.
    - One clear match: use it.
    - Several: ask which one, listing `goal → metric (current / target unit)`.
    - None: say so and offer to create the metric (`metrics_create` with `goal`,
      `name`, `unit`, `base_value`, `target_value`), after confirming the numbers.
 2. **Work out the value to record** - it depends on the metric's `aggregation`.
+   - `"sum"` metric with `one_per`: send the period's total so far ("10,500
+     steps today" → `10500`), never the difference - it replaces the period's
+     earlier check-in. Only if the user gives an amount ("2,500 more steps"),
+     add it to the latest check-in if it's in this period (`check_ins_list`,
+     `filter: {"metric": "<id>"}`, `sort: "-checked_in_at"`, `page_size: 1`)
+     and say so, e.g. "8,000 + 2,500 = 10,500".
    - `"sum"` metric: send the amount done ("ran 12 km" → `12`). If the user gives
      a new total instead ("I'm at 60 km"), send the difference from
      `current_value` and say so, e.g. "60 − 48 = 12".
@@ -59,11 +86,16 @@ their own words.
    at or past its target (a tracked-only metric - `target_value` =
    `base_value` - has no %: give the change instead). The goal's own `progress` averages all its root
    metrics, so it differs from this one's; mention its `health` if it's
-   `at_risk` or `off_track`. For several updates in one message,
+   `at_risk` or `off_track`. A metric with a target per period: lead with
+   this period from `pace` ("6/10 today - 4 to go"), then its `hit_rate` and
+   `streak` or its total. A `one_per` metric: the response's `replaces` is the
+   check-in it replaced - say "8,000 → 10,500 today (replaces the earlier
+   one)"; `replaced: true` means a later check-in in that period still counts,
+   so this one doesn't - tell the user. For several updates in one message,
    log each one and confirm them as a short list.
 6. **Say what's next**, briefly: days left to the goal's `target_date`, and one
    or two actions sized to what's left ("18 km to go in 9 days: about 2 km a
-   day") - not general advice. End with the goal's link,
+   day" - `pace.per_day` has the number) - not general advice. End with the goal's link,
    `{{app_url}}/dashboard?goal=<goal id>`, where its chart is. If the user asks
    for the chart itself, `goals_chart` returns the readings over time: draw it
    if you can.

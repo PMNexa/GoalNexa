@@ -3,7 +3,11 @@ what no request triggers:
 
 - goals whose target date just passed get their health recomputed
   (`goalnexa.progress` - an on-track goal past its date is off track);
-- overdue check-in reminders go out (`goalnexa.reminders`);
+- metrics with a target per period are recomputed as time passes - a
+  new day or week moves what's expected, ends periods for the hit rate
+  (`goalnexa.periods`) - and with them their goals and team totals;
+- overdue check-in reminders go out, and end-of-period nudges for quotas
+  still short (`goalnexa.reminders`);
 - every goal gets its daily snapshot, and due digests go out
   (`goalnexa.digest`);
 - the platform's own jobs run (`core_api.system.run_system_jobs`:
@@ -27,11 +31,29 @@ from django.utils import timezone
 from core_api.lifecycle import run_lifecycle_jobs
 from core_api.system import count, heartbeat, run_system_jobs
 from goalnexa.digest import send_due_digests, snapshot_goals
-from goalnexa.models import Goal, GoalHealth
-from goalnexa.progress import refresh_goal
+from goalnexa.models import Goal, GoalHealth, GoalStatus, Metric
+from goalnexa.progress import refresh_goal, refresh_metric
+from goalnexa.rollups import batched
 from goalnexa.reminders import send_due_reminders
 
 logger = logging.getLogger(__name__)
+
+
+def refresh_period_metrics() -> int:
+    """Every live metric with a target per period, recomputed (and its goal,
+    and the totals it counts in, once each). Returns how many."""
+    metrics = list(
+        Metric.objects.exclude(target_per="")
+        .filter(goal__is_rollup=False)
+        .exclude(goal__status__in=[GoalStatus.COMPLETED, GoalStatus.ARCHIVED])
+        .values_list("id", "goal_id")
+    )
+    with batched():
+        for metric_id, _ in metrics:
+            refresh_metric(metric_id)
+        for goal_id in {goal_id for _, goal_id in metrics}:
+            refresh_goal(goal_id)
+    return len(metrics)
 
 
 def run_once() -> dict:
@@ -43,6 +65,7 @@ def run_once() -> dict:
         refreshed += 1
     return {
         "goals_refreshed": refreshed,
+        "period_metrics": refresh_period_metrics(),
         "users_reminded": send_due_reminders(),
         "snapshots": snapshot_goals(today),
         "digests": send_due_digests(),

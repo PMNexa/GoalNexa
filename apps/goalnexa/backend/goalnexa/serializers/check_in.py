@@ -1,3 +1,5 @@
+from rest_framework import serializers
+
 from core_api.serializers import BaseSerializer
 from goalnexa.models import CheckIn
 
@@ -25,4 +27,21 @@ class CheckInSerializer(BaseSerializer):
             "checked_in_at": {"help_text": "When the reading was taken. Leave blank for now."},
             "author_id": {"read_only": True, "help_text": "Who logged it."},
             "source": {"read_only": True, "help_text": "Where it came from: the website, an AI assistant, or an automatic script."},
+            "replaced": {"read_only": True, "help_text": "A later check-in in the same period replaced it (the metric keeps one reading per period), so it doesn't count."},
         }
+
+    def to_representation(self, instance):
+        """A single check-in (not a list) of a metric with one reading per
+        period also says which one it replaced: `replaces`."""
+        data = super().to_representation(instance)
+        if not isinstance(self.parent, serializers.ListSerializer) and getattr(instance, "metric_id", None) and instance.metric.one_per:
+            from goalnexa.periods import replaced_by
+
+            instance.refresh_from_db(fields=["replaced"])
+            data["replaced"] = instance.replaced
+            earlier = replaced_by(instance)
+            data["replaces"] = (
+                {"id": str(earlier.id), "value": str(earlier.value), "checked_in_at": earlier.checked_in_at.isoformat()}
+                if earlier else None
+            )
+        return data

@@ -64,6 +64,13 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.alice.post(f"{API}/cycles/{closed['id']}/close", {}, format="json").status_code, 200)
         self.score = self.alice.get(f"{API}/goal-scores?filter{{goal}}={scored['id']}").json()["items"][0]
 
+        # A team (with Carol in it) and a goal template applied to it.
+        self.team = self.create(self.alice, "teams", org=self.org["id"], name="Sales")
+        self.team_member = self.create(self.alice, "team-members", team=self.team["id"], user_id=self.carol.user_id)
+        self.template = self.create(self.alice, "goal-templates", org_id=self.org["id"], title="Sales targets")
+        self.template_goal = self.create(self.alice, "template-goals", template=self.template["id"], title="Revenue")
+        self.template_metric = self.create(self.alice, "template-metrics", template_goal=self.template_goal["id"], name="MRR")
+
         self.bob_goal = self.create(self.bob, "goals", title="Bob's goal")
         self.bob_metric = self.create(self.bob, "metrics", goal=self.bob_goal["id"], name="Km", target_value=10)
 
@@ -85,6 +92,11 @@ class TenantIsolationTests(TestCase):
             "goal-comments": self.comment["id"],
             "activities": self.activity["id"],
             "goal-scores": self.score["id"],
+            "teams": self.team["id"],
+            "team-members": self.team_member["id"],
+            "goal-templates": self.template["id"],
+            "template-goals": self.template_goal["id"],
+            "template-metrics": self.template_metric["id"],
         }
 
     # --- reading ---------------------------------------------------------
@@ -153,6 +165,13 @@ class TenantIsolationTests(TestCase):
             ("goal-members", {"goal": self.goal["id"], "user_id": self.bob.user_id}),
             # Bob's own goal is personal - and Alice isn't in any org of his.
             ("goal-members", {"goal": self.bob_goal["id"], "user_id": self.alice.user_id}),
+            ("teams", {"org": self.org["id"], "name": "Sneaky"}),
+            ("team-members", {"team": self.team["id"], "user_id": self.bob.user_id}),
+            ("goals", {"title": "Sneaky", "team_id": self.team["id"]}),
+            ("goal-templates", {"org_id": self.org["id"], "title": "Sneaky"}),
+            ("template-goals", {"template": self.template["id"], "title": "Sneaky"}),
+            ("template-metrics", {"template_goal": self.template_goal["id"], "name": "Sneaky"}),
+            (f"goal-templates/{self.template['id']}/apply", {"teams": [self.team["id"]]}),
         ]
         for resource, body in attempts:
             with self.subTest(resource=resource, body=body):
@@ -164,6 +183,7 @@ class TenantIsolationTests(TestCase):
             ("metrics", self.bob_metric["id"], {"goal": self.goal["id"]}),
             ("metrics", self.bob_metric["id"], {"parent": self.metric["id"]}),
             ("goals", self.bob_goal["id"], {"parent": self.goal["id"]}),
+            ("goals", self.bob_goal["id"], {"team_id": self.team["id"]}),
         ]
         for resource, row_id, body in moves:
             with self.subTest(resource=resource, body=body):

@@ -277,6 +277,7 @@ MCP_RESOURCES = [
     "orgs", "org-members", "org-invitations",
     "goals", "goal-members", "metrics", "check-ins",
     "cycles", "goal-scores", "activities", "goal-comments",
+    "teams", "team-members", "goal-templates", "template-goals", "template-metrics",
 ]
 if os.environ.get("MCP_RESOURCES", "").strip() == "*":
     MCP_RESOURCES = None
@@ -288,7 +289,10 @@ elif os.environ.get("MCP_RESOURCES"):
 # reads `openWorldHint` ("reaches outside the current user's account").
 MCP_TOOL_ANNOTATIONS = {
     f"{resource}_{verb}": {"openWorldHint": True}
-    for resource in ("orgs", "org_members", "org_invitations", "goals", "goal_members", "metrics", "check_ins", "cycles", "goal_comments")
+    for resource in (
+        "orgs", "org_members", "org_invitations", "goals", "goal_members", "metrics", "check_ins", "cycles", "goal_comments",
+        "teams", "team_members", "goal_templates", "template_goals", "template_metrics",
+    )
     for verb in ("create", "update", "delete", "link", "unlink")
 }
 # ChatGPT's domain verification token (platform_mcp.wellknown_urls).
@@ -316,6 +320,9 @@ RBAC_DEFAULT_ROLES = [
         "permissions": [
             "goals.*", "goal-members.*", "metrics.*", "check-ins.*", "cycles.*", "goal-scores.*",
             "activities.*", "goal-comments.*", "orgs.*", "org-members.*", "org-invitations.*",
+            # Teams and goal templates: who may change them is the org's own
+            # owner/admin role (and a team's lead), on top of this.
+            "teams.*", "team-members.*", "goal-templates.*", "template-goals.*", "template-metrics.*",
         ],
     },
     {
@@ -324,6 +331,7 @@ RBAC_DEFAULT_ROLES = [
         "permissions": [
             "goals.view", "goal-members.view", "metrics.view", "check-ins.view", "cycles.view", "goal-scores.view",
             "activities.view", "goal-comments.view", "orgs.view", "org-members.view",
+            "teams.view", "team-members.view", "goal-templates.view", "template-goals.view", "template-metrics.view",
         ],
     },
 ]

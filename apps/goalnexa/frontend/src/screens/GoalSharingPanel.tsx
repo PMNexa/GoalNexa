@@ -33,7 +33,10 @@ interface Loaded {
 const VISIBILITY_HINTS: Record<GoalVisibility, (org: string) => string> = {
   public: (org) => `Everyone in ${org} sees this goal.`,
   private: () => "Only the owner and the members below see this goal.",
+  team: (org) => `Only its team (and the teams under it, their leads above it) and ${org}'s owners and admins see this goal.`,
 };
+
+const VISIBILITY_LABELS: Record<GoalVisibility, string> = { public: "Public", private: "Private", team: "Team only" };
 
 function personLabel(person: OrgPerson | undefined, userId: string): string {
   return person?.name ?? person?.email ?? `Unknown user (${userId.slice(0, 8)})`;
@@ -161,9 +164,10 @@ function GoalSharingPanel({ accessToken, goalId, onChanged, onLeft }: GoalSharin
               >
                 <option value="public">Public</option>
                 <option value="private">Private</option>
+                {(loaded.goal.team_id || loaded.goal.visibility === "team") && <option value="team">Team only</option>}
               </select>
             ) : (
-              <div id={`goal-visibility-${goalId}`}>{loaded.goal.visibility === "public" ? "Public" : "Private"}</div>
+              <div id={`goal-visibility-${goalId}`}>{VISIBILITY_LABELS[loaded.goal.visibility]}</div>
             )}
             <small className="form-hint">{VISIBILITY_HINTS[loaded.goal.visibility](loaded.orgName)}</small>
           </CardBody>

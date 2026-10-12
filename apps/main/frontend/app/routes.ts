@@ -7,6 +7,8 @@ import {
   createGoalsRoutes,
   createMetricsRoutes,
   createRemindersRoutes,
+  createTeamBoardRoutes,
+  createTemplatesRoutes,
 } from "goalnexa-frontend";
 import { createAccountRoutes, createAuthRoutes, createRbacRoutes } from "platform-auth-frontend";
 import { createCrudRoutes, createEmailPublicRoutes, createEmailRoutes, createSystemRoutes } from "platform-core";
@@ -66,6 +68,8 @@ export default [
   layout("routes/app-shell.tsx", [
     ...createDashboardRoutes("dashboard"),
     ...createCheckInTableRoutes("table"),
+    // One goal template, every team: check-ins, targets and totals (goalnexa).
+    ...createTeamBoardRoutes("board"),
     ...createOrgsRoutes("platform-org"),
     // Goals: the generic pages too, but a goal's page adds who it's
     // shared with - goalnexa-frontend's builder swaps in that one file.
@@ -75,6 +79,9 @@ export default [
     ...createCrudRoutes("/api/v1/check-ins"),
     // Cycles (quarters): a cycle's page adds closing it and its scorecard.
     ...createCyclesRoutes(),
+    // Goal templates (several teams, one goal system): the template, its
+    // goals and their metrics - generic pages, the template's linking to the board.
+    ...createTemplatesRoutes(),
     // Where check-in reminders go, and what's due (goalnexa).
     ...createRemindersRoutes("reminders"),
     // Personal access tokens + how to connect an AI client to the MCP

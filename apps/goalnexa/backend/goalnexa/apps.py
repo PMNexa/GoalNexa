@@ -15,11 +15,13 @@ class GoalnexaConfig(AppConfig):
             UsageProvider,
             org_removed,
             register_export_provider,
+            team_changed,
+            team_removed,
             register_setting,
             register_usage_provider,
             user_removed,
         )
-        from goalnexa.accounts import export, on_org_removed, on_user_removed, usage
+        from goalnexa.accounts import export, on_org_removed, on_team_changed, on_team_removed, on_user_removed, usage
 
         register_setting(SettingDef(
             "reminders.allowed_schemes", "Reminder services allowed", LIST,
@@ -29,6 +31,8 @@ class GoalnexaConfig(AppConfig):
         ))
         user_removed.connect(on_user_removed, dispatch_uid="goalnexa.user_removed")
         org_removed.connect(on_org_removed, dispatch_uid="goalnexa.org_removed")
+        team_removed.connect(on_team_removed, dispatch_uid="goalnexa.team_removed")
+        team_changed.connect(on_team_changed, dispatch_uid="goalnexa.team_changed")
         register_usage_provider(UsageProvider("Goals", usage))
         register_export_provider("goals", export)
         from goalnexa.insights import register_insights
