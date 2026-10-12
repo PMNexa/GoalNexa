@@ -76,6 +76,26 @@ export function snapSeries<T extends ValuePoint | ProgressPoint>(points: T[], pe
   return [...last.values()];
 }
 
+/**
+ * A moment in the middle of the period starting at `start` (local) - what a
+ * form sends for "a check-in for this period", so the server's snap (in the
+ * organization's zone, which may differ from the browser's) still lands in it.
+ */
+export function midPeriod(start: number, per: Snap): number {
+  return start + (nextPeriodStart(start, per) - start) / 2;
+}
+
+/** The `count` latest periods up to the one around `now`, newest first. */
+export function recentPeriods(per: Snap, now: number, count = 12): { start: number; label: string }[] {
+  const periods: { start: number; label: string }[] = [];
+  let start = periodStart(now, per);
+  for (let i = 0; i < count; i += 1) {
+    periods.push({ start, label: periodLabel(start, per) });
+    start = periodStart(start - 1, per);
+  }
+  return periods;
+}
+
 export interface PeriodBar {
   start: number;
   label: string;

@@ -51,6 +51,18 @@ class OnePer(models.TextChoices):
     YEAR = "year", "The last one each year"
 
 
+class SnapTo(models.TextChoices):
+    """What a check-in is for (P-63): any moment, or a whole period - its
+    time is then snapped to the period's first day (`CheckIn.save`)."""
+
+    ANY = "", "Any time"
+    DAY = "day", "A day"
+    WEEK = "week", "A week"
+    MONTH = "month", "A month"
+    QUARTER = "quarter", "A quarter"
+    YEAR = "year", "A year"
+
+
 class Metric(TimestampedModel):
     """A tracked, numeric measure of progress toward a `Goal` (1-n, like
     `OrgMembership.org` -> `related_name="memberships"`) - e.g. "revenue"
@@ -172,6 +184,13 @@ class Metric(TimestampedModel):
     # `CheckIn.replaced`.
     one_per = models.CharField(
         "one reading per", max_length=8, choices=OnePer.choices, default=OnePer.EVERY, db_default=OnePer.EVERY,
+        blank=True,
+    )
+    # Check-ins are for a period (docs/period-targets.md): every check-in's
+    # `checked_in_at` is snapped to its period's first day, 00:00 in the
+    # goal's zone, whoever sends it (`CheckIn.save`).
+    snap_to = models.CharField(
+        "check-ins are for", max_length=8, choices=SnapTo.choices, default=SnapTo.ANY, db_default=SnapTo.ANY,
         blank=True,
     )
     # The period (its first day) an "under quota" nudge last went out for.

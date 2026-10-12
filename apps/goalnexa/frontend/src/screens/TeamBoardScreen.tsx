@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import {
   Button,
   Card,
@@ -9,12 +9,14 @@ import {
   FormControl,
   FormLabel,
   FormSelect,
+  Modal,
   SegmentedControl,
   type LinkComponent,
 } from "platform-core";
 import TemplateWizard from "./TemplateWizard";
 import { fetchCycles, type Cycle } from "../lib/api/cycles";
 import { fetchOrgs, fetchTeams, type OrgOption, type TeamOption } from "../lib/api/dashboard";
+import { apiRequest } from "../lib/api/client";
 import { errorMessage } from "../lib/api/goalMembers";
 import {
   applyTemplate,
@@ -27,12 +29,15 @@ import {
   type BoardMetric,
   type BoardTeam,
   type BoardTotal,
+  type BoardMetric as BoardMetricRow,
   type CellNumbers,
+  type ShownNumbers,
   type GoalTemplate,
   type TargetChange,
 } from "../lib/api/teamBoard";
 import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../lib/currentOrg";
 import { readStored, writeStored } from "../lib/storedState";
+import { periodLabel, periodStart, SNAP_LABELS, type Snap } from "../lib/periods";
 
 export interface TeamBoardScreenProps {
   accessToken: string;
@@ -62,6 +67,8 @@ const MODES: { value: Mode; label: string }[] = [
 const NO_CYCLE = "none";
 /** Org id -> the template last opened there. */
 const TEMPLATE_KEY = "goalnexa:board-template";
+/** The board's "Show by" period ("" = running totals), remembered per browser. */
+const SHOW_KEY = "goalnexa:board-show";
 
 const BOARD_CSS = `.gn-board-wrap { overflow: auto; max-height: calc(100vh - 16rem); }
 .gn-board { border-collapse: separate; border-spacing: 0; font-size: .85rem; min-width: 100%; }
@@ -73,10 +80,16 @@ const BOARD_CSS = `.gn-board-wrap { overflow: auto; max-height: calc(100vh - 16r
 .gn-board thead .gn-team { z-index: 3; }
 .gn-board tr.gn-total > * { background: var(--tblr-bg-surface-secondary, #f6f8fb); font-weight: 600; }
 .gn-board tr.gn-muted > * { color: var(--tblr-secondary, #667382); }
-.gn-board .gn-goal-head { border-left: 2px solid var(--tblr-border-color, #e6e7e9); }
+.gn-board .gn-board-goal { border-left: 2px solid var(--tblr-border-color, #e6e7e9); }
 .gn-board .gn-head-btn { all: unset; cursor: pointer; }
+.gn-board .gn-head-remove { all: unset; cursor: pointer; margin-left: .3rem; color: var(--tblr-secondary, #667382); opacity: .45; font-size: .8rem; line-height: 1; }
+.gn-board th:hover .gn-head-remove, .gn-board .gn-head-remove:focus-visible { opacity: 1; }
+.gn-board .gn-head-remove:hover { color: var(--tblr-danger, #d63939); }
 .gn-board .gn-head-btn:hover, .gn-board .gn-head-btn:focus-visible { color: var(--tblr-primary, #066fd1); text-decoration: underline; }
 .gn-board .gn-num { font-variant-numeric: tabular-nums; }
+.gn-board .gn-update { min-width: 6.5rem; }
+.gn-board th.gn-update { color: var(--tblr-secondary, #667382); font-weight: 500; }
+.gn-board td.gn-update { font-variant-numeric: tabular-nums; }
 .gn-board .gn-sub { display: block; font-size: .7rem; color: var(--tblr-secondary, #667382); font-weight: 400; }
 .gn-board .gn-gap-neg { color: var(--tblr-danger, #d63939); }
 .gn-board td.gn-cell { min-width: 9rem; }
@@ -104,6 +117,43 @@ function heat(progress: number | null | undefined): string {
   if (progress >= 70) return "gn-h-good";
   if (progress >= 40) return "gn-h-mid";
   return "gn-h-low";
+}
+
+/** "Week of Oct 6", for a shown period's first day ("YYYY-MM-DD"). */
+function shownLabel(shown: ShownNumbers, per: Snap): string {
+  const [year, month, day] = shown.start.split("-").map(Number);
+  return periodLabel(new Date(year, month - 1, day).getTime(), per);
+}
+
+/** A shown cell's %: against the period's target, or - a reading with a target for the whole goal - from base to target. */
+function shownPct(shown: ShownNumbers, numbers: CellNumbers, metric: BoardMetricRow): number | null {
+  if (shown.value === null) return null;
+  if (shown.quota) return (shown.value / shown.quota) * 100;
+  if (metric.aggregation === "latest" && !numbers.target_per && numbers.target_value !== numbers.base_value) {
+    return Math.max(0, ((shown.value - numbers.base_value) / (numbers.target_value - numbers.base_value)) * 100);
+  }
+  return null;
+}
+
+/** A cell in a shown period: its value (and target), then which period. */
+function shownBlock(shown: ShownNumbers | null | undefined, numbers: CellNumbers, metric: BoardMetricRow, per: Snap) {
+  if (!shown) return <>—<span className="gn-sub">not totalled</span></>;
+  const target =
+    shown.quota !== null ? shown.quota
+    : metric.aggregation === "latest" && !numbers.target_per && numbers.target_value !== numbers.base_value ? numbers.target_value
+    : null;
+  const pct = shownPct(shown, numbers, metric);
+  return (
+    <>
+      {shown.value === null ? "—" : fmt(shown.value)}
+      {target !== null && <> / {fmt(target)}</>}
+      <span className="gn-sub">
+        {metric.aggregation === "latest" ? "as of " : ""}
+        {shownLabel(shown, per)}
+        {pct !== null ? ` · ${Math.round(pct)}%` : ""}
+      </span>
+    </>
+  );
 }
 
 /** "total today": the board's placeholder for a metric with one reading per period. */
@@ -187,7 +237,12 @@ interface Column {
   goalTitle: string;
   /** First column of its goal - draws the group border. */
   first: boolean;
+  /** Last metric column of its goal - the goal's "Last update" column follows it. */
+  last: boolean;
 }
+
+const updateTime = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+const updateDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 function goalOrder(board: Board): { id: string; title: string; depth: number }[] {
   const children = new Map<string | null, typeof board.goals>();
@@ -265,6 +320,9 @@ function TeamBoardScreen({
   resourcePath,
 }: TeamBoardScreenProps) {
   const [editing, setEditing] = useState<EditTarget | null>(null);
+  // A template goal or metric to remove, waiting for "Remove" in the confirmation.
+  const [removing, setRemoving] = useState<(EditTarget & { name: string }) | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
   const [orgs, setOrgs] = useState<OrgOption[] | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<GoalTemplate[]>([]);
@@ -275,6 +333,14 @@ function TeamBoardScreen({
   const [root, setRoot] = useState("");
   const [mode, setMode] = useState<Mode>("checkin");
   const [when, setWhen] = useState(nowLocal);
+  const [show, setShowState] = useState<Snap | "">(() => readStored<Snap | "">(SHOW_KEY, ""));
+  function setShow(value: Snap | "") {
+    setShowState(value);
+    writeStored(SHOW_KEY, value);
+  }
+  // The shown period follows "Checked in at"; only refetched while showing by a period.
+  // The board's day ("Last update") and shown period both follow "Checked in at".
+  const boardAt = when ? new Date(when).toISOString() : "";
   const [values, setValues] = useState<Map<string, string>>(new Map());
   const [notes, setNotes] = useState<Map<string, string>>(new Map());
   const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
@@ -339,23 +405,24 @@ function TeamBoardScreen({
       return;
     }
     let cancelled = false;
-    fetchBoard(accessToken, templateId, cycleId === NO_CYCLE ? null : cycleId)
+    fetchBoard(accessToken, templateId, cycleId === NO_CYCLE ? null : cycleId, { show, at: boardAt })
       .then((data) => !cancelled && setBoard(data))
       .catch((e) => !cancelled && setError(errorMessage(e)));
     return () => {
       cancelled = true;
     };
-  }, [accessToken, templateId, cycleId, templates, version]);
+  }, [accessToken, templateId, cycleId, templates, version, show, boardAt]);
 
   const columns = useMemo<Column[]>(() => {
     if (!board) return [];
     const byGoal = new Map<string, BoardMetric[]>();
     for (const metric of board.metrics) byGoal.set(metric.template_goal, [...(byGoal.get(metric.template_goal) ?? []), metric]);
     return goalOrder(board).flatMap((goal) =>
-      (byGoal.get(goal.id) ?? []).map((metric, index) => ({
+      (byGoal.get(goal.id) ?? []).map((metric, index, all) => ({
         metric,
         goalTitle: `${"› ".repeat(goal.depth)}${goal.title}`,
         first: index === 0,
+        last: index === all.length - 1,
       })),
     );
   }, [board]);
@@ -494,6 +561,13 @@ function TeamBoardScreen({
     next?.focus();
   }
 
+  // One "Last update" column per goal; it's for the day of "Checked in at".
+  const updateColumns = columns.filter((column) => column.last).length;
+  const dayLabel = when ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(when)) : "today";
+
+  // Showing by a period: check-in mode with a period picked and the board's numbers for it.
+  const showing = mode === "checkin" && !!show && board?.show === show;
+
   function totalCell(row: Row, column: Column) {
     const numbers = row.total?.metrics[column.metric.id];
     if (!numbers) return <td key={column.metric.id} className="gn-cell gn-num">—</td>;
@@ -502,6 +576,14 @@ function TeamBoardScreen({
     const editable = mode === "targets" && row.total?.can_plan && column.metric.rollup !== "min";
     const teams = numbers.teams_target;
     const gap = planned !== null && planned !== undefined && teams !== undefined ? teams - planned : null;
+    if (showing) {
+      const pct = numbers.shown ? shownPct(numbers.shown, numbers, column.metric) : null;
+      return (
+        <td key={column.metric.id} className={`gn-cell gn-num ${heat(pct)}`}>
+          {shownBlock(numbers.shown, numbers, column.metric, show as Snap)}
+        </td>
+      );
+    }
     return (
       <td key={column.metric.id} className={`gn-cell gn-num ${heat(numbers.progress)}`}>
         {numbers.target_per && numbers.target_value !== numbers.base_value ? (
@@ -591,6 +673,12 @@ function TeamBoardScreen({
           />
         )}
         {value && isNumber(value) && preview !== null && <span className="gn-sub">→ {fmt(preview)}</span>}
+        {column.metric.snap_to && when && (
+          // Check-ins for a period: this one goes to the period around "Checked in at".
+          <span className="gn-sub" title="Check-ins for this metric are for a whole period">
+            for {periodLabel(periodStart(new Date(when).getTime(), column.metric.snap_to), column.metric.snap_to)}
+          </span>
+        )}
       </>
     );
   }
@@ -602,6 +690,20 @@ function TeamBoardScreen({
     const tracked = numbers.target_value === numbers.base_value;
     const due = numbers.check_in_due_at !== null && Date.parse(numbers.check_in_due_at) <= Date.now();
     const draft = targets.get(numbers.id);
+    if (showing) {
+      const pct = numbers.shown ? shownPct(numbers.shown, numbers, column.metric) : null;
+      return (
+        <td key={column.metric.id} className={`gn-cell gn-num ${heat(pct)}`}>
+          {shownBlock(numbers.shown, numbers, column.metric, show as Snap)}
+          {due && (
+            <span className="text-warning ms-1" title="Check-in due">
+              {ClockIcon}
+            </span>
+          )}
+          {instance.can_check_in && checkInInput(numbers, column, row)}
+        </td>
+      );
+    }
     return (
       <td key={column.metric.id} className={`gn-cell gn-num ${mode === "checkin" ? heat(numbers.progress) : ""}`}>
         {mode === "targets" && instance.can_set_targets ? (
@@ -659,11 +761,38 @@ function TeamBoardScreen({
     );
   }
 
+  /**
+   * After a goal's last metric: when the team last checked in on that goal on
+   * the board's day ("Checked in at"), or - on a total - how many of its teams did.
+   */
+  function updateCell(row: Row, column: Column) {
+    if (!column.last) return null;
+    const goalId = column.metric.template_goal;
+    const key = `${column.metric.id}-update`;
+    if (row.kind !== "instance") {
+      const counts = row.total?.updated?.[goalId];
+      return (
+        <td key={key} className="gn-cell gn-update">
+          {counts && counts.teams > 0 ? `${counts.updated}/${counts.teams} teams` : "—"}
+        </td>
+      );
+    }
+    const update = row.instance?.last_update?.[goalId];
+    return (
+      <td key={key} className={`gn-cell gn-update${update && !update.on_day ? " text-secondary" : ""}`}>
+        {update?.on_day ? updateTime.format(Date.parse(update.on_day)) : "—"}
+        {update && !update.on_day && (
+          <span className="gn-sub">{update.last ? `last ${updateDate.format(Date.parse(update.last))}` : "no check-ins yet"}</span>
+        )}
+      </td>
+    );
+  }
+
   function rowCells(row: Row) {
-    if (row.kind !== "instance") return columns.map((column) => totalCell(row, column));
+    if (row.kind !== "instance") return columns.flatMap((column) => [totalCell(row, column), updateCell(row, column)]);
     if (row.missing) {
       return (
-        <td colSpan={Math.max(columns.length, 1)} className="text-secondary">
+        <td colSpan={Math.max(columns.length + updateColumns, 1)} className="text-secondary">
           {mode === "targets" && board?.can_manage && row.team ? (
             <label className="form-check mb-0">
               <Checkbox
@@ -695,17 +824,48 @@ function TeamBoardScreen({
     }
     if (row.instance && !row.instance.visible) {
       return (
-        <td colSpan={Math.max(columns.length, 1)} className="text-secondary">
+        <td colSpan={Math.max(columns.length + updateColumns, 1)} className="text-secondary">
           Only this team can see its numbers. They still count in the totals.
         </td>
       );
     }
-    return columns.map((column) => instanceCell(row, column));
+    return columns.flatMap((column) => [instanceCell(row, column), updateCell(row, column)]);
   }
 
   const template = templates.find((t) => t.id === templateId) ?? null;
   const role = orgs?.find((o) => o.id === orgId)?.my_role;
   const canCreateTemplate = role === "owner" || role === "admin";
+
+  async function confirmRemove() {
+    if (!removing) return;
+    setRemoveBusy(true);
+    try {
+      await apiRequest(`${removing.endpoint}/${removing.id}`, accessToken, { method: "DELETE" });
+      setNotice(`Removed "${removing.name}" from the template.`);
+      setRemoving(null);
+      setVersion((v) => v + 1);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setRemoveBusy(false);
+    }
+  }
+
+  /** The small "×" after a header's name: remove that goal or metric from the template. */
+  function removeButton(target: EditTarget, name: string) {
+    const kind = target.endpoint === "/api/v1/template-metrics" ? "metric" : "goal";
+    return (
+      <button
+        type="button"
+        className="gn-head-remove"
+        title={`Remove this ${kind} from the template`}
+        aria-label={`Remove ${kind} ${name}`}
+        onClick={() => setRemoving({ ...target, name })}
+      >
+        ✕
+      </button>
+    );
+  }
 
   function closeEditing() {
     setEditing(null);
@@ -811,6 +971,17 @@ function TeamBoardScreen({
                     onChange={(e) => setWhen(e.target.value)} />
                 </div>
               )}
+              {mode === "checkin" && (
+                <div className="col-sm-6 col-lg-2">
+                  <FormLabel htmlFor="gn-board-show">Show by</FormLabel>
+                  <FormSelect id="gn-board-show" value={show} onChange={(e) => setShow(e.target.value as Snap | "")}>
+                    <option value="">Running totals</option>
+                    {(Object.keys(SNAP_LABELS) as Snap[]).map((per) => (
+                      <option key={per} value={per}>{SNAP_LABELS[per]}</option>
+                    ))}
+                  </FormSelect>
+                </div>
+              )}
               <div className="col-auto ms-auto align-self-end">
                 <SegmentedControl
                   label="Mode"
@@ -896,8 +1067,8 @@ function TeamBoardScreen({
                         column.first ? (
                           <th
                             key={column.metric.id}
-                            className="gn-goal-head"
-                            colSpan={columns.filter((c) => c.metric.template_goal === column.metric.template_goal).length}
+                            className="gn-board-goal"
+                            colSpan={columns.filter((c) => c.metric.template_goal === column.metric.template_goal).length + 1}
                           >
                             {board.can_manage ? (
                               <button
@@ -911,13 +1082,16 @@ function TeamBoardScreen({
                             ) : (
                               column.goalTitle
                             )}
+                            {board.can_manage &&
+                              removeButton({ endpoint: "/api/v1/template-goals", id: column.metric.template_goal }, column.goalTitle.replace(/^(› )+/, ""))}
                           </th>
                         ) : null,
                       )}
                     </tr>
                     <tr>
                       {columns.map((column) => (
-                        <th key={column.metric.id} className={column.first ? "gn-goal-head" : ""}>
+                        <Fragment key={column.metric.id}>
+                        <th className={column.first ? "gn-board-goal" : ""}>
                           {board.can_manage ? (
                             <button
                               type="button"
@@ -931,11 +1105,19 @@ function TeamBoardScreen({
                             column.metric.name
                           )}
                           {column.metric.unit && <span className="text-secondary"> ({column.metric.unit})</span>}
+                          {board.can_manage && removeButton({ endpoint: "/api/v1/template-metrics", id: column.metric.id }, column.metric.name)}
                           <span className="gn-sub">
                             {column.metric.target_per ? `${PER_LABELS[column.metric.target_per]}${column.metric.count_days === "weekdays" ? " (weekdays)" : ""} · ` : ""}
                             {column.metric.rollup === "none" ? "not totalled" : `total: ${column.metric.rollup}`}
                           </span>
                         </th>
+                        {column.last && (
+                          <th className="gn-update">
+                            Last update
+                            <span className="gn-sub">on {dayLabel}</span>
+                          </th>
+                        )}
+                        </Fragment>
                       ))}
                     </tr>
                   </thead>
@@ -982,6 +1164,31 @@ function TeamBoardScreen({
           </div>
         </Card>
       )}
+      <Modal
+        open={removing !== null}
+        onClose={() => !removeBusy && setRemoving(null)}
+        size="sm"
+        title={removing ? `Remove "${removing.name}"?` : ""}
+        footer={
+          <>
+            <Button variant="secondary" outline onClick={() => setRemoving(null)} disabled={removeBusy}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={() => void confirmRemove()} disabled={removeBusy}>
+              Remove
+            </Button>
+          </>
+        }
+      >
+        {removing && (
+          <p className="mb-0">
+            {removing.endpoint === "/api/v1/template-metrics"
+              ? "The metric and its sub-metrics leave the template and every team's copy, and the totals drop it."
+              : "The goal, its sub-goals and their metrics leave the template and every team's copy, and the totals drop them."}{" "}
+            A team's copy that already has check-ins is kept as that team's own, no longer part of the template.
+          </p>
+        )}
+      </Modal>
       {/* A column header's goal or metric, edited in place; the board reloads on close (every team's copy follows). */}
       <Drawer
         open={editing !== null}

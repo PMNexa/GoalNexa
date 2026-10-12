@@ -69,6 +69,7 @@ class TemplateMetricSerializer(BaseSerializer):
             "target_per": {"help_text": "The whole goal, or each day/week/month/quarter/year (a quota, for amounts to add). Every team's copy follows it."},
             "count_days": {"help_text": "For a target per day or week: every day, or weekdays only."},
             "one_per": {"help_text": "Which check-ins count: every one, or only the last one each day/week/month/quarter/year (a later one replaces the earlier). Every team's copy follows it."},
+            "snap_to": {"help_text": "What a check-in is for: any moment, or a whole day/week/month/quarter/year (its time is set to the period's first day). Every team's copy follows it."},
             "progress_by": {"help_text": "For a target per period: the total, or how often the target is hit (totals then average the teams or take the lowest)."},
         }
 
@@ -85,5 +86,7 @@ class TemplateMetricSerializer(BaseSerializer):
             raise serializers.ValidationError({"progress_by": ["How often the target is hit needs a target per period."]})
         if progress_by == "hit_rate" and rollup == "sum":
             raise serializers.ValidationError({"rollup": ["Hit rates don't add up - pick the average or the lowest."]})
-        validate_one_per(attrs.get("one_per", getattr(instance, "one_per", "")), target_per)
+        validate_one_per(
+            attrs.get("one_per", getattr(instance, "one_per", "")), target_per, attrs.get("snap_to", getattr(instance, "snap_to", ""))
+        )
         return attrs

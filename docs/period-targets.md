@@ -195,3 +195,17 @@ setting off couldn't bring the rows back.
 - The team board's cell says "total today"; it previews the new total
   only when the reading period equals the quota period (then the
   period's value is the one being replaced).
+
+## Check-ins for a period (P-63)
+
+`Metric.snap_to` / `TemplateMetric.snap_to` ("Check-ins are for": any
+time / a day / week / month / quarter / year). A check-in is then for a
+whole period, not a moment: `CheckIn.save` sets `checked_in_at` to the
+period's first day, 00:00 in the goal's zone (`periods.snap_time`), so
+every source - web, board, bulk, assistant, ingest - lands on it.
+Changing the setting re-stamps existing check-ins (`periods.resnap`) and
+recomputes. It can't be longer than `target_per` or `one_per`. Whether a
+second check-in in the same period replaces or adds is still `one_per`'s
+call. Forms send a moment in the middle of the picked period
+(`lib/periods.ts` `midPeriod`), so a browser in another zone still lands
+in it.

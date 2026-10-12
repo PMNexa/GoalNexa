@@ -50,6 +50,15 @@ class CheckIn(TimestampedModel):
     # `one_per`): kept, but it doesn't count. Kept by `refresh_metric`.
     replaced = models.BooleanField(default=False, db_default=False)
 
+    def save(self, *args, **kwargs):
+        # A metric whose check-ins are for a period (`Metric.snap_to`): the
+        # time is that period's first day - from every source alike.
+        if self.metric_id and self.metric.snap_to and self.checked_in_at:
+            from goalnexa.periods import snap_time  # periods imports models
+
+            self.checked_in_at = snap_time(self.metric, self.checked_in_at)
+        super().save(*args, **kwargs)
+
     class Meta:
         db_table = "check_in"
         # Names the resource in generic UIs (schema `label`/`label_plural`) -

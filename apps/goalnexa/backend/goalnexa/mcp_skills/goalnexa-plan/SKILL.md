@@ -47,6 +47,10 @@ From what the user said, propose:
     period counts, so a later report replaces the earlier one. It can't be
     longer than a `target_per`. Not for amounts logged as they happen ("3 more
     calls").
+  - A number reported per period ("weekly sales", "monthly revenue") can get
+    `snap_to: "week"` (or day/month/...): each check-in is then for a whole
+    period, its time set to the period's first day. Often with the same
+    `one_per`, so a correction replaces that period's number.
   - Suggest a check-in schedule, `check_in_every`: `"daily"`, `"weekly"` or
     `"monthly"` (default none). An overdue metric is flagged on the dashboard and
     reminded, if the user has reminders set up (step 4).

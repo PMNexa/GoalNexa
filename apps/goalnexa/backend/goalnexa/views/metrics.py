@@ -28,6 +28,7 @@ from goalnexa.access import visible_goals
 from goalnexa.activity import changes, record, snapshot
 from goalnexa.models import ActivityVerb, Goal, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
+from goalnexa.periods import resnap
 from goalnexa.progress import refresh_goal, refresh_metric, refresh_metric_and_goal
 from goalnexa.serializers import MetricSerializer
 from goalnexa.teams import can_set_targets
@@ -118,7 +119,7 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         goal = self._resolve_goal() if "goal" in data else instance.goal
         parent = (self._resolve_parent(exclude_id=instance.id) if data.get("parent") else None) if "parent" in data else instance.parent
         old_goal_id = instance.goal_id
-        old_value_rule = (instance.aggregation, instance.base_value, instance.one_per)
+        old_value_rule = (instance.aggregation, instance.base_value, instance.one_per, instance.snap_to)
         before = snapshot(instance, FEED_FIELDS)
         old_siblings = sibling_key(instance)
         metric = serializer.save(goal=goal, parent=parent)
@@ -128,7 +129,9 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         # A current value set by hand stays - unless what check-ins add up
         # to just changed (a SUM metric counts from its base; which
         # check-ins count follows `one_per`).
-        refresh_metric(metric.id, sync_value=(metric.aggregation, metric.base_value, metric.one_per) != old_value_rule)
+        if metric.snap_to != old_value_rule[3]:
+            resnap(metric)  # existing check-ins move to their period too
+        refresh_metric(metric.id, sync_value=(metric.aggregation, metric.base_value, metric.one_per, metric.snap_to) != old_value_rule)
         refresh_goal(metric.goal_id)
         if old_goal_id != metric.goal_id:
             refresh_goal(old_goal_id)

@@ -38,6 +38,7 @@ export interface BoardMetric {
   count_days: "all" | "weekdays";
   progress_by: "total" | "hit_rate";
   one_per: TargetPer;
+  snap_to: TargetPer;
 }
 
 export interface BoardTeam {
@@ -66,6 +67,22 @@ export interface CellNumbers {
   hit_rate: number | null;
   streak: number | null;
   pace: Pace | null;
+  /** With "Show by": this cell's numbers in that period - see `ShownNumbers`. */
+  shown?: ShownNumbers | null;
+}
+
+/**
+ * One cell in a shown period (the board's "Show by"): `value` = the amount
+ * done in it, or the last reading by its end (null: none yet); `quota` =
+ * its target when the metric's target is per that same period. A total's
+ * comes from its teams' by the metric's rule (null: not totalled).
+ */
+export interface ShownNumbers {
+  /** The period's first and last day, "YYYY-MM-DD". */
+  start: string;
+  last: string;
+  value: number | null;
+  quota: number | null;
 }
 
 export interface BoardInstance {
@@ -77,17 +94,23 @@ export interface BoardInstance {
   status?: string;
   can_check_in?: boolean;
   can_set_targets?: boolean;
+  /** Template goal id -> its latest check-in on the board's day (`on_day`, null: none that day) and ever (`last`). */
+  last_update?: Record<string, { on_day: string | null; last: string | null }>;
 }
 
 export interface BoardTotal {
   goals: Record<string, string>;
   metrics: Record<string, CellNumbers>;
   can_plan: boolean;
+  /** Template goal id -> how many of the total's teams have a copy, and how many were updated on the board's day. */
+  updated?: Record<string, { teams: number; updated: number }>;
 }
 
 export interface Board {
   template: { id: string; title: string; org_id: string };
   cycle: string | null;
+  /** The "Show by" period the cells' `shown` numbers are for, or "". */
+  show?: string;
   can_manage: boolean;
   goals: BoardGoal[];
   metrics: BoardMetric[];
@@ -102,9 +125,15 @@ export function fetchTemplates(accessToken: string, orgId: string): Promise<Goal
   return fetchAll<GoalTemplate>(`/api/v1/goal-templates?filter{org_id}=${encodeURIComponent(orgId)}&sort=title`, accessToken);
 }
 
-export function fetchBoard(accessToken: string, templateId: string, cycleId: string | null): Promise<Board> {
+/** `show` + `at` (ISO): also each cell's numbers in the period around `at` (the board's "Show by"). */
+export function fetchBoard(
+  accessToken: string,
+  templateId: string,
+  cycleId: string | null,
+  shownPeriod?: { show: string; at: string },
+): Promise<Board> {
   return apiRequest<Board>(`/api/v1/goal-templates/${templateId}/board`, accessToken, {
-    params: { cycle: cycleId ?? "none" },
+    params: { cycle: cycleId ?? "none", ...(shownPeriod ?? {}) },
   });
 }
 
@@ -170,6 +199,7 @@ export function createTemplateMetric(
     count_days?: "all" | "weekdays";
     progress_by?: "total" | "hit_rate";
     one_per?: TargetPer;
+    snap_to?: TargetPer;
   },
 ): Promise<{ id: string }> {
   return apiRequest<{ id: string }>("/api/v1/template-metrics", accessToken, { method: "POST", data });

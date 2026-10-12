@@ -46,7 +46,7 @@ from goalnexa.progress import refresh_goal, refresh_metric
 #: Template-owned fields an instance can't change (`GoalViewSet`/`MetricViewSet`).
 LOCKED_GOAL_FIELDS = ("title", "description", "parent", "org_id", "team_id", "cycle")
 LOCKED_METRIC_FIELDS = (
-    "name", "description", "unit", "aggregation", "check_in_every", "parent", "goal", "target_per", "count_days", "progress_by", "one_per",
+    "name", "description", "unit", "aggregation", "check_in_every", "parent", "goal", "target_per", "count_days", "progress_by", "one_per", "snap_to",
 )
 
 
@@ -193,6 +193,7 @@ def _sync_metrics(template, goal_by_tg: dict, is_rollup: bool, values: dict) -> 
             "count_days": tm.count_days,
             "progress_by": tm.progress_by,
             "one_per": "" if is_rollup else tm.one_per,  # a total has one reading a day already
+            "snap_to": "" if is_rollup else tm.snap_to,
         }
         metric = existing.get(tm.id)
         if metric is None:
@@ -216,10 +217,14 @@ def _sync_metrics(template, goal_by_tg: dict, is_rollup: bool, values: dict) -> 
                     changes[name] = value
             if changes:
                 Metric.objects.filter(id=metric.id).update(**changes)
-                if changes.keys() & {"check_in_every", "aggregation", "target_per", "count_days", "progress_by", "one_per"}:
-                    refresh_metric(metric.id, sync_value=bool(changes.keys() & {"aggregation", "one_per"}))
                 for name, value in changes.items():
                     setattr(metric, name, value)
+                if "snap_to" in changes:
+                    from goalnexa.periods import resnap
+
+                    resnap(metric)
+                if changes.keys() & {"check_in_every", "aggregation", "target_per", "count_days", "progress_by", "one_per", "snap_to"}:
+                    refresh_metric(metric.id, sync_value=bool(changes.keys() & {"aggregation", "one_per", "snap_to"}))
         metric_by_tm[tm.id] = metric
 
 

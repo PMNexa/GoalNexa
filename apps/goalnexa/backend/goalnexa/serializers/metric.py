@@ -4,13 +4,23 @@ from core_api.serializers import BaseSerializer
 from goalnexa.models import Metric
 
 
-def validate_one_per(one_per: str, target_per: str) -> None:
-    """One reading per period can't be longer than the target's period."""
+def validate_one_per(one_per: str, target_per: str, snap_to: str = "") -> None:
+    """One reading per period, and the period check-ins are for, can't be
+    longer than the target's period; check-ins for a period can't be longer
+    than the one reading's either."""
     from goalnexa.periods import PERIOD_RANK
 
     if one_per and target_per and PERIOD_RANK[one_per] > PERIOD_RANK[target_per]:
         raise serializers.ValidationError(
             {"one_per": [f"Can't be longer than the target's period: a target per {target_per} needs at most one reading per {target_per}."]}
+        )
+    if snap_to and target_per and PERIOD_RANK[snap_to] > PERIOD_RANK[target_per]:
+        raise serializers.ValidationError(
+            {"snap_to": [f"Can't be longer than the target's period: a target per {target_per} needs check-ins for a {target_per} at most."]}
+        )
+    if snap_to and one_per and PERIOD_RANK[snap_to] > PERIOD_RANK[one_per]:
+        raise serializers.ValidationError(
+            {"snap_to": [f"Can't be longer than \"one reading per {one_per}\" - every check-in would land in the same {one_per}."]}
         )
 
 
@@ -62,6 +72,7 @@ class MetricSerializer(BaseSerializer):
             "count_days": {"help_text": "For a target per day or week: count every day, or weekdays only."},
             "progress_by": {"help_text": "For a target per period: progress is the total against every period's target, or how often the target is hit."},
             "one_per": {"help_text": "Which check-ins count: every one, or only the last one each day/week/month/quarter/year - a later check-in replaces the earlier one (for amounts to add: each check-in is the period's total so far)."},
+            "snap_to": {"help_text": "What a check-in is for: any moment, or a whole day/week/month/quarter/year - its time is then set to the period's first day (00:00, the organization's time zone), whoever checks in. Changing it moves existing check-ins too."},
             "period_value": {"read_only": True, "help_text": "Amount checked in during the current period (a target per period)."},
             "cumulative_target": {"read_only": True, "help_text": "Every period's target added up over the goal's dates - what the total is measured against."},
             "expected_value": {"read_only": True, "help_text": "Where the total should be by now if every period's target were met."},
@@ -80,7 +91,9 @@ class MetricSerializer(BaseSerializer):
             raise serializers.ValidationError({"target_per": ["A target per period needs check-ins that are amounts to add (Sum)."]})
         if progress_by == "hit_rate" and not target_per:
             raise serializers.ValidationError({"progress_by": ["How often the target is hit needs a target per period."]})
-        validate_one_per(attrs.get("one_per", getattr(instance, "one_per", "")), target_per)
+        validate_one_per(
+            attrs.get("one_per", getattr(instance, "one_per", "")), target_per, attrs.get("snap_to", getattr(instance, "snap_to", ""))
+        )
         return attrs
 
     def get_pace(self, obj) -> dict | None:

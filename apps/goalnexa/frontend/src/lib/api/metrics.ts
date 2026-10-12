@@ -32,6 +32,8 @@ export interface Metric {
   progress_by?: "total" | "hit_rate";
   /** One reading per period: only the last check-in of each period counts ("" = every one) - a sum check-in is then the period's total so far. */
   one_per?: TargetPer;
+  /** Check-ins are for a period ("" = any time): the server sets each check-in's time to its period's first day. */
+  snap_to?: TargetPer;
   /** Server-kept for a target per period (decimal strings): this period's amount, every period's target added up, where the total should be by now, % of periods hit, hits in a row. */
   period_value?: string | null;
   cumulative_target?: string | null;

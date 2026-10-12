@@ -300,7 +300,9 @@ synthetic check-ins (`source="rollup"`, one per day). They're triggered from
 Totals are read-only everywhere and don't count toward `max_goals`.
 **Team board**: `GET goal-templates/<id>/board?cycle=` (one call with the
 grid), `POST goal-templates/<id>/targets`, `POST goal-templates/<id>/apply`,
-`POST check-ins/bulk` (all or nothing) - goalnexa-frontend's
+`POST check-ins/bulk` (all or nothing); `board?show=<period>&at=<ISO>` adds
+each cell's `shown` numbers in that period (`periods.shown`; totals by
+`_combine_shown`) for the board's "Show by" - goalnexa-frontend's
 `TeamBoardScreen` (`createTeamBoardRoutes("board")`; templates' pages:
 `createTemplatesRoutes()`). `Goal.visibility = "team"` (`access._team_visible`).
 Closing a cycle rolls an instance over with blank targets
@@ -329,7 +331,11 @@ total so far) - every check-in is kept, the others get `CheckIn.replaced`
 (stored by `refresh_metric`); a single check-in's response carries
 `replaces`. Never replace rows at write time (team members would
 overwrite each other). The client mirrors it (`replayer` in
-`lib/progress.ts`, `metricSnap`). Tests:
+`lib/progress.ts`, `metricSnap`). **Check-ins for a period** (P-63):
+`Metric.snap_to` makes `CheckIn.save` stamp every check-in at its
+period's first day (`periods.snap_time`, `resnap` on a change) - so any
+new check-in path gets it for free; don't bypass `save()` with
+`bulk_create`. Tests:
 `tests/test_period_targets.py`.
 
 **System administration** (platform-core's `platform_system` app behind

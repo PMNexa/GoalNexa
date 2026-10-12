@@ -34,7 +34,24 @@ of you beyond the usual upgrade steps.
   teams, review), an empty template has "Set it up", and a team that
   doesn't use the template can be added from its row. Organization
   owners and admins can click a goal or metric column header to edit it
-  in a drawer; every team's copy follows.
+  in a drawer, or the "✕" after it to remove it from the template (a
+  team's copy with check-ins is kept as the team's own); every team's
+  copy follows.
+- **Check-ins for a period**: a metric's check-ins can be for a whole
+  day, week, month, quarter or year ("Check-ins are for"). Every check-in
+  - from the website, the team board, the assistant or a script - is
+  dated to its period's first day, and changing the setting moves the
+  existing ones. The check-in form asks "For: This week / Week of Oct 5
+  / ..." instead of a date and time. With "Which check-ins count: last
+  one each week", a correction replaces that week's number.
+- **Team board "Last update"**: each goal has a column with the time
+  each team last checked in on it that day (the day of "Checked in at"),
+  or when it last did; totals show how many of their teams updated.
+- **Team board "Show by"**: next to "Checked in at", pick a day, week,
+  month, quarter or year to see every cell in that period (around the
+  picked time): the amount done in it or the last reading by its end,
+  against the period's target, with team totals added up, averaged or
+  the lowest by each metric's rule.
 - **Teams, goal templates and team totals** (`docs/team-templates.md`).
   An organization's teams form a tree (Organizations > Teams; a
   department is a team with sub-teams), with leads and members. A **goal

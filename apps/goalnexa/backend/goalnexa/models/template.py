@@ -1,7 +1,7 @@
 from django.db import models
 
 from core_api.utils import TimestampedModel, generate_uuid7
-from goalnexa.models.metric import CheckInCadence, CountDays, MetricAggregation, OnePer, ProgressBy, TargetPer
+from goalnexa.models.metric import CheckInCadence, CountDays, MetricAggregation, OnePer, ProgressBy, SnapTo, TargetPer
 
 
 class RollupRule(models.TextChoices):
@@ -82,6 +82,10 @@ class TemplateMetric(TimestampedModel):
     )
     one_per = models.CharField(
         "one reading per", max_length=8, choices=OnePer.choices, default=OnePer.EVERY, db_default=OnePer.EVERY,
+        blank=True,
+    )
+    snap_to = models.CharField(
+        "check-ins are for", max_length=8, choices=SnapTo.choices, default=SnapTo.ANY, db_default=SnapTo.ANY,
         blank=True,
     )
     default_base = models.DecimalField(max_digits=14, decimal_places=2, default=0)

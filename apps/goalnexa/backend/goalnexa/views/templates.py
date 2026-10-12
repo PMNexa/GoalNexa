@@ -18,10 +18,13 @@
   for the teams below theirs).
 """
 
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import serializers
@@ -36,6 +39,7 @@ from goalnexa.access import ORGS_ENDPOINT, visible_cycles, visible_goals
 from goalnexa.activity import record
 from goalnexa.models import (
     ActivityVerb,
+    CheckIn,
     Cycle,
     CycleStatus,
     Goal,
@@ -43,10 +47,12 @@ from goalnexa.models import (
     GoalTemplate,
     Metric,
     MetricAggregation,
+    RollupRule,
+    TargetPer,
     TemplateGoal,
     TemplateMetric,
 )
-from goalnexa.periods import pace_hint, zone_for
+from goalnexa.periods import local_date, pace_hint, shown, zone_for
 from goalnexa.progress import metric_pct, refresh_goal, refresh_metric
 from goalnexa.rollups import batched, combine, schedule
 from goalnexa.serializers import GoalTemplateSerializer, TemplateGoalSerializer, TemplateMetricSerializer
@@ -93,6 +99,27 @@ def _decimal(value, field):
 
 def _num(value) -> float | None:
     return None if value is None else float(value)
+
+
+def _combine_shown(rule: str, rows: list[dict]) -> dict | None:
+    """A total's numbers in a shown period, from its teams': added up, the
+    mean or the lowest (by the template metric's rule) - None when it isn't
+    totalled or no team has a number yet."""
+    values = [row["value"] for row in rows if row["value"] is not None]
+    if rule == RollupRule.NONE or not rows or not values:
+        return None
+    if rule == RollupRule.SUM:
+        value = sum(values)
+    elif rule == RollupRule.AVG:
+        value = sum(values) / len(values)
+    else:
+        value = min(values)
+    quotas = [row["quota"] for row in rows]
+    quota = None
+    if quotas and all(q is not None for q in quotas):
+        quota = sum(quotas) if rule == RollupRule.SUM else sum(quotas) / len(quotas) if rule == RollupRule.AVG else None
+    return {"start": rows[0]["start"], "last": rows[0]["last"], "value": round(value, 2),
+            "quota": None if quota is None else round(quota, 2)}
 
 
 class GoalTemplateViewSet(BaseViewSet):
@@ -173,7 +200,14 @@ class GoalTemplateViewSet(BaseViewSet):
         "organization's team tree, each team's instance (its metrics' base, target and current values, and "
         "whether you may check in or set its targets) and the totals per team and for the organization "
         "(with planned targets, the teams' own sum and whether you may plan).",
-        parameters=[OpenApiParameter("cycle", OpenApiTypes.STR, description="A cycle id; empty or none = goals in no cycle.")],
+        parameters=[
+            OpenApiParameter("cycle", OpenApiTypes.STR, description="A cycle id; empty or none = goals in no cycle."),
+            OpenApiParameter("show", OpenApiTypes.STR, enum=["day", "week", "month", "quarter", "year"],
+                             description="Also give each cell that period's numbers (`shown`): the amount done in it, or "
+                             "the last reading by its end, and its target when the metric's target is per that period."),
+            OpenApiParameter("at", OpenApiTypes.DATETIME, description="The day each team's `last_update` is for, "
+                             "and with `show` the period around this time (each goal's time zone). Default: now."),
+        ],
         responses={200: OpenApiTypes.OBJECT},
     )
     @action(detail=True, methods=["get"])
@@ -194,6 +228,41 @@ class GoalTemplateViewSet(BaseViewSet):
             metrics_by_goal.setdefault(metric.goal_id, []).append(metric)
 
         zones: dict = {}
+        # "Show by" a period: each cell's numbers in the period around `at`.
+        show = request.query_params.get("show") or ""
+        if show and show not in TargetPer.values:
+            raise ValidationError({"show": ["day, week, month, quarter or year."]})
+        at = parse_datetime(request.query_params.get("at") or "") if request.query_params.get("at") else None
+        if request.query_params.get("at") and at is None:
+            raise ValidationError({"at": ["An ISO 8601 date and time."]})
+        at = at or timezone.now()
+        if timezone.is_naive(at):
+            at = timezone.make_aware(at)
+        check_ins_by_metric: dict = {}
+        if show:
+            instance_metric_ids = [m.id for m in metrics if not goal_by_id[m.goal_id].is_rollup]
+            for check_in in CheckIn.objects.filter(metric_id__in=instance_metric_ids):
+                check_ins_by_metric.setdefault(check_in.metric_id, []).append(check_in)
+
+        # "Last update" per instance goal: its latest check-in on `at`'s day
+        # (the goal's zone) - from check-ins within a day either side.
+        instance_goal_ids = [g.id for g in goals if not g.is_rollup]
+        last_on_day: dict = {}
+        nearby = CheckIn.objects.filter(
+            metric__goal_id__in=instance_goal_ids,
+            checked_in_at__gte=at - timedelta(days=1, hours=14),
+            checked_in_at__lte=at + timedelta(days=1, hours=14),
+        ).values_list("metric__goal_id", "checked_in_at")
+        for goal_id, when in nearby:
+            zone = zone_for(goal_by_id[goal_id], zones)
+            if local_date(when, zone) == local_date(at, zone) and (goal_id not in last_on_day or when > last_on_day[goal_id]):
+                last_on_day[goal_id] = when
+
+        def shown_row(metric) -> dict:
+            goal = goal_by_id[metric.goal_id]
+            zone = zone_for(goal, zones)
+            numbers = shown(metric, goal, check_ins_by_metric.get(metric.id, []), show, local_date(at, zone), zone=zone)
+            return {**numbers, "start": numbers["start"].isoformat(), "last": numbers["last"].isoformat()}
 
         def metric_row(metric, rollup=False):
             goal = goal_by_id[metric.goal_id]
@@ -221,6 +290,8 @@ class GoalTemplateViewSet(BaseViewSet):
         instances: dict = {}
         totals: dict = {}
         instance_numbers: dict = {}
+        shown_by_metric: dict = {}
+        shown_numbers: dict = {}
         for goal in goals:
             if goal.is_rollup:
                 continue
@@ -228,6 +299,9 @@ class GoalTemplateViewSet(BaseViewSet):
                 instance_numbers.setdefault(metric.template_metric_id, []).append(
                     (goal.team_id, (metric.base_value, metric.target_value, metric.current_value))
                 )
+                if show:
+                    shown_by_metric[metric.id] = shown_row(metric)
+                    shown_numbers.setdefault(metric.template_metric_id, []).append((goal.team_id, shown_by_metric[metric.id]))
         root_tgs = {tg.id for tg in tgs if tg.parent_id is None}
         for goal in goals:
             key = str(goal.team_id) if goal.team_id else "org"
@@ -244,6 +318,10 @@ class GoalTemplateViewSet(BaseViewSet):
                     if tm is not None:
                         _, teams_target, _ = combine(tm.rollup, numbers)
                         row["teams_target"] = _num(teams_target)
+                    if show and tm is not None:
+                        row["shown"] = _combine_shown(
+                            tm.rollup, [n for team, n in shown_numbers.get(metric.template_metric_id, []) if team in members]
+                        )
                     entry["metrics"][str(metric.template_metric_id)] = row
                 continue
             entry = instances.setdefault(key, {"goals": {}, "metrics": {}, "visible": False})
@@ -255,14 +333,35 @@ class GoalTemplateViewSet(BaseViewSet):
                 entry["status"] = goal.status
                 entry["can_check_in"] = can_check_in(request, goal)
                 entry["can_set_targets"] = can_set_targets(request, goal)
+            last_ever = max((m.last_checked_in_at for m in metrics_by_goal.get(goal.id, []) if m.last_checked_in_at), default=None)
+            entry.setdefault("last_update", {})[str(goal.template_goal_id)] = {
+                "on_day": last_on_day.get(goal.id), "last": last_ever,
+            }
             for metric in metrics_by_goal.get(goal.id, []):
                 entry["metrics"][str(metric.template_metric_id)] = metric_row(metric)
+                if show:
+                    entry["metrics"][str(metric.template_metric_id)]["shown"] = shown_by_metric[metric.id]
+        # A total's "Last update": how many of its teams' copies were updated that day.
+        updated_by_tg: dict = {}
+        for goal in goals:
+            if not goal.is_rollup:
+                updated_by_tg.setdefault(goal.template_goal_id, []).append((goal.team_id, goal.id in last_on_day))
+        for key, entry in totals.items():
+            members = subtree(parents, None if key == "org" else next((t for t in parents if str(t) == key), None))
+            if key == "org":
+                members = set(parents) | {None}
+            entry["updated"] = {
+                str(tg_id): {"teams": sum(1 for team, _ in rows if team in members),
+                             "updated": sum(1 for team, done in rows if team in members and done)}
+                for tg_id, rows in updated_by_tg.items()
+            }
         for key, entry in instances.items():
             if not entry.get("visible"):
                 instances[key] = {"visible": False, "goals": {}, "metrics": {}}
         return Response({
             "template": {"id": str(template.id), "title": template.title, "org_id": str(template.org_id)},
             "cycle": str(cycle_id) if cycle_id else None,
+            "show": show,
             "can_manage": is_org_manager(request, template.org_id),
             "goals": [
                 {"id": str(tg.id), "parent": str(tg.parent_id) if tg.parent_id else None, "title": tg.title}
@@ -282,6 +381,7 @@ class GoalTemplateViewSet(BaseViewSet):
                     "count_days": tm.count_days,
                     "progress_by": tm.progress_by,
                     "one_per": tm.one_per,
+                    "snap_to": tm.snap_to,
                 }
                 for tm in tms
             ],

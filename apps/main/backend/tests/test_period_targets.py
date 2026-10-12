@@ -325,3 +325,112 @@ class OneReadingPerPeriodTests(TestCase):
         self.assertEqual((copy.one_per, total.one_per), ("day", ""))
         response = self.alice.patch(f"{API}/metrics/{copy.id}", {"one_per": ""}, format="json")
         self.assertEqual(response.status_code, 400, response.content)
+
+
+@override_settings(AUTH_FIRST_RUN_SETUP=False)
+class BoardShowByTests(TestCase):
+    """The team board's "Show by" (`board?show=&at=`): each cell's numbers in
+    one period, and the totals combined from the teams'."""
+
+    def setUp(self):
+        self.alice = signup("Alice")
+        self.org = self.ok(self.alice, "orgs", name="Acme", timezone="UTC")
+
+    def ok(self, client, path, expect=201, **body):
+        response = client.post(f"{API}/{path}", body, format="json")
+        self.assertEqual(response.status_code, expect, response.content)
+        return response.json() if response.content else None
+
+    def test_cells_and_totals_in_a_period(self):
+        north = self.ok(self.alice, "teams", org=self.org["id"], name="North")
+        south = self.ok(self.alice, "teams", org=self.org["id"], name="South")
+        template = self.ok(self.alice, "goal-templates", org_id=self.org["id"], title="Sales")
+        tg = self.ok(self.alice, "template-goals", template=template["id"], title="Sell")
+        calls = self.ok(self.alice, "template-metrics", template_goal=tg["id"], name="Calls", aggregation="sum",
+                        target_per="day", default_target=10, rollup="sum")
+        mrr = self.ok(self.alice, "template-metrics", template_goal=tg["id"], name="MRR", default_target=1000, rollup="sum")
+        self.ok(self.alice, f"goal-templates/{template['id']}/apply", teams=[north["id"], south["id"]])
+
+        def metric(tm, team):
+            return str(Metric.objects.get(template_metric_id=tm["id"], goal__team_id=team["id"], goal__is_rollup=False).id)
+
+        noon = timezone.now().astimezone(UTC).replace(hour=12, minute=0, second=0, microsecond=0)
+        yesterday = noon - timedelta(days=1)
+        for metric_id, value, when in [
+            (metric(calls, north), 6, yesterday), (metric(calls, north), 4, noon), (metric(calls, south), 7, yesterday),
+            (metric(mrr, north), 500, yesterday), (metric(mrr, north), 650, noon),
+        ]:
+            self.ok(self.alice, "check-ins", metric=metric_id, value=value, checked_in_at=when.isoformat())
+
+        def board(**params):
+            response = self.alice.get(f"{API}/goal-templates/{template['id']}/board", params)
+            self.assertEqual(response.status_code, 200, response.content)
+            return response.json()
+
+        data = board(show="day", at=yesterday.isoformat())
+        cell = data["instances"][north["id"]]["metrics"][calls["id"]]["shown"]
+        self.assertEqual((cell["value"], cell["quota"], cell["start"]), (6.0, 10.0, yesterday.date().isoformat()))
+        self.assertEqual(data["instances"][north["id"]]["metrics"][mrr["id"]]["shown"]["value"], 500.0)  # as of then
+        total = data["totals"]["org"]["metrics"][calls["id"]]["shown"]
+        self.assertEqual((total["value"], total["quota"]), (13.0, 20.0))
+        today = board(show="day")["instances"][north["id"]]["metrics"]
+        self.assertEqual((today[calls["id"]]["shown"]["value"], today[mrr["id"]]["shown"]["value"]), (4.0, 650.0))
+        self.assertNotIn("shown", board()["instances"][north["id"]]["metrics"][calls["id"]])
+        self.assertEqual(self.alice.get(f"{API}/goal-templates/{template['id']}/board", {"show": "fortnight"}).status_code, 400)
+        # "Last update": each team's latest check-in on the picked day; totals count the teams updated.
+        data = board(at=yesterday.isoformat())
+        north_update = data["instances"][north["id"]]["last_update"][tg["id"]]
+        self.assertEqual(north_update["on_day"][:13], (yesterday + timedelta(minutes=0)).strftime("%Y-%m-%dT%H"))
+        self.assertEqual(data["totals"]["org"]["updated"][tg["id"]], {"teams": 2, "updated": 2})
+        today_board = board()
+        self.assertIsNone(today_board["instances"][south["id"]]["last_update"][tg["id"]]["on_day"])  # South: yesterday only
+        self.assertEqual(today_board["totals"]["org"]["updated"][tg["id"]], {"teams": 2, "updated": 1})
+
+
+@override_settings(AUTH_FIRST_RUN_SETUP=False)
+class SnapToTests(TestCase):
+    """P-63: `Metric.snap_to` - a check-in is for a whole period; its time is
+    snapped to the period's first day (00:00, the goal's zone) from every source."""
+
+    def setUp(self):
+        self.alice = signup("Alice")
+        self.org = self.ok(self.alice, "orgs", name="Acme", timezone="Asia/Ho_Chi_Minh")
+        self.goal = self.ok(self.alice, "goals", title="Sales", org_id=self.org["id"])
+
+    def ok(self, client, path, expect=201, **body):
+        response = client.post(f"{API}/{path}", body, format="json")
+        self.assertEqual(response.status_code, expect, response.content)
+        return response.json() if response.content else None
+
+    def test_check_ins_snap_to_the_period_start_in_the_org_zone(self):
+        metric = self.ok(self.alice, "metrics", goal=self.goal["id"], name="Revenue", aggregation="sum",
+                         target_value=1000, snap_to="week")
+        # Thu Oct 8 2026, 20:00 UTC = Fri Oct 9 03:00 in Ho Chi Minh City -> week of Mon Oct 5 there.
+        row = self.ok(self.alice, "check-ins", metric=metric["id"], value=10,
+                      checked_in_at="2026-10-08T20:00:00Z")
+        self.assertEqual(row["checked_in_at"], "2026-10-04T17:00:00Z")  # Oct 5 00:00 +07:00
+        bulk = self.ok(self.alice, "check-ins/bulk", items=[{"metric": metric["id"], "value": 5,
+                                                              "checked_in_at": "2026-10-11T10:00:00+07:00"}])
+        self.assertEqual(bulk[0]["checked_in_at"], "2026-10-04T17:00:00Z")
+
+    def test_changing_it_moves_existing_check_ins(self):
+        metric = self.ok(self.alice, "metrics", goal=self.goal["id"], name="Revenue", aggregation="sum", target_value=1000)
+        self.ok(self.alice, "check-ins", metric=metric["id"], value=10, checked_in_at="2026-10-14T09:30:00+07:00")
+        self.alice.patch(f"{API}/metrics/{metric['id']}", {"snap_to": "month"}, format="json")
+        row = self.alice.get(f"{API}/check-ins", {"filter{metric}": metric["id"]}).json()["items"][0]
+        self.assertEqual(row["checked_in_at"], "2026-09-30T17:00:00Z")  # Oct 1 00:00 +07:00
+
+    def test_it_cant_be_longer_than_the_target_or_one_reading_period(self):
+        for extra in ({"target_per": "day", "snap_to": "week"}, {"one_per": "week", "snap_to": "month"}):
+            response = self.alice.post(f"{API}/metrics", {"goal": self.goal["id"], "name": "x", "aggregation": "sum",
+                                                           "target_value": 10, **extra}, format="json")
+            self.assertEqual(response.status_code, 400, response.content)
+            self.assertIn("snap_to", response.json()["field_errors"])
+
+    def test_with_one_reading_per_week_a_second_check_in_replaces_the_first(self):
+        metric = self.ok(self.alice, "metrics", goal=self.goal["id"], name="Revenue", aggregation="sum",
+                         target_value=1000, snap_to="week", one_per="week")
+        self.ok(self.alice, "check-ins", metric=metric["id"], value=300, checked_in_at="2026-10-06T09:00:00+07:00")
+        second = self.ok(self.alice, "check-ins", metric=metric["id"], value=450, checked_in_at="2026-10-08T09:00:00+07:00")
+        self.assertEqual(second["replaces"]["value"], "300.00")  # same snapped time: the later saved wins
+        self.assertEqual(self.alice.get(f"{API}/metrics/{metric['id']}").json()["current_value"], "450.00")

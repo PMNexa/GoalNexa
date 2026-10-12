@@ -29,6 +29,10 @@ names, notes) stay in the user's own words and language.
    replaced - say so ("8,000 -> 10,500 today, replaces the earlier one").
    `replaced: true` on the response means a later one in that period
    already counts (a backdated check-in).
+   A metric with `snap_to` (day/week/...) takes check-ins for a whole
+   period: the server sets `checked_in_at` to the period's first day. For
+   "last week's number", send any time inside last week; say which period
+   it went to ("for the week of Oct 5").
 3. `check_ins_create` with `metric`, `value`, an optional `note`, and
    `checked_in_at` (ISO 8601) only when it wasn't now.
    A metric with `target_per` (day/week/month/quarter/year) has a quota per

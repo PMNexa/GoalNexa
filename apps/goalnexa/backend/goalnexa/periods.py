@@ -193,6 +193,33 @@ def counted(metric, check_ins, zone: ZoneInfo | None = None) -> tuple[list, set]
     return [c for c in ordered if c.id in kept_ids], {c.id for c in ordered if c.id not in kept_ids}
 
 
+def snap_time(metric, when: datetime, zone: ZoneInfo | None = None) -> datetime:
+    """`when` snapped to the first day of its `metric.snap_to` period, 00:00
+    in the goal's zone (unchanged without one)."""
+    if not metric.snap_to:
+        return when
+    zone = zone or zone_for(metric.goal)
+    start = period_start(local_date(when, zone), metric.snap_to)
+    return datetime(start.year, start.month, start.day, tzinfo=zone)
+
+
+def resnap(metric) -> int:
+    """Re-stamps every check-in of `metric` to its `snap_to` period (after the
+    setting changed); returns how many moved."""
+    from goalnexa.models import CheckIn
+
+    if not metric.snap_to:
+        return 0
+    zone = zone_for(metric.goal)
+    moved = 0
+    for check_in in CheckIn.objects.filter(metric_id=metric.id).only("id", "checked_in_at"):
+        snapped = snap_time(metric, check_in.checked_in_at, zone)
+        if snapped != check_in.checked_in_at:
+            CheckIn.objects.filter(id=check_in.id).update(checked_in_at=snapped)
+            moved += 1
+    return moved
+
+
 def replaced_by(check_in, zone: ZoneInfo | None = None):
     """The check-in this one replaced - the latest earlier one in its period -
     or None (no `one_per`, none earlier, or this one is itself replaced)."""
@@ -298,12 +325,14 @@ def pace_pct(metric) -> float | None:
     return max(0.0, (float(metric.current_value) - float(metric.base_value)) / expected * 100)
 
 
-def current_quota(metric, goal, *, today: date | None = None, zone: ZoneInfo | None = None) -> tuple[Period | None, float]:
+def current_quota(
+    metric, goal, *, today: date | None = None, zone: ZoneInfo | None = None, first_check_in: date | None = None
+) -> tuple[Period | None, float]:
     """The current period (None outside the range or on an uncounted day)
-    and its quota."""
+    and its quota. `first_check_in` stretches the range back, like `compute`."""
     zone = zone or zone_for(goal)
     today = today or local_date(timezone.now(), zone)
-    first, last = goal_range(metric, goal, zone, None)
+    first, last = goal_range(metric, goal, zone, first_check_in)
     if today < first or (last is not None and today > last):
         return None, 0.0
     start = period_start(today, metric.target_per)
@@ -314,6 +343,31 @@ def current_quota(metric, goal, *, today: date | None = None, zone: ZoneInfo | N
         return None, 0.0
     quota = (float(metric.target_value) - float(metric.base_value)) * current.weight
     return current, quota
+
+
+def shown(metric, goal, check_ins, per: str, day: date, *, zone: ZoneInfo | None = None) -> dict:
+    """One metric in the period `per` around `day` - the team board's "Show
+    by": `value` = the amount done in it (SUM; only check-ins that count,
+    see `counted`) or the last reading by its end (LATEST; None before the
+    first), and `quota` = its target when the metric's target is per that
+    same period (prorated, like `current_quota`), else None."""
+    from goalnexa.models import MetricAggregation
+
+    zone = zone or zone_for(goal)
+    start = period_start(day, per)
+    last = next_start(start, per) - timedelta(days=1)
+    kept, _ = counted(metric, check_ins, zone)
+    if metric.aggregation == MetricAggregation.SUM:
+        value = float(sum((c.value for c in kept if start <= local_date(c.checked_in_at, zone) <= last), Decimal(0)))
+    else:
+        readings = [c for c in kept if local_date(c.checked_in_at, zone) <= last]
+        value = float(readings[-1].value) if readings else None
+    quota = None
+    if metric.target_per == per and metric.target_value != metric.base_value:
+        first = min((local_date(c.checked_in_at, zone) for c in check_ins), default=None)
+        period, amount = current_quota(metric, goal, today=min(max(day, start), last), zone=zone, first_check_in=first)
+        quota = round(amount, 2) if period is not None else None
+    return {"start": start, "last": last, "value": None if value is None else round(value, 2), "quota": quota}
 
 
 def pace_hint(metric, goal, *, zone: ZoneInfo | None = None, today: date | None = None) -> dict | None:

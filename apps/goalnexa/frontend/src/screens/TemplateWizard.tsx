@@ -39,6 +39,7 @@ interface DraftMetric {
   countDays: "all" | "weekdays";
   progressBy: "total" | "hit_rate";
   onePer: TargetPer;
+  snapTo: TargetPer;
 }
 
 /** "One reading per": only the last check-in of each period counts. */
@@ -49,6 +50,15 @@ const ONE_PER_LABELS: Record<TargetPer, string> = {
   month: "Last one each month",
   quarter: "Last one each quarter",
   year: "Last one each year",
+};
+/** "Check-ins are for": a check-in's time is snapped to its period. */
+const SNAP_TO_LABELS: Record<TargetPer, string> = {
+  "": "Any time",
+  day: "A day",
+  week: "A week",
+  month: "A month",
+  quarter: "A quarter",
+  year: "A year",
 };
 const PER_ORDER: TargetPer[] = ["", "day", "week", "month", "quarter", "year"];
 /** One reading per period can't be longer than the target's period. */
@@ -81,7 +91,7 @@ const ROLLUP_LABELS: Record<RollupRule, string> = {
 let nextKey = 1;
 const newMetric = (): DraftMetric => ({
   key: nextKey++, name: "", unit: "", aggregation: "latest", rollup: "sum", base: "0", target: "",
-  targetPer: "", countDays: "all", progressBy: "total", onePer: "",
+  targetPer: "", countDays: "all", progressBy: "total", onePer: "", snapTo: "",
 });
 const newGoal = (title = ""): DraftGoal => ({ key: nextKey++, title, metrics: [newMetric()] });
 
@@ -203,6 +213,7 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
             count_days: metric.countDays,
             progress_by: metric.targetPer ? metric.progressBy : "total",
             one_per: metric.onePer,
+            snap_to: metric.snapTo,
           });
           done.metrics.add(metric.key);
         }
@@ -350,7 +361,11 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
                           <FormSelect id={`${id}-per`} value={metric.targetPer}
                             onChange={(e) => {
                               const targetPer = e.target.value as TargetPer;
-                              updateMetric(goal.key, metric.key, { targetPer, ...(onePerFits(metric.onePer, targetPer) ? {} : { onePer: "" as TargetPer }) });
+                              updateMetric(goal.key, metric.key, {
+                                targetPer,
+                                ...(onePerFits(metric.onePer, targetPer) ? {} : { onePer: "" as TargetPer }),
+                                ...(onePerFits(metric.snapTo, targetPer) ? {} : { snapTo: "" as TargetPer }),
+                              });
                             }}>
                             {(Object.keys(TARGET_PER_LABELS) as TargetPer[]).map((per) => (
                               <option key={per} value={per}>{TARGET_PER_LABELS[per]}</option>
@@ -388,9 +403,21 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
                     <div className="col-md-4">
                       <FormLabel htmlFor={`${id}-one`}>Which check-ins count</FormLabel>
                       <FormSelect id={`${id}-one`} value={metric.onePer}
-                        onChange={(e) => updateMetric(goal.key, metric.key, { onePer: e.target.value as TargetPer })}>
+                        onChange={(e) => {
+                          const onePer = e.target.value as TargetPer;
+                          updateMetric(goal.key, metric.key, { onePer, ...(onePerFits(metric.snapTo, onePer) ? {} : { snapTo: "" as TargetPer }) });
+                        }}>
                         {PER_ORDER.filter((per) => onePerFits(per, metric.targetPer)).map((per) => (
                           <option key={per} value={per}>{ONE_PER_LABELS[per]}</option>
+                        ))}
+                      </FormSelect>
+                    </div>
+                    <div className="col-md-4">
+                      <FormLabel htmlFor={`${id}-snap`}>Check-ins are for</FormLabel>
+                      <FormSelect id={`${id}-snap`} value={metric.snapTo}
+                        onChange={(e) => updateMetric(goal.key, metric.key, { snapTo: e.target.value as TargetPer })}>
+                        {PER_ORDER.filter((per) => onePerFits(per, metric.targetPer) && onePerFits(per, metric.onePer)).map((per) => (
+                          <option key={per} value={per}>{SNAP_TO_LABELS[per]}</option>
                         ))}
                       </FormSelect>
                     </div>
@@ -490,7 +517,8 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
                     {m.unit && ` (${m.unit})`}: from {m.base}
                     {m.target.trim() ? ` to ${m.target}` : ", each team sets its target"}
                     {m.targetPer ? ` ${TARGET_PER_LABELS[m.targetPer].toLowerCase()}${m.countDays === "weekdays" ? " (weekdays)" : ""}${m.progressBy === "hit_rate" ? ", counted by how often it's hit" : ""}` : ""}
-                    {m.onePer ? ` · ${ONE_PER_LABELS[m.onePer].toLowerCase()} counts` : ""} ·{" "}
+                    {m.onePer ? ` · ${ONE_PER_LABELS[m.onePer].toLowerCase()} counts` : ""}
+                    {m.snapTo ? ` · check-ins are for ${SNAP_TO_LABELS[m.snapTo].toLowerCase()}` : ""} ·{" "}
                     {m.aggregation === "sum" ? "amounts add up" : "readings"} · totals: {ROLLUP_LABELS[m.rollup].toLowerCase()}
                   </li>
                 ))}
