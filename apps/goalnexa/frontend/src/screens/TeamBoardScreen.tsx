@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   Button,
   Card,
@@ -71,6 +71,8 @@ const TEMPLATE_KEY = "goalnexa:board-template";
 const SHOW_KEY = "goalnexa:board-show";
 
 const BOARD_CSS = `.gn-board-wrap { overflow: auto; max-height: calc(100vh - 16rem); }
+.gn-board-card:fullscreen { background: var(--tblr-body-bg, #f6f8fb); padding: 1rem; overflow: auto; }
+.gn-board-card:fullscreen .gn-board-wrap { max-height: calc(100vh - 6.5rem); }
 .gn-board { border-collapse: separate; border-spacing: 0; font-size: .85rem; min-width: 100%; }
 .gn-board th, .gn-board td { padding: .35rem .55rem; white-space: nowrap; border-bottom: 1px solid var(--tblr-border-color, #e6e7e9); background: var(--tblr-bg-surface, #fff); vertical-align: top; }
 .gn-board thead th { position: sticky; z-index: 2; font-weight: 600; text-align: left; }
@@ -320,9 +322,25 @@ function TeamBoardScreen({
   resourcePath,
 }: TeamBoardScreenProps) {
   const [editing, setEditing] = useState<EditTarget | null>(null);
+  // Full screen: the board's card (grid and save bar) through the browser's Fullscreen API; Esc leaves.
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === boardRef.current && boardRef.current !== null);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+  function toggleFullscreen() {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void boardRef.current?.requestFullscreen?.().catch(() => undefined);
+  }
   // A template goal or metric to remove, waiting for "Remove" in the confirmation.
   const [removing, setRemoving] = useState<(EditTarget & { name: string }) | null>(null);
   const [removeBusy, setRemoveBusy] = useState(false);
+  // The edit drawer and the remove confirmation open outside the card - leave full screen for them.
+  useEffect(() => {
+    if ((editing || removing) && document.fullscreenElement) void document.exitFullscreen();
+  }, [editing, removing]);
   const [orgs, setOrgs] = useState<OrgOption[] | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<GoalTemplate[]>([]);
@@ -1034,6 +1052,7 @@ function TeamBoardScreen({
       )}
 
       {board && template && (
+        <div ref={boardRef} className="gn-board-card">
         <Card>
           <CardBody className="p-0">
             {board.teams.length === 0 ? (
@@ -1145,6 +1164,10 @@ function TeamBoardScreen({
             )}
           </CardBody>
           <div className="card-footer d-flex flex-wrap gap-2 align-items-center">
+            <Button variant="secondary" outline onClick={toggleFullscreen} aria-pressed={fullscreen}
+              title={fullscreen ? "Leave full screen (Esc)" : "Show the board on the whole screen"}>
+              {fullscreen ? "Exit full screen" : "⛶ Full screen"}
+            </Button>
             {mode === "targets" && board.can_manage && (
               <Button variant="primary" outline onClick={() => void apply()} disabled={busy || applyTeams.size === 0}>
                 Add to {applyTeams.size || ""} team{applyTeams.size === 1 ? "" : "s"}
@@ -1163,6 +1186,7 @@ function TeamBoardScreen({
             </Button>
           </div>
         </Card>
+        </div>
       )}
       <Modal
         open={removing !== null}

@@ -44,6 +44,8 @@ of you beyond the usual upgrade steps.
   existing ones. The check-in form asks "For: This week / Week of Oct 5
   / ..." instead of a date and time. With "Which check-ins count: last
   one each week", a correction replaces that week's number.
+- **Team board full screen**: "⛶ Full screen" in the board's footer
+  shows the grid and its save bar on the whole screen (Esc leaves).
 - **Team board "Last update"**: each goal has a column with the time
   each team last checked in on it that day (the day of "Checked in at"),
   or when it last did; totals show how many of their teams updated.
