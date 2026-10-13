@@ -361,8 +361,8 @@ def current_quota(
 def shown(metric, goal, check_ins, per: str, day: date, *, zone: ZoneInfo | None = None) -> dict:
     """One metric in the period `per` around `day` - the team board's "Show
     by": `value` = the amount done in it (SUM; only check-ins that count,
-    see `counted`) or the last reading by its end (LATEST; None before the
-    first), and `quota` = its target when the metric's target is per that
+    see `counted`) or its last reading (LATEST; None without a check-in in
+    that period - an earlier reading isn't carried forward), and `quota` = its target when the metric's target is per that
     same period (prorated, like `current_quota`), else None."""
     from goalnexa.models import MetricAggregation
 
@@ -373,7 +373,7 @@ def shown(metric, goal, check_ins, per: str, day: date, *, zone: ZoneInfo | None
     if metric.aggregation == MetricAggregation.SUM:
         value = float(sum((c.value for c in kept if start <= local_date(c.checked_in_at, zone) <= last), Decimal(0)))
     else:
-        readings = [c for c in kept if local_date(c.checked_in_at, zone) <= last]
+        readings = [c for c in kept if start <= local_date(c.checked_in_at, zone) <= last]
         value = float(readings[-1].value) if readings else None
     quota = None
     if metric.target_per == per and metric.target_value != metric.base_value:

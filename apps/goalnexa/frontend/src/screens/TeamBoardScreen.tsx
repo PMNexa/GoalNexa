@@ -150,7 +150,7 @@ function shownBlock(shown: ShownNumbers | null | undefined, numbers: CellNumbers
       {shown.value === null ? "—" : fmt(shown.value)}
       {target !== null && <> / {fmt(target)}</>}
       <span className="gn-sub">
-        {metric.aggregation === "latest" ? "as of " : ""}
+        {shown.value === null ? "no check-in · " : ""}
         {shownLabel(shown, per)}
         {pct !== null ? ` · ${Math.round(pct)}%` : ""}
       </span>

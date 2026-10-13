@@ -254,6 +254,10 @@ of you beyond the usual upgrade steps.
 
 ### Fixed
 
+- Team board "Show by": a reading metric shows only a check-in made in
+  that period ("—, no check-in"), no longer the last earlier reading.
+- Forms show why a save was refused, under each field and spelled out,
+  instead of "Request failed validation.".
 - Forms: picking "Any time", "Every check-in counts" or "The whole goal"
   no longer fails with "This field may not be null", and a new record's
   dropdowns show what it will get (a new metric's "Same as goal").

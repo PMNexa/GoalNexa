@@ -204,7 +204,7 @@ class GoalTemplateViewSet(BaseViewSet):
             OpenApiParameter("cycle", OpenApiTypes.STR, description="A cycle id; empty or none = goals in no cycle."),
             OpenApiParameter("show", OpenApiTypes.STR, enum=["day", "week", "month", "quarter", "year"],
                              description="Also give each cell that period's numbers (`shown`): the amount done in it, or "
-                             "the last reading by its end, and its target when the metric's target is per that period."),
+                             "its last reading in it (none without one), and its target when the metric's target is per that period."),
             OpenApiParameter("at", OpenApiTypes.DATETIME, description="The day each team's `last_update` is for, "
                              "and with `show` the period around this time (each goal's time zone). Default: now."),
         ],

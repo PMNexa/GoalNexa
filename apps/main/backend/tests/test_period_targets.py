@@ -370,7 +370,11 @@ class BoardShowByTests(TestCase):
         data = board(show="day", at=yesterday.isoformat())
         cell = data["instances"][north["id"]]["metrics"][calls["id"]]["shown"]
         self.assertEqual((cell["value"], cell["quota"], cell["start"]), (6.0, 10.0, yesterday.date().isoformat()))
-        self.assertEqual(data["instances"][north["id"]]["metrics"][mrr["id"]]["shown"]["value"], 500.0)  # as of then
+        self.assertEqual(data["instances"][north["id"]]["metrics"][mrr["id"]]["shown"]["value"], 500.0)
+        # A reading isn't carried into a period without a check-in.
+        before = board(show="day", at=(yesterday - timedelta(days=1)).isoformat())
+        self.assertIsNone(before["instances"][north["id"]]["metrics"][mrr["id"]]["shown"]["value"])
+        self.assertIsNone(data["instances"][south["id"]]["metrics"][mrr["id"]]["shown"]["value"])
         total = data["totals"]["org"]["metrics"][calls["id"]]["shown"]
         self.assertEqual((total["value"], total["quota"]), (13.0, 20.0))
         today = board(show="day")["instances"][north["id"]]["metrics"]
