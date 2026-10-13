@@ -434,3 +434,67 @@ class SnapToTests(TestCase):
         second = self.ok(self.alice, "check-ins", metric=metric["id"], value=450, checked_in_at="2026-10-08T09:00:00+07:00")
         self.assertEqual(second["replaces"]["value"], "300.00")  # same snapped time: the later saved wins
         self.assertEqual(self.alice.get(f"{API}/metrics/{metric['id']}").json()["current_value"], "450.00")
+
+
+@override_settings(AUTH_FIRST_RUN_SETUP=False)
+class GoalSnapToTests(TestCase):
+    """P-64: `Goal.snap_to` - what its metrics' check-ins are for, unless a
+    metric picks its own (`Metric.snap_to_goal`, "goal" in the API)."""
+
+    setUp = SnapToTests.setUp
+    ok = SnapToTests.ok
+
+    def metric(self, **extra):
+        return self.ok(self.alice, "metrics", goal=self.goal["id"], name="Revenue", aggregation="sum",
+                       target_value=1000, **extra)
+
+    def patch(self, path, expect=200, **body):
+        response = self.alice.patch(f"{API}/{path}", body, format="json")
+        self.assertEqual(response.status_code, expect, response.content)
+        return response.json()
+
+    def test_a_new_metric_follows_its_goal(self):
+        self.patch(f"goals/{self.goal['id']}", snap_to="week")
+        metric = self.metric()
+        self.assertEqual((metric["snap_to"], metric["snap_period"]), ("goal", "week"))
+        row = self.ok(self.alice, "check-ins", metric=metric["id"], value=10, checked_in_at="2026-10-08T20:00:00Z")
+        self.assertEqual(row["checked_in_at"], "2026-10-04T17:00:00Z")  # Mon Oct 5 00:00 +07:00
+
+    def test_changing_the_goal_moves_its_following_metrics_check_ins_only(self):
+        follows, own = self.metric(), self.metric(snap_to="")
+        for metric in (follows, own):
+            self.ok(self.alice, "check-ins", metric=metric["id"], value=10, checked_in_at="2026-10-14T09:30:00+07:00")
+        self.patch(f"goals/{self.goal['id']}", snap_to="month")
+        rows = {r["metric"]: r["checked_in_at"] for r in self.alice.get(f"{API}/check-ins").json()["items"]}
+        self.assertEqual(rows[follows["id"]], "2026-09-30T17:00:00Z")  # Oct 1 00:00 +07:00
+        self.assertEqual(rows[own["id"]], "2026-10-14T02:30:00Z")  # "any time" of its own: untouched
+        self.assertEqual(self.alice.get(f"{API}/metrics/{own['id']}").json()["snap_to"], "")
+        # Back to "same as goal" (null from a generic form's emptied select = any time).
+        self.assertEqual(self.patch(f"metrics/{own['id']}", snap_to="goal")["snap_period"], "month")
+        self.assertEqual(self.patch(f"metrics/{own['id']}", snap_to=None)["snap_to"], "")
+        self.assertEqual(self.patch(f"goals/{self.goal['id']}", snap_to=None)["snap_to"], "")
+
+    def test_a_metric_moved_to_another_goal_follows_that_one(self):
+        metric = self.metric()
+        other = self.ok(self.alice, "goals", title="Other", org_id=self.org["id"], snap_to="year")
+        self.assertEqual(self.patch(f"metrics/{metric['id']}", goal=other["id"])["snap_period"], "year")
+
+    def test_the_goal_cant_be_longer_than_a_following_metrics_periods(self):
+        self.metric(target_per="day")
+        response = self.alice.patch(f"{API}/goals/{self.goal['id']}", {"snap_to": "week"}, format="json")
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn("snap_to", response.json()["field_errors"])
+        self.patch(f"goals/{self.goal['id']}", snap_to="day")  # fits
+        response = self.alice.post(f"{API}/metrics", {"goal": self.goal["id"], "name": "x", "aggregation": "sum",
+                                                       "target_value": 10, "one_per": "day", "target_per": "day"},
+                                   format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+        self.patch(f"goals/{self.goal['id']}", snap_to="year", expect=400)
+
+    def test_forms_get_each_choices_default(self):
+        """A generic form preselects what a new row gets ("Same as goal", not "Any time")."""
+        fields = {f["name"]: f for f in self.alice.get(f"{API}/metrics/schema").json()["fields"]}
+        self.assertEqual(fields["snap_to"]["default"], "goal")
+        self.assertEqual(fields["one_per"]["default"], "")
+        goal_fields = {f["name"]: f for f in self.alice.get(f"{API}/goals/schema").json()["fields"]}
+        self.assertEqual(goal_fields["snap_to"]["default"], "")

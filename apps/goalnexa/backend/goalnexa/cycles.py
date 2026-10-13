@@ -71,6 +71,7 @@ def roll_over(goal: Goal, next_cycle: Cycle, actor_id) -> Goal:
         parent=goal.parent,
         cycle=next_cycle,
         target_date=next_cycle.ends_on,
+        snap_to=goal.snap_to,
         status=GoalStatus.IN_PROGRESS if next_cycle.status == CycleStatus.ACTIVE else GoalStatus.NOT_STARTED,
     )
     metrics = list(goal.metrics.all())
@@ -87,6 +88,12 @@ def roll_over(goal: Goal, next_cycle: Cycle, actor_id) -> Goal:
             base_value=base,
             current_value=base,
             target_value=metric.target_value,
+            target_per=metric.target_per,
+            count_days=metric.count_days,
+            progress_by=metric.progress_by,
+            one_per=metric.one_per,
+            snap_to=metric.snap_to,
+            snap_to_goal=metric.snap_to_goal,
         )
     for metric in metrics:
         if metric.parent_id in new_by_old:

@@ -31,6 +31,7 @@ from goalnexa.ordering import ReorderMixin, next_position, sibling_key
 from goalnexa.periods import resnap
 from goalnexa.progress import refresh_goal, refresh_metric, refresh_metric_and_goal
 from goalnexa.serializers import MetricSerializer
+from goalnexa.serializers.metric import SNAP_TO_GOAL, validate_one_per
 from goalnexa.teams import can_set_targets
 from goalnexa.templates import LOCKED_METRIC_FIELDS
 from goalnexa.views.goals import SET_BY_TEMPLATE, TOTAL_READ_ONLY, locked_changes
@@ -82,6 +83,31 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
             raise ValidationError({"parent": ["A metric can't be its own parent."]})
         return get_object_or_404(Metric.objects.filter(visible_goals(self.request, "goal__")), id=parent_id)
 
+    def _snap_period(self, serializer, goal) -> dict:
+        """`snap_to`/`snap_to_goal` to save: "goal" (and, on a new metric,
+        nothing sent) follows `goal.snap_to`; any other value is the
+        metric's own. The period in effect is checked against the metric's
+        target and one-reading periods."""
+        data, instance = serializer.validated_data, serializer.instance
+        if "snap_to" not in data:
+            follows = instance.snap_to_goal if instance else True
+            own = instance.snap_to if instance else ""
+        else:
+            sent = data.pop("snap_to") or ""
+            follows, own = sent == SNAP_TO_GOAL, sent
+        period = goal.snap_to if follows else own
+        one_per = data.get("one_per", getattr(instance, "one_per", ""))
+        target_per = data.get("target_per", getattr(instance, "target_per", ""))
+        try:
+            validate_one_per(one_per, target_per, period)
+        except ValidationError:
+            if not follows:
+                raise
+            raise ValidationError({"snap_to": [
+                f"Its goal's check-ins are for a whole {period}, longer than this metric's target or one-reading period. Pick a period for this metric."
+            ]})
+        return {"snap_to": period, "snap_to_goal": follows}
+
     def perform_create(self, serializer):
         # A new metric starts at its base, unless the caller gave a current
         # value explicitly (an emptied form field is omitted, not sent).
@@ -91,7 +117,7 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         goal = self._resolve_goal()
         if goal.is_rollup:
             raise ValidationError({"goal": [TOTAL_READ_ONLY]})
-        metric = serializer.save(goal=goal, parent=self._resolve_parent(), **extra)
+        metric = serializer.save(goal=goal, parent=self._resolve_parent(), **self._snap_period(serializer, goal), **extra)
         metric.position = next_position(metric)
         metric.save(update_fields=["position"])
         refresh_metric_and_goal(metric.id)
@@ -122,7 +148,7 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         old_value_rule = (instance.aggregation, instance.base_value, instance.one_per, instance.snap_to)
         before = snapshot(instance, FEED_FIELDS)
         old_siblings = sibling_key(instance)
-        metric = serializer.save(goal=goal, parent=parent)
+        metric = serializer.save(goal=goal, parent=parent, **self._snap_period(serializer, goal))
         if sibling_key(metric) != old_siblings:  # moved - it goes last in its new place
             metric.position = next_position(metric)
             metric.save(update_fields=["position"])

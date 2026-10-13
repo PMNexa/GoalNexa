@@ -1,7 +1,7 @@
 from django.db import models
 
 from core_api.utils import TimestampedModel, generate_uuid7
-from goalnexa.models.goal import Goal
+from goalnexa.models.goal import Goal, SnapTo
 
 
 class MetricAggregation(models.TextChoices):
@@ -49,18 +49,6 @@ class OnePer(models.TextChoices):
     MONTH = "month", "The last one each month"
     QUARTER = "quarter", "The last one each quarter"
     YEAR = "year", "The last one each year"
-
-
-class SnapTo(models.TextChoices):
-    """What a check-in is for (P-63): any moment, or a whole period - its
-    time is then snapped to the period's first day (`CheckIn.save`)."""
-
-    ANY = "", "Any time"
-    DAY = "day", "A day"
-    WEEK = "week", "A week"
-    MONTH = "month", "A month"
-    QUARTER = "quarter", "A quarter"
-    YEAR = "year", "A year"
 
 
 class Metric(TimestampedModel):
@@ -193,6 +181,12 @@ class Metric(TimestampedModel):
         "check-ins are for", max_length=8, choices=SnapTo.choices, default=SnapTo.ANY, db_default=SnapTo.ANY,
         blank=True,
     )
+    # P-64: `snap_to` follows its goal's `Goal.snap_to` (the API shows it as
+    # "goal"). `snap_to` itself always holds the period in effect - kept in
+    # step by the goal's and metric's views - so whatever reads it (the
+    # previous release's code too, during a deploy) needs no lookup.
+    # db_default False: that code inserts metrics with an explicit `snap_to`.
+    snap_to_goal = models.BooleanField("same as goal", default=True, db_default=False)
     # The period (its first day) an "under quota" nudge last went out for.
     period_reminded_for = models.DateField(null=True, blank=True)
 

@@ -50,7 +50,10 @@ From what the user said, propose:
   - A number reported per period ("weekly sales", "monthly revenue") can get
     `snap_to: "week"` (or day/month/...): each check-in is then for a whole
     period, its time set to the period's first day. Often with the same
-    `one_per`, so a correction replaces that period's number.
+    `one_per`, so a correction replaces that period's number. When every
+    metric of the goal is reported that way, set `snap_to` on the GOAL
+    instead: its metrics follow it (`snap_to: "goal"`, the default); a
+    metric can still pick its own (`""` = any time).
   - Suggest a check-in schedule, `check_in_every`: `"daily"`, `"weekly"` or
     `"monthly"` (default none). An overdue metric is flagged on the dashboard and
     reminded, if the user has reminders set up (step 4).

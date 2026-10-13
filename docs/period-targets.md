@@ -209,3 +209,25 @@ second check-in in the same period replaces or adds is still `one_per`'s
 call. Forms send a moment in the middle of the picked period
 (`lib/periods.ts` `midPeriod`), so a browser in another zone still lands
 in it.
+
+## Check-ins for a period, per goal (P-64)
+
+`Goal.snap_to` (same choices) is the default for its metrics. A metric
+follows it while `Metric.snap_to_goal` is set - the API shows that as
+`snap_to: "goal"` ("Same as goal", the default for a new metric; the
+migration gave it to every ordinary metric still at "any time", which
+changed nothing since goals start at "any time"). Any other `snap_to`
+value is the metric's own and clears the flag.
+
+The stored `Metric.snap_to` is always the period IN EFFECT (shown as
+`snap_period`): `MetricViewSet._snap_period` copies the goal's on every
+metric write (a moved metric takes its new goal's), and a goal change
+copies it to its following metrics, re-stamps their check-ins and
+recomputes (`periods.follow_goal`). So `CheckIn.save`, the replays and
+the previous release's code (during a deploy) all read one field. A goal
+change is refused while a following metric's `target_per`/`one_per` is
+shorter; a metric following its goal is refused the same way. Template
+and team-total metrics never follow (their template decides), and an
+instance goal's `snap_to` is locked. Closing a cycle copies both
+settings (and the metric's period-target fields) into the rolled-over
+goal.

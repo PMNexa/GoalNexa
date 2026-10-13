@@ -220,6 +220,19 @@ def resnap(metric) -> int:
     return moved
 
 
+def follow_goal(goal) -> None:
+    """Gives every metric of `goal` set to "same as goal" (`snap_to_goal`)
+    the goal's `snap_to`, moving its check-ins (after the goal's changed)."""
+    from goalnexa.models import Metric
+    from goalnexa.progress import refresh_metric  # progress imports periods
+
+    for metric in Metric.objects.filter(goal_id=goal.id, snap_to_goal=True).exclude(snap_to=goal.snap_to):
+        Metric.objects.filter(id=metric.id).update(snap_to=goal.snap_to)
+        metric.snap_to = goal.snap_to
+        resnap(metric)
+        refresh_metric(metric.id, sync_value=True)
+
+
 def replaced_by(check_in, zone: ZoneInfo | None = None):
     """The check-in this one replaced - the latest earlier one in its period -
     or None (no `one_per`, none earlier, or this one is itself replaced)."""

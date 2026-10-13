@@ -44,7 +44,7 @@ from goalnexa.ordering import next_position
 from goalnexa.progress import refresh_goal, refresh_metric
 
 #: Template-owned fields an instance can't change (`GoalViewSet`/`MetricViewSet`).
-LOCKED_GOAL_FIELDS = ("title", "description", "parent", "org_id", "team_id", "cycle")
+LOCKED_GOAL_FIELDS = ("title", "description", "parent", "org_id", "team_id", "cycle", "snap_to")
 LOCKED_METRIC_FIELDS = (
     "name", "description", "unit", "aggregation", "check_in_every", "parent", "goal", "target_per", "count_days", "progress_by", "one_per", "snap_to",
 )
@@ -194,6 +194,7 @@ def _sync_metrics(template, goal_by_tg: dict, is_rollup: bool, values: dict) -> 
             "progress_by": tm.progress_by,
             "one_per": "" if is_rollup else tm.one_per,  # a total has one reading a day already
             "snap_to": "" if is_rollup else tm.snap_to,
+            "snap_to_goal": False,  # the template's, not its goal's
         }
         metric = existing.get(tm.id)
         if metric is None:

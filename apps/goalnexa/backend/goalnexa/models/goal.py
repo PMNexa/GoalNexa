@@ -17,6 +17,18 @@ class GoalVisibility(models.TextChoices):
     TEAM = "team", "Team"
 
 
+class SnapTo(models.TextChoices):
+    """What a check-in is for (P-63): any moment, or a whole period - its
+    time is then snapped to the period's first day (`CheckIn.save`)."""
+
+    ANY = "", "Any time"
+    DAY = "day", "A day"
+    WEEK = "week", "A week"
+    MONTH = "month", "A month"
+    QUARTER = "quarter", "A quarter"
+    YEAR = "year", "A year"
+
+
 class GoalHealth(models.TextChoices):
     """Where a goal is heading - see `goalnexa.progress.goal_health`."""
 
@@ -70,6 +82,12 @@ class Goal(TimestampedModel):
         db_default=GoalVisibility.PUBLIC,
         help_text="Public: every member of its organization sees it. Private: only you and the goal's members. "
         "Team: its team (and the teams under it) and the organization's owners and admins.",
+    )
+    # What its metrics' check-ins are for (P-64): the default for every
+    # metric set to "same as goal" (`Metric.snap_to_goal`).
+    snap_to = models.CharField(
+        "check-ins are for", max_length=8, choices=SnapTo.choices, default=SnapTo.ANY, db_default=SnapTo.ANY,
+        blank=True,
     )
     progress = models.DecimalField(
         max_digits=9, decimal_places=2, null=True, blank=True, help_text="Mean progress of its root metrics, in %."

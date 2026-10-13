@@ -42,6 +42,7 @@ const FIELD_NAMES: Record<string, string> = {
   target_value: "target",
   check_in_every: "schedule",
   aggregation: "check-ins",
+  snap_to: "check-ins are for",
 };
 
 const RELATIVE = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
@@ -70,7 +71,10 @@ function describeChanges(changes: unknown): string {
   if (!changes || typeof changes !== "object") return "";
   return Object.entries(changes as Record<string, [unknown, unknown]>)
     .filter(([field]) => field !== "goal" && field !== "cycle" && field !== "parent")
-    .map(([field, [from, to]]) => `${FIELD_NAMES[field] ?? field} ${label(from)} → ${label(to)}`)
+    .map(([field, [from, to]]) => {
+      const say = (value: unknown) => (field === "snap_to" ? (value ? `a ${value}` : "any time") : label(value));
+      return `${FIELD_NAMES[field] ?? field} ${say(from)} → ${say(to)}`;
+    })
     .join(", ");
 }
 

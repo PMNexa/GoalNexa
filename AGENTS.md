@@ -338,7 +338,10 @@ overwrite each other). The client mirrors it (`replayer` in
 `Metric.snap_to` makes `CheckIn.save` stamp every check-in at its
 period's first day (`periods.snap_time`, `resnap` on a change) - so any
 new check-in path gets it for free; don't bypass `save()` with
-`bulk_create`. Tests:
+`bulk_create`. `Goal.snap_to` (P-64) is the default for its metrics:
+`Metric.snap_to_goal` (API `snap_to: "goal"`) follows it, and the stored
+`Metric.snap_to` is always the period in effect (`snap_period`) - kept
+in step by both views (`periods.follow_goal`), so read that field only. Tests:
 `tests/test_period_targets.py`.
 
 **System administration** (platform-core's `platform_system` app behind

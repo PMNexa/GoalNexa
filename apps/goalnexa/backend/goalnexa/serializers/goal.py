@@ -1,5 +1,7 @@
+from rest_framework import serializers
+
 from core_api.serializers import BaseSerializer
-from goalnexa.models import Goal
+from goalnexa.models import Goal, SnapTo
 
 
 class GoalSerializer(BaseSerializer):
@@ -29,6 +31,12 @@ class GoalSerializer(BaseSerializer):
     (`goalnexa.progress`), read-only here.
     """
 
+    # Null = any time, like "" (a generic form's emptied select sends null).
+    snap_to = serializers.ChoiceField(
+        choices=SnapTo.choices, required=False, allow_blank=True, allow_null=True,
+        help_text="What its metrics' check-ins are for: any moment, or a whole day/week/month/quarter/year - their time is then set to the period's first day (00:00, the organization's time zone). Applies to every metric set to \"same as goal\" (the default); changing it moves their check-ins too.",
+    )
+
     class Meta:
         model = Goal
         # `help_text` is the plain-language hint forms and table headers show.
@@ -56,3 +64,9 @@ class GoalSerializer(BaseSerializer):
             "created_at", "updated_at", "members", "activities", "comments", "scores", "snapshots", "rolled_from",
         ]
         related_endpoints = {"org_id": "/api/v1/orgs", "team_id": "/api/v1/teams"}
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if "snap_to" in attrs and attrs["snap_to"] is None:
+            attrs["snap_to"] = ""
+        return attrs

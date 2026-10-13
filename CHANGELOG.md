@@ -37,6 +37,14 @@ of you beyond the usual upgrade steps.
   in a drawer, or the "✕" after it to remove it from the template (a
   team's copy with check-ins is kept as the team's own); every team's
   copy follows.
+- **Team board period picker**: with "Show by" a period, "Checked in at"
+  becomes that period's picker (a date for Day; "This week" / "Week of
+  Oct 5" / ... for the others) - the board shows it, and check-ins go to it.
+- **Check-ins for a period, per goal**: a goal has "Check-ins are for"
+  too (any time / a day / week / month / quarter / year). Its metrics
+  follow it ("Same as goal", the default for new metrics and for existing
+  ones left at "any time"); a metric can still pick its own period.
+  Changing the goal's setting moves its metrics' check-ins.
 - **Check-ins for a period**: a metric's check-ins can be for a whole
   day, week, month, quarter or year ("Check-ins are for"). Every check-in
   - from the website, the team board, the assistant or a script - is
@@ -243,6 +251,14 @@ of you beyond the usual upgrade steps.
   invitations, goals, metrics, check-ins, cycles, comments, activity).
   Set `MCP_RESOURCES=*` in `.env` to get every resource back.
 - New optional `.env` key: `MCP_RESOURCES`.
+
+### Fixed
+
+- Forms: picking "Any time", "Every check-in counts" or "The whole goal"
+  no longer fails with "This field may not be null", and a new record's
+  dropdowns show what it will get (a new metric's "Same as goal").
+- Closing a cycle kept a rolled-over metric's targets per period, one
+  reading per period and check-ins for a period.
 
 ## Before the changelog
 

@@ -19,8 +19,10 @@ from goalnexa.activity import changes, record, snapshot
 from core_api.system import check_org_limit
 from goalnexa.models import ActivityVerb, CheckIn, Cycle, CycleStatus, Goal, GoalStatus, GoalVisibility, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
+from goalnexa.periods import follow_goal
 from goalnexa.progress import metric_pct, metric_readings, refresh_goal, root_metrics
 from goalnexa.serializers import GoalSerializer
+from goalnexa.serializers.metric import validate_one_per
 from goalnexa.teams import can_set_targets, team_org
 from goalnexa.templates import LOCKED_GOAL_FIELDS, tree_goals
 
@@ -43,7 +45,7 @@ def locked_changes(request, serializer, instance, fields) -> list[str]:
 
 
 #: The goal fields a change of which goes in its feed.
-FEED_FIELDS = ["title", "status", "target_date", "visibility", "org_id", "cycle", "parent"]
+FEED_FIELDS = ["title", "status", "target_date", "visibility", "org_id", "cycle", "parent", "snap_to"]
 
 
 class GoalViewSet(ReorderMixin, BaseViewSet):
@@ -95,6 +97,17 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         if cycle.status == CycleStatus.CLOSED:
             raise ValidationError({"cycle": ["That cycle is closed."]})
         return cycle
+
+    def _check_snap_to(self, goal, snap_to):
+        """Every metric set to "same as goal" must allow `snap_to` too."""
+        for metric in Metric.objects.filter(goal_id=goal.id, snap_to_goal=True):
+            try:
+                validate_one_per(metric.one_per, metric.target_per, snap_to)
+            except ValidationError:
+                raise ValidationError({"snap_to": [
+                    f'"{metric.name}" can\'t have check-ins for a whole {snap_to} (its target or one-reading period is shorter). '
+                    "Pick a period for that metric first."
+                ]})
 
     def _check_team(self, team_id, org_id, visibility):
         if team_id and str(team_org(team_id) or "") != str(org_id or ""):
@@ -152,6 +165,9 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
             serializer.validated_data.get("org_id", instance.org_id),
             visibility,
         )
+        snap_to = serializer.validated_data.get("snap_to", instance.snap_to)
+        if snap_to != instance.snap_to:
+            self._check_snap_to(instance, snap_to)
         before = snapshot(instance, FEED_FIELDS)
         old_siblings = sibling_key(instance)
         org_id = serializer.validated_data.get("org_id", instance.org_id)
@@ -178,6 +194,8 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         if sibling_key(goal) != old_siblings:  # moved under another parent/org - it goes last there
             goal.position = next_position(goal)
             goal.save(update_fields=["position"])
+        if goal.snap_to != before.get("snap_to"):
+            follow_goal(goal)  # its "same as goal" metrics' check-ins move
         # Its target date may have moved - health and projection follow it.
         refresh_goal(goal.id)
         goal.refresh_from_db()  # the response shows the recomputed fields

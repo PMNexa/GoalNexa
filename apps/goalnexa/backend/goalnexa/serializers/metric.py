@@ -1,7 +1,11 @@
 from rest_framework import serializers
 
 from core_api.serializers import BaseSerializer
-from goalnexa.models import Metric
+from goalnexa.models import Metric, SnapTo
+
+#: `Metric.snap_to`'s API value for "same as its goal" (`Metric.snap_to_goal`).
+SNAP_TO_GOAL = "goal"
+METRIC_SNAP_TO_CHOICES = [(SNAP_TO_GOAL, "Same as goal"), *SnapTo.choices]
 
 
 def validate_one_per(one_per: str, target_per: str, snap_to: str = "") -> None:
@@ -45,12 +49,24 @@ class MetricSerializer(BaseSerializer):
     """
 
     is_total = serializers.SerializerMethodField()
+    # "goal" = same as the goal's (`Metric.snap_to_goal`), resolved by
+    # `MetricViewSet` - the stored `snap_to` is always the period in effect,
+    # read back as `snap_period`. Null = any time, like "" (a generic form's
+    # emptied select sends null).
+    snap_to = serializers.ChoiceField(
+        choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_GOAL,
+        help_text="What a check-in is for: the same as its goal (the default), any moment, or a whole day/week/month/quarter/year - its time is then set to the period's first day (00:00, the organization's time zone), whoever checks in. Changing it moves existing check-ins too.",
+    )
+    snap_period = serializers.CharField(
+        source="snap_to", read_only=True,
+        help_text="The period check-ins are for, after \"same as goal\": empty = any time.",
+    )
     in_my_team = serializers.SerializerMethodField()
     pace = serializers.SerializerMethodField()
 
     class Meta:
         model = Metric
-        auto_exclude = ["created_at", "updated_at", "reminded_at", "ingest_token_hash"]
+        auto_exclude = ["created_at", "updated_at", "reminded_at", "ingest_token_hash", "snap_to_goal"]
         # `help_text` is the plain-language hint forms and table headers show.
         extra_kwargs = {
             "name": {"help_text": "The one number you track. For example: Distance run, or Users signed up."},
@@ -72,7 +88,6 @@ class MetricSerializer(BaseSerializer):
             "count_days": {"help_text": "For a target per day or week: count every day, or weekdays only."},
             "progress_by": {"help_text": "For a target per period: progress is the total against every period's target, or how often the target is hit."},
             "one_per": {"help_text": "Which check-ins count: every one, or only the last one each day/week/month/quarter/year - a later check-in replaces the earlier one (for amounts to add: each check-in is the period's total so far)."},
-            "snap_to": {"help_text": "What a check-in is for: any moment, or a whole day/week/month/quarter/year - its time is then set to the period's first day (00:00, the organization's time zone), whoever checks in. Changing it moves existing check-ins too."},
             "period_value": {"read_only": True, "help_text": "Amount checked in during the current period (a target per period)."},
             "cumulative_target": {"read_only": True, "help_text": "Every period's target added up over the goal's dates - what the total is measured against."},
             "expected_value": {"read_only": True, "help_text": "Where the total should be by now if every period's target were met."},
@@ -91,10 +106,17 @@ class MetricSerializer(BaseSerializer):
             raise serializers.ValidationError({"target_per": ["A target per period needs check-ins that are amounts to add (Sum)."]})
         if progress_by == "hit_rate" and not target_per:
             raise serializers.ValidationError({"progress_by": ["How often the target is hit needs a target per period."]})
-        validate_one_per(
-            attrs.get("one_per", getattr(instance, "one_per", "")), target_per, attrs.get("snap_to", getattr(instance, "snap_to", ""))
-        )
+        if "snap_to" in attrs and attrs["snap_to"] is None:
+            attrs["snap_to"] = ""
+        # `snap_to` against these: `MetricViewSet._snap_period`, which knows the goal.
+        validate_one_per(attrs.get("one_per", getattr(instance, "one_per", "")), target_per)
         return attrs
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if "snap_to" in data and instance.snap_to_goal:
+            data["snap_to"] = SNAP_TO_GOAL
+        return data
 
     def get_pace(self, obj) -> dict | None:
         """What's left: this period's amount and quota (a target per

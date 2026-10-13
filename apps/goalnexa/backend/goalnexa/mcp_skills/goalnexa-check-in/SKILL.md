@@ -29,7 +29,8 @@ their own words.
   organization's time zone; earlier ones are kept with `replaced: true`. On a
   `"sum"` metric each check-in is then **the period's total so far** ("10,500
   steps today"), not an amount to add.
-- A metric with `snap_to` (day, week, month, quarter or year) takes check-ins
+- A metric with `snap_period` (day, week, month, quarter or year - its own
+  `snap_to`, or its goal's when `snap_to` is `"goal"`) takes check-ins
   **for a whole period**: the server sets every check-in's `checked_in_at` to
   that period's first day (00:00, the organization's time zone). To log one
   for an earlier period ("last month's revenue"), send any time inside it;

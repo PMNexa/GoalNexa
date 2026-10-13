@@ -436,6 +436,8 @@ SPECTACULAR_SETTINGS = {
     # One name per choice set that several fields share.
     "ENUM_NAME_OVERRIDES": {
         "GoalHealthEnum": "goalnexa.models.goal.GoalHealth",
+        "SnapToEnum": "goalnexa.models.goal.SnapTo",
+        "MetricSnapToEnum": "goalnexa.serializers.metric.METRIC_SNAP_TO_CHOICES",
         "OrgRoleEnum": "platform_org.models.org_membership.OrgRole",
     },
     "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},

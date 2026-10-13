@@ -129,6 +129,8 @@ function CheckInForm({
   const adds = metric.aggregation === "sum";
   // One reading per period: this check-in replaces the period's earlier one.
   const per = metric.one_per || null;
+  // Check-ins for a whole period - the metric's own, or its goal's.
+  const snap = metric.snap_period ?? "";
   const [openedAt] = useState(() => Date.now());
   const at = when ? new Date(when).getTime() : openedAt;
   // The first period's check-in fills the field in, if it's still empty.
@@ -196,7 +198,7 @@ function CheckInForm({
               ? `${formatAmount(existing.value)} at ${shortDate.format(Date.parse(existing.checked_in_at))} is later in ${periodWord} and keeps counting - this one won't.`
               : `Replaces ${periodWord === "today" ? "today's" : `${periodWord}'s`} ${formatAmount(existing.value)}${
                   // A check-in for a period has no time of its own - it's the period's first day.
-                  metric.snap_to ? "" : ` (${(when ? shortDate : timeOfDay).format(Date.parse(existing.checked_in_at))})`
+                  snap ? "" : ` (${(when ? shortDate : timeOfDay).format(Date.parse(existing.checked_in_at))})`
                 }`}
             {!later && adds && newTotal !== null && when === "" ? ` - new total ${formatAmount(String(newTotal))}` : ""}
             {!later ? "." : ""}
@@ -209,14 +211,14 @@ function CheckInForm({
           </small>
         )}
       </div>
-      {metric.snap_to ? (
+      {snap ? (
         // Check-ins are for a whole period: pick it (the server sets the time to its first day).
         <div className="mb-3">
           <FormLabel htmlFor="dashboard-check-in-when">For</FormLabel>
           <FormSelect id="dashboard-check-in-when" value={when} onChange={(event) => setWhen(event.target.value)}>
-            {recentPeriods(metric.snap_to, openedAt).map((period, index) => (
-              <option key={period.start} value={index === 0 ? "" : new Date(midPeriod(period.start, metric.snap_to as Snap)).toISOString()}>
-                {index === 0 ? `${THIS_PERIOD[metric.snap_to as Snap].replace(/^./, (c) => c.toUpperCase())} (${period.label})` : period.label}
+            {recentPeriods(snap, openedAt).map((period, index) => (
+              <option key={period.start} value={index === 0 ? "" : new Date(midPeriod(period.start, snap as Snap)).toISOString()}>
+                {index === 0 ? `${THIS_PERIOD[snap as Snap].replace(/^./, (c) => c.toUpperCase())} (${period.label})` : period.label}
               </option>
             ))}
           </FormSelect>

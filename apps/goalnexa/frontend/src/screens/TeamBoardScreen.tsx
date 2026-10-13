@@ -37,7 +37,7 @@ import {
 } from "../lib/api/teamBoard";
 import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../lib/currentOrg";
 import { readStored, writeStored } from "../lib/storedState";
-import { periodLabel, periodStart, SNAP_LABELS, type Snap } from "../lib/periods";
+import { midPeriod, periodLabel, periodStart, recentPeriods, SNAP_LABELS, type Snap } from "../lib/periods";
 
 export interface TeamBoardScreenProps {
   accessToken: string;
@@ -202,10 +202,20 @@ function paceLine(numbers: CellNumbers): string | null {
 }
 
 /** Now, as a `datetime-local` value (local time, minutes). */
-function nowLocal(): string {
-  const d = new Date();
+/** `t` as a `datetime-local` value ("YYYY-MM-DDTHH:mm", local time). */
+function localInput(t: number): string {
+  const d = new Date(t);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
+}
+
+function nowLocal(): string {
+  return localInput(Date.now());
+}
+
+/** "Checked in at" for the period starting at `start`: now in the current one, else its middle (see `midPeriod`). */
+function whenFor(start: number, per: Snap): string {
+  return start === periodStart(Date.now(), per) ? nowLocal() : localInput(midPeriod(start, per));
 }
 
 function today(): string {
@@ -351,6 +361,8 @@ function TeamBoardScreen({
   const [root, setRoot] = useState("");
   const [mode, setMode] = useState<Mode>("checkin");
   const [when, setWhen] = useState(nowLocal);
+  // "Now" for the period pickers (render must not read the clock).
+  const [openedAt] = useState(() => Date.now());
   const [show, setShowState] = useState<Snap | "">(() => readStored<Snap | "">(SHOW_KEY, ""));
   function setShow(value: Snap | "") {
     setShowState(value);
@@ -701,6 +713,44 @@ function TeamBoardScreen({
     );
   }
 
+  /**
+   * "Checked in at": a moment for running totals; with "Show by" a period,
+   * that period instead (a day, or this/an earlier week, month, ...) - the
+   * board shows it, and check-ins go to it.
+   */
+  function whenPicker() {
+    if (!show) {
+      return (
+        <>
+          <FormLabel htmlFor="gn-board-when">Checked in at</FormLabel>
+          <FormControl id="gn-board-when" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
+        </>
+      );
+    }
+    const picked = periodStart(when ? new Date(when).getTime() : openedAt, show);
+    if (show === "day") {
+      return (
+        <>
+          <FormLabel htmlFor="gn-board-when">Day</FormLabel>
+          <FormControl id="gn-board-when" type="date" value={localInput(picked).slice(0, 10)} max={today()}
+            onChange={(e) => e.target.value && setWhen(whenFor(new Date(`${e.target.value}T00:00`).getTime(), "day"))} />
+        </>
+      );
+    }
+    const periods = recentPeriods(show, openedAt);
+    if (!periods.some((p) => p.start === picked)) periods.push({ start: picked, label: periodLabel(picked, show) });
+    return (
+      <>
+        <FormLabel htmlFor="gn-board-when">{SNAP_LABELS[show]}</FormLabel>
+        <FormSelect id="gn-board-when" value={String(picked)} onChange={(e) => setWhen(whenFor(Number(e.target.value), show))}>
+          {periods.map((p, index) => (
+            <option key={p.start} value={p.start}>{index === 0 ? `This ${show} (${p.label})` : p.label}</option>
+          ))}
+        </FormSelect>
+      </>
+    );
+  }
+
   function instanceCell(row: Row, column: Column) {
     const instance = row.instance;
     const numbers = instance?.metrics[column.metric.id];
@@ -983,11 +1033,7 @@ function TeamBoardScreen({
                 </FormSelect>
               </div>
               {mode === "checkin" && (
-                <div className="col-sm-6 col-lg-3">
-                  <FormLabel htmlFor="gn-board-when">Checked in at</FormLabel>
-                  <FormControl id="gn-board-when" type="datetime-local" value={when}
-                    onChange={(e) => setWhen(e.target.value)} />
-                </div>
+                <div className="col-sm-6 col-lg-3">{whenPicker()}</div>
               )}
               {mode === "checkin" && (
                 <div className="col-sm-6 col-lg-2">
