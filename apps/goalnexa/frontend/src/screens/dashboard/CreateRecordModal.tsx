@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createRequest, createSchemaFields, CrudFormModal, loadSchema, Modal, type CrudField } from "platform-core";
+import { createRequest, createSchemaFields, CrudFormModal, loadSchema, Modal, type CrudField, type FormLayout } from "platform-core";
 
 type Row = Record<string, unknown>;
 
@@ -29,14 +29,14 @@ export interface CreateRecordModalProps {
 function CreateRecordModal({ accessToken, target, onCreated, onClose }: CreateRecordModalProps) {
   const request = useMemo(() => createRequest(accessToken), [accessToken]);
   const endpoint = target?.endpoint ?? null;
-  const [loaded, setLoaded] = useState<{ endpoint: string; fields: CrudField<Row>[] } | null>(null);
+  const [loaded, setLoaded] = useState<{ endpoint: string; fields: CrudField<Row>[]; layout?: FormLayout } | null>(null);
   const [failed, setFailed] = useState<{ endpoint: string; message: string } | null>(null);
 
   useEffect(() => {
     if (endpoint === null) return;
     let cancelled = false;
     loadSchema(endpoint, request)
-      .then((schema) => !cancelled && setLoaded({ endpoint, fields: createSchemaFields<Row>(schema) }))
+      .then((schema) => !cancelled && setLoaded({ endpoint, fields: createSchemaFields<Row>(schema), layout: schema.form_layout }))
       .catch((thrown: unknown) => !cancelled && setFailed({ endpoint, message: thrown instanceof Error ? thrown.message : String(thrown) }));
     return () => {
       cancelled = true;
@@ -69,6 +69,7 @@ function CreateRecordModal({ accessToken, target, onCreated, onClose }: CreateRe
       fields={fields ?? []}
       request={request}
       submitLabel="Create"
+      layout={loaded?.layout}
       onSubmit={async (values) => {
         if (!target) return;
         const row = await request<Row>(target.endpoint, {

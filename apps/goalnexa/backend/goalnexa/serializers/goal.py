@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from core_api.serializers import BaseSerializer
 from goalnexa.models import Goal, SnapTo
+from goalnexa.serializers.layouts import GOAL_LAYOUT
 
 
 class GoalSerializer(BaseSerializer):
@@ -39,6 +40,7 @@ class GoalSerializer(BaseSerializer):
 
     class Meta:
         model = Goal
+        form_layout = GOAL_LAYOUT
         # `help_text` is the plain-language hint forms and table headers show.
         extra_kwargs = {
             "title": {"help_text": "What you want to achieve, as an outcome. For example: Run a half marathon."},

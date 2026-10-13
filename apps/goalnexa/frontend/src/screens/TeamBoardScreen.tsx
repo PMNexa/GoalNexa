@@ -67,15 +67,26 @@ const MODES: { value: Mode; label: string }[] = [
 const NO_CYCLE = "none";
 /** Org id -> the template last opened there. */
 const TEMPLATE_KEY = "goalnexa:board-template";
+/** The bottom of the app's sticky top bar(s) - where the board's header row stops when the page scrolls. */
+function stickyTop(): number {
+  let bottom = 0;
+  for (const bar of document.querySelectorAll<HTMLElement>(".sticky-top")) {
+    const rect = bar.getBoundingClientRect();
+    // A bar across the top - not the desktop sidebar, which is sticky too.
+    if (rect.height > 0 && rect.top <= 1 && rect.width >= window.innerWidth / 2) bottom = Math.max(bottom, rect.bottom);
+  }
+  return bottom;
+}
+
 /** The board's "Show by" period ("" = running totals), remembered per browser. */
 const SHOW_KEY = "goalnexa:board-show";
 
-const BOARD_CSS = `.gn-board-wrap { overflow: auto; max-height: calc(100vh - 16rem); }
+const BOARD_CSS = `.gn-board-wrap { overflow-x: auto; }
 .gn-board-card:fullscreen { background: var(--tblr-body-bg, #f6f8fb); padding: 1rem; overflow: auto; }
-.gn-board-card:fullscreen .gn-board-wrap { max-height: calc(100vh - 6.5rem); }
+.gn-board-card:fullscreen .gn-board-wrap { overflow: auto; max-height: calc(100vh - 6.5rem); }
 .gn-board { border-collapse: separate; border-spacing: 0; font-size: .85rem; min-width: 100%; }
 .gn-board th, .gn-board td { padding: .35rem .55rem; white-space: nowrap; border-bottom: 1px solid var(--tblr-border-color, #e6e7e9); background: var(--tblr-bg-surface, #fff); vertical-align: top; }
-.gn-board thead th { position: sticky; z-index: 2; font-weight: 600; text-align: left; }
+.gn-board thead th { position: sticky; z-index: 2; font-weight: 600; text-align: left; transform: translateY(var(--gn-head-y, 0px)); }
 .gn-board thead tr:first-child th { top: 0; }
 .gn-board thead tr:nth-child(2) th { top: 2.1rem; font-weight: 500; }
 .gn-board .gn-team { position: sticky; left: 0; z-index: 1; min-width: 14rem; max-width: 20rem; box-shadow: inset -1px 0 0 var(--tblr-border-color, #e6e7e9); }
@@ -334,6 +345,7 @@ function TeamBoardScreen({
   const [editing, setEditing] = useState<EditTarget | null>(null);
   // Full screen: the board's card (grid and save bar) through the browser's Fullscreen API; Esc leaves.
   const boardRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
     const onChange = () => setFullscreen(document.fullscreenElement === boardRef.current && boardRef.current !== null);
@@ -383,6 +395,39 @@ function TeamBoardScreen({
   // The template wizard: open for a new template, or to set up an empty one.
   const [wizard, setWizard] = useState<{ existing: GoalTemplate | null } | null>(null);
   const [orgTeams, setOrgTeams] = useState<TeamOption[]>([]);
+
+  // The page scrolls, not the board (it only scrolls sideways, for many
+  // columns) - and a sideways scroll box would pin a CSS-sticky header to
+  // itself, not the page. So the header rows are moved down to just under
+  // the app's top bar as the page scrolls (`--gn-head-y`). Full screen:
+  // the board scrolls itself again and CSS sticky does it.
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const table = wrap.querySelector("table");
+      const head = wrap.querySelector("thead");
+      let y = 0;
+      if (table && head && !document.fullscreenElement) {
+        const top = table.getBoundingClientRect().top;
+        y = Math.min(Math.max(0, stickyTop() - top), table.offsetHeight - head.offsetHeight);
+      }
+      wrap.style.setProperty("--gn-head-y", `${Math.max(0, y)}px`);
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    schedule();
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      cancelAnimationFrame(frame);
+    };
+  }, [board, fullscreen]);
 
   // Orgs, and which one: the app-wide current org when it's a real org.
   useEffect(() => {
@@ -1118,7 +1163,7 @@ function TeamBoardScreen({
                 )}
               </div>
             ) : (
-              <div className="gn-board-wrap">
+              <div ref={wrapRef} className="gn-board-wrap">
                 <table className="gn-board">
                   <thead>
                     <tr>

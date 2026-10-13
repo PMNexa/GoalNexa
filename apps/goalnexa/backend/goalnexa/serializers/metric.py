@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from core_api.serializers import BaseSerializer
 from goalnexa.models import Metric, SnapTo
+from goalnexa.serializers.layouts import METRIC_LAYOUT
 
 #: `Metric.snap_to`'s API value for "same as its goal" (`Metric.snap_to_goal`).
 SNAP_TO_GOAL = "goal"
@@ -66,6 +67,7 @@ class MetricSerializer(BaseSerializer):
 
     class Meta:
         model = Metric
+        form_layout = METRIC_LAYOUT
         auto_exclude = ["created_at", "updated_at", "reminded_at", "ingest_token_hash", "snap_to_goal"]
         # `help_text` is the plain-language hint forms and table headers show.
         extra_kwargs = {

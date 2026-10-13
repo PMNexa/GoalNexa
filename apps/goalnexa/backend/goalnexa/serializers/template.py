@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from core_api.serializers import BaseSerializer
 from goalnexa.models import GoalTemplate, TemplateGoal, TemplateMetric
+from goalnexa.serializers.layouts import TEMPLATE_GOAL_LAYOUT, TEMPLATE_METRIC_LAYOUT
 from goalnexa.serializers.metric import validate_one_per
 
 
@@ -32,6 +33,7 @@ class TemplateGoalSerializer(BaseSerializer):
 
     class Meta:
         model = TemplateGoal
+        form_layout = TEMPLATE_GOAL_LAYOUT
         auto_exclude = ["created_at", "updated_at", "instances"]
         display_field = "title"
         extra_kwargs = {
@@ -52,6 +54,7 @@ class TemplateMetricSerializer(BaseSerializer):
 
     class Meta:
         model = TemplateMetric
+        form_layout = TEMPLATE_METRIC_LAYOUT
         auto_exclude = ["created_at", "updated_at", "instances"]
         display_field = "name"
         extra_kwargs = {

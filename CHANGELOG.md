@@ -37,6 +37,14 @@ of you beyond the usual upgrade steps.
   in a drawer, or the "✕" after it to remove it from the template (a
   team's copy with check-ins is kept as the team's own); every team's
   copy follows.
+- **Clearer forms**: goal, metric, template goal and template metric
+  forms are grouped into sections (the basics, check-ins, target, team
+  totals) with rarely used fields folded under "Advanced"; "Count days"
+  and "Progress by" only show with a target per period. Resources declare
+  this in their serializer (`Meta.form_layout`); a screen can override it
+  (`formLayout`).
+- **Team board scrolls with the page**: no inner vertical scroll; the
+  header rows stay pinned under the top bar (full screen unchanged).
 - **Team board period picker**: with "Show by" a period, "Checked in at"
   becomes that period's picker (a date for Day; "This week" / "Week of
   Oct 5" / ... for the others) - the board shows it, and check-ins go to it.

@@ -698,6 +698,14 @@ directory depth) by default. Two escape hatches worth knowing:
   happy at its bare name (nearly all of them) just calls
   `createCrudRoutes` directly, no module-owned wrapper needed.
 
+**Form layouts**: a serializer's `Meta.form_layout` (sections, order,
+show-when rules, a collapsed "Advanced") lays out every generic form of
+that resource - pages, drawers, `CreateRecordModal`; a screen's
+`formLayout` prop overrides it. goalnexa's are in
+`serializers/layouts.py` (goal, metric, template goal, template metric);
+`tests/test_form_layouts.py` checks they name editable fields. Mechanics:
+platform-core's AGENTS.md "Form layout, field errors".
+
 **Relationships (detail screen)**: `/<resource>/:id` is platform-core's
 generic `CrudDetailScreen` - the record read-only (to-one relations as
 their related row's `display_field`, linked to its detail page wherever
