@@ -1,3 +1,7 @@
 .DS_Store
 .env
 .env.production
+
+# docs/user-guide screenshot tooling (local ids of demo records)
+docs/user-guide/tools/ids.json
+docs/user-guide/tools/node_modules/

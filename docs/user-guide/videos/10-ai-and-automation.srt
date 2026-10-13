@@ -1,0 +1,27 @@
+1
+00:00:02,692 --> 00:00:09,645
+AI assistants and automatic check-ins. Plan and check in by chat, or from other systems
+
+2
+00:00:10,180 --> 00:00:18,920
+Open MCP access to connect Claude, ChatGPT, Gemini, Cursor and others. Pick the app you use.
+
+3
+00:00:19,021 --> 00:00:27,936
+Each app has its own steps, with the server address to copy. Apps that sign in ask you to log in and click Allow.
+
+4
+00:00:28,032 --> 00:00:35,797
+Other apps use a personal access token. Create one, and copy it right away: it's shown only once.
+
+5
+00:00:36,546 --> 00:00:44,184
+Then just chat. Say, ran twelve kilometres today, and the assistant checks in and replies with your progress.
+
+6
+00:00:44,284 --> 00:00:52,850
+Numbers can also arrive automatically, from a script or a tool like Zapier. Open the metric, and find Automatic check-ins.
+
+7
+00:00:52,960 --> 00:01:00,040
+Create a token, and the other system posts each value to the metric's address. Revoke turns it off.

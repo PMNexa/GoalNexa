@@ -1,0 +1,23 @@
+1
+00:00:05,285 --> 00:00:09,718
+Sharing a dashboard. A live, read-only link for anyone
+
+2
+00:00:10,260 --> 00:00:16,353
+Show the goals you want to share, and untick metrics to leave out. Then click Share.
+
+3
+00:00:16,468 --> 00:00:20,088
+Give the link a name, and click Create link.
+
+4
+00:00:20,803 --> 00:00:23,019
+Click Copy, and send it.
+
+5
+00:00:23,635 --> 00:00:29,821
+Anyone with the link sees the charts, live, without signing in. No notes or names are shown.
+
+6
+00:00:29,966 --> 00:00:35,549
+To end a link, open Share again, and click Revoke under Your links.

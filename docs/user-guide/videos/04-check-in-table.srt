@@ -1,0 +1,23 @@
+1
+00:00:02,804 --> 00:00:06,378
+The check-in table. Many check-ins at once
+
+2
+00:00:06,900 --> 00:00:12,483
+The check-in table shows every goal and metric as rows, and their history as columns.
+
+3
+00:00:12,602 --> 00:00:16,954
+Snap to sets one column per hour, day, week or month.
+
+4
+00:00:17,074 --> 00:00:22,146
+Type a value for each metric in the right-hand column. Enter moves to the next one.
+
+5
+00:00:22,286 --> 00:00:26,208
+Then click Save, once, for all of them.
+
+6
+00:00:26,323 --> 00:00:30,884
+Hover a value to read its note. Drag a row's name to reorder.

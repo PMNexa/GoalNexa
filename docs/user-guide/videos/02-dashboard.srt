@@ -1,0 +1,43 @@
+1
+00:00:05,799 --> 00:00:10,697
+The dashboard. Read progress, predictions and health
+
+2
+00:00:11,235 --> 00:00:16,690
+The dashboard is the main screen. Pick goals on the left, read their charts on the right.
+
+3
+00:00:16,792 --> 00:00:22,119
+Choose whose goals to show: an organization, or your personal goals.
+
+4
+00:00:22,257 --> 00:00:26,946
+Show check-ins by gives one value per day, week or month.
+
+5
+00:00:27,056 --> 00:00:31,791
+Each goal shows its color, its progress, and its metrics below it.
+
+6
+00:00:31,906 --> 00:00:37,361
+The eye shows or hides a goal in the charts. Up to eight goals at a time.
+
+7
+00:00:37,470 --> 00:00:40,916
+Show first 8 brings the first eight goals back.
+
+8
+00:00:41,018 --> 00:00:49,167
+Each line is one metric's progress, from its start to its target. Hover a point to see the actual reading.
+
+9
+00:00:49,320 --> 00:00:55,077
+The dashed line is the prediction: where each metric is heading by the target date.
+
+10
+00:00:55,217 --> 00:01:00,846
+The badge tells you the health: on track, at risk, off track, or achieved.
+
+11
+00:01:00,978 --> 00:01:04,517
+Click a goal's title to open its details in a side panel.

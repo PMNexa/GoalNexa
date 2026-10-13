@@ -1,0 +1,55 @@
+1
+00:00:05,876 --> 00:00:12,062
+Goals, metrics and check-ins. Create a goal, measure it, record progress
+
+2
+00:00:12,611 --> 00:00:16,452
+To create a goal, click New goal in the Goals header.
+
+3
+00:00:16,588 --> 00:00:21,451
+Write the title as an outcome. It's the only required field.
+
+4
+00:00:21,554 --> 00:00:25,523
+A target date lets GoalNexa predict whether you'll make it.
+
+5
+00:00:25,623 --> 00:00:26,945
+Click Create.
+
+6
+00:00:28,864 --> 00:00:34,063
+Now measure it. Click the plus on the goal's row, and choose Add metric.
+
+7
+00:00:34,157 --> 00:00:38,462
+A metric is one number. Give it a name and a unit.
+
+8
+00:00:38,567 --> 00:00:46,716
+The base value is where you start. The target is where you want to be. Here it's lower, because faster is better.
+
+9
+00:00:46,846 --> 00:00:53,160
+Each check-in is a new reading here. For things like kilometres run, choose an amount to add instead.
+
+10
+00:00:56,493 --> 00:01:02,250
+Now record progress. On the metric's plus, choose Check in.
+
+11
+00:01:02,374 --> 00:01:08,688
+Enter the value. Leave When blank for now, or set it to backdate. Add a note if you like.
+
+12
+00:01:08,784 --> 00:01:14,494
+Click Save check-in. The chart, progress and health update right away.
+
+13
+00:01:14,648 --> 00:01:20,277
+To edit or delete, click the goal's name. The side panel has Edit and Delete.
+
+14
+00:01:20,444 --> 00:01:23,681
+This was just a demo, so let's delete it.

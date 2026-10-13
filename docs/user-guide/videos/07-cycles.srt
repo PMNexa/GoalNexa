@@ -1,0 +1,27 @@
+1
+00:00:02,779 --> 00:00:07,131
+Cycles. Plan by quarter, then close and score
+
+2
+00:00:07,675 --> 00:00:16,544
+A cycle is a period, usually a quarter, that goals belong to. Create one with New cycle: a name and its dates.
+
+3
+00:00:16,657 --> 00:00:24,968
+Goals join a cycle through their Cycle field. On the dashboard, pick the cycle first, and New goal presets it.
+
+4
+00:00:25,066 --> 00:00:28,094
+At the end of the quarter, open the cycle.
+
+5
+00:00:29,547 --> 00:00:36,836
+Give each goal a score from zero to one. It starts from the goal's progress. Point seven counts as achieved.
+
+6
+00:00:36,971 --> 00:00:42,519
+Then choose what happens: done, roll over into the next cycle, or drop.
+
+7
+00:00:42,641 --> 00:00:49,036
+Finally, click Close cycle. This can't be undone. The cycle then shows a scorecard.

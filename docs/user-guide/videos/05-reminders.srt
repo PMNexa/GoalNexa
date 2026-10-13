@@ -1,0 +1,31 @@
+1
+00:00:02,983 --> 00:00:07,672
+Reminders and the goals digest. Get nudged when a check-in is due
+
+2
+00:00:08,189 --> 00:00:15,316
+Reminders work for metrics with a schedule. Set Check in every on a metric to daily, weekly or monthly.
+
+3
+00:00:15,457 --> 00:00:19,379
+On the Reminders page, turn on Send me reminders.
+
+4
+00:00:19,475 --> 00:00:28,471
+Choose where they go: your email, or services like Telegram, Slack or ntfy. One address per line.
+
+5
+00:00:28,583 --> 00:00:32,714
+The examples on the right show the address format for each service.
+
+6
+00:00:32,819 --> 00:00:41,049
+The goals digest is a summary of what moved, what's at risk and what's due. Daily, or weekly on the day you pick.
+
+7
+00:00:41,142 --> 00:00:45,529
+Click Save, then Send a test to check it arrives.
+
+8
+00:00:45,653 --> 00:00:51,363
+You get one message per due date, listing everything overdue. No repeated nagging.

@@ -1,0 +1,47 @@
+1
+00:00:02,770 --> 00:00:08,051
+Teams and the team board. One goal system across many teams
+
+2
+00:00:08,603 --> 00:00:15,428
+When several teams run the same goals, start by creating the teams, with sub-teams if you need them.
+
+3
+00:00:15,560 --> 00:00:20,806
+Open a team to add leads, who set targets, and members, who check in.
+
+4
+00:00:20,933 --> 00:00:27,026
+Then open the Team board, and pick the organization, the goal template and the cycle.
+
+5
+00:00:27,150 --> 00:00:34,660
+Rows are teams, columns are metrics. Each cell shows current against target, and the pace needed.
+
+6
+00:00:34,792 --> 00:00:40,723
+Totals for each department and the whole organization are calculated from the teams.
+
+7
+00:00:40,857 --> 00:00:46,614
+In Targets mode, set each team's start and target, then Save targets.
+
+8
+00:00:46,735 --> 00:00:51,342
+In Check in mode, type every team's number, then Save check-ins.
+
+9
+00:00:51,448 --> 00:00:55,928
+Show by week compares each period instead of running totals.
+
+10
+00:00:56,032 --> 00:00:59,571
+Full screen shows just the board, for the team meeting.
+
+11
+00:01:01,177 --> 00:01:06,423
+To define the goals once for every team, create a goal template with New.
+
+12
+00:01:10,583 --> 00:01:19,323
+For each metric, choose how teams add up: add up, average, or lowest team. Then pick the teams, and create.

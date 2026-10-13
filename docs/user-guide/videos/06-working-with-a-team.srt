@@ -1,0 +1,35 @@
+1
+00:00:02,752 --> 00:00:08,683
+Working with a team. Organizations, invitations, private goals and comments
+
+2
+00:00:09,215 --> 00:00:15,819
+An organization's goals are shared with its members. Create one with New organization.
+
+3
+00:00:15,923 --> 00:00:20,228
+Open an organization to see its members and invite people.
+
+4
+00:00:20,347 --> 00:00:28,623
+Click Invite member, enter their email, and pick a role. Members work on the goals. Admins also manage members.
+
+5
+00:00:28,727 --> 00:00:35,587
+GoalNexa doesn't send the email. Click Copy link, and send it yourself. The link works for two weeks.
+
+6
+00:00:36,550 --> 00:00:42,562
+Pending invitations can be copied again or revoked. Let's revoke this demo one.
+
+7
+00:00:42,675 --> 00:00:46,342
+To make a goal private, open it, and go to Sharing.
+
+8
+00:00:52,308 --> 00:00:57,589
+Public means the whole organization. Private means only you and the members you add.
+
+9
+00:00:57,718 --> 00:01:03,173
+Under Activity, the team sees who checked in what, and can comment next to the numbers.

@@ -1,0 +1,55 @@
+1
+00:00:03,139 --> 00:00:08,722
+Getting started. Sign up, sign in and the onboarding wizard
+
+2
+00:00:09,245 --> 00:00:14,015
+To sign in, enter your email and password, then click Sign In.
+
+3
+00:00:14,127 --> 00:00:17,318
+New to GoalNexa? Click Sign up.
+
+4
+00:00:17,431 --> 00:00:23,873
+Enter your name, your email and a password of at least eight characters. Then click Sign Up.
+
+5
+00:00:24,969 --> 00:00:29,913
+If your administrator asks for confirmed addresses, open the link we email you.
+
+6
+00:00:30,012 --> 00:00:36,407
+Forgot your password? Click Forgot password, and we'll email you a link that works for two hours.
+
+7
+00:00:37,821 --> 00:00:43,705
+The first time you sign in, with no goals yet, a short wizard helps you set up.
+
+8
+00:00:46,790 --> 00:00:52,628
+First, choose how you'll use GoalNexa. Let's pick Use the website.
+
+9
+00:00:52,737 --> 00:00:59,469
+Name your organization: your team, company or household. Then click Next.
+
+10
+00:00:59,563 --> 00:01:05,146
+Type a goal, and optionally a target date, so GoalNexa can predict whether you'll make it.
+
+11
+00:01:05,261 --> 00:01:10,542
+Add a metric for each goal: one number with a start and a target.
+
+12
+00:01:11,328 --> 00:01:17,851
+Check the summary, and click Create and open dashboard. Nothing is saved before this step.
+
+13
+00:01:19,805 --> 00:01:28,290
+Prefer chatting? Use an AI agent connects Claude, ChatGPT and others, and your assistant sets everything up.
+
+14
+00:01:28,394 --> 00:01:31,933
+Skip for now opens an empty dashboard instead.
