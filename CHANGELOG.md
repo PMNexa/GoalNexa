@@ -9,6 +9,13 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Team board: pick who plays and what adds up**. In Targets, the tick
+  before a team's name adds it to the template or takes it out (a team
+  with check-ins keeps them as its own goals); the tick on Whole
+  organization or a department calculates its total - a department's
+  total is no longer automatic. Check in shows only the teams that run
+  the template, with a count of the others. The team column is only as
+  wide as its longest name. Existing totals stay ticked.
 - **Teams org chart**: Organizations > Teams opens as an org chart - the
   organization on top, each team with its lead and members, sub-teams
   below. Owners and admins create, rename, move and delete teams and

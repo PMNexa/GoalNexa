@@ -1,6 +1,7 @@
 """Team totals (docs/team-templates.md "Rollup"). For a template and a
-cycle, every team with sub-teams and an instance somewhere under it - and
-the org itself (`team_id` null) - gets a read-only rollup goal tree
+cycle, each node ticked in `GoalTemplate.total_for` - the org itself
+(`team_id` null, ticked by default) and teams with sub-teams - that has
+an instance somewhere under it gets a read-only rollup goal tree
 mirroring the template. A team without sub-teams gets none: its total
 would only repeat its own instance. A node's numbers come from EVERY instance in its subtree
 (its own included), never from the rollups below it: an average of
@@ -34,9 +35,10 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.utils import timezone
 
+from goalnexa.models.template import ORG_TOTAL, default_total_for
 from goalnexa.models import CheckIn, CheckInSource, Cycle, Goal, GoalStatus, GoalTemplate, Metric, ProgressBy, RollupRule
 from goalnexa.progress import metric_pct, refresh_goal, refresh_metric
-from goalnexa.teams import ancestors, subtree, team_names, team_parents
+from goalnexa.teams import subtree, team_names, team_parents
 
 _state = threading.local()
 CENT = Decimal("0.01")
@@ -180,14 +182,13 @@ def recompute(template_id, cycle_id) -> None:
     parents = team_parents(template.org_id)
     teams = {g.team_id for g in instances}
     has_children = set(parents.values())
+    wanted = {str(t) for t in (template.total_for if template.total_for is not None else default_total_for())}
     nodes: set = set()
-    if instances:
+    if instances and ORG_TOTAL in wanted:
         nodes.add(None)
-        for team_id in teams:
-            if team_id is not None and team_id in parents:
-                if team_id in has_children:
-                    nodes.add(team_id)
-                nodes.update(ancestors(parents, team_id))
+    for team_id in parents:
+        if str(team_id) in wanted and team_id in has_children and teams & subtree(parents, team_id):
+            nodes.add(team_id)
     rollups = Goal.objects.filter(template_goal__template_id=template_id, cycle_id=cycle_id, is_rollup=True)
     stale = rollups.exclude(team_id__in=[n for n in nodes if n is not None])
     if None in nodes:

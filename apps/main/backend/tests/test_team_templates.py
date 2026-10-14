@@ -44,6 +44,8 @@ class TeamTemplateTests(TestCase):
                            rollup="avg", default_base=0, default_target=50)
         self.hires = self.ok(self.alice, "template-metrics", template_goal=self.hiring_goal["id"], name="Hires",
                              aggregation="sum", rollup="min", default_base=0)
+        # Sales' total is calculated only when ticked; most tests want it.
+        self.ok(self.alice, f"goal-templates/{self.template['id']}/totals", expect=200, total_for=["org", self.sales["id"]])
 
     # --- helpers ---------------------------------------------------------
 
@@ -63,6 +65,9 @@ class TeamTemplateTests(TestCase):
     def apply(self, *teams, by=None, cycle=None):
         return self.ok(by or self.alice, f"goal-templates/{self.template['id']}/apply",
                        teams=[t["id"] for t in teams], cycle=cycle or self.cycle["id"])
+
+    def tick_totals(self, *nodes, by=None, expect=200):
+        return self.ok(by or self.alice, f"goal-templates/{self.template['id']}/totals", expect=expect, total_for=list(nodes))
 
     def instance_metric(self, team, template_metric):
         return Metric.objects.get(template_metric_id=template_metric["id"], goal__team_id=team["id"], goal__is_rollup=False,
@@ -239,11 +244,46 @@ class TeamTemplateTests(TestCase):
         self.apply(self.north, self.south)
         totals = Goal.objects.filter(is_rollup=True, parent__isnull=True, cycle_id=self.cycle["id"])
         self.assertEqual({g.team_id and str(g.team_id) for g in totals}, {self.sales["id"], None})
-        # A team that gains a sub-team gets one.
+        # A team that gains a sub-team gets one - once it's ticked.
         east = self.ok(self.alice, "teams", org=self.org["id"], name="East", parent=self.north["id"])
+        self.assertFalse(Goal.objects.filter(is_rollup=True, team_id=self.north["id"]).exists())
+        self.tick_totals("org", self.sales["id"], self.north["id"])
         self.assertEqual(self.total(self.mrr, self.north).goal.title, "Grow revenue · North total")
         self.client_patch(self.alice, f"teams/{east['id']}", parent=self.south["id"])
         self.assertFalse(Goal.objects.filter(is_rollup=True, team_id=self.north["id"]).exists())
+
+    def test_totals_only_for_ticked_nodes(self):
+        self.apply(self.north, self.south)
+        self.tick_totals()  # nothing ticked: no totals at all
+        self.assertFalse(Goal.objects.filter(is_rollup=True).exists())
+        self.tick_totals(self.sales["id"])
+        totals = Goal.objects.filter(is_rollup=True, parent__isnull=True, cycle_id=self.cycle["id"])
+        self.assertEqual({str(g.team_id) for g in totals}, {self.sales["id"]})
+        board = self.alice.get(f"{API}/goal-templates/{self.template['id']}/board", {"cycle": self.cycle["id"]}).json()
+        self.assertEqual((board["total_for"], set(board["totals"])), ([self.sales["id"]], {self.sales["id"]}))
+        # Only "org" or a team with sub-teams; only managers.
+        self.assertEqual(self.post(self.alice, f"goal-templates/{self.template['id']}/totals",
+                                   total_for=[self.north["id"]]).status_code, 400)
+        self.assertEqual(self.post(self.dave, f"goal-templates/{self.template['id']}/totals",
+                                   total_for=["org"]).status_code, 403)
+
+    def test_unticking_a_team_takes_it_out(self):
+        self.apply(self.north, self.south)
+        self.check_in(self.dave, self.instance_metric(self.north, self.mrr), 40)
+        north_root = self.instance_metric(self.north, self.mrr).goal_id
+        self.assertEqual(self.post(self.dave, f"goal-templates/{self.template['id']}/leave",
+                                   teams=[self.south["id"]], cycle=self.cycle["id"]).status_code, 403)
+        left = self.ok(self.alice, f"goal-templates/{self.template['id']}/leave", expect=200,
+                       teams=[self.north["id"], self.south["id"]], cycle=self.cycle["id"])
+        self.assertEqual(left, {"deleted": [self.south["id"]], "detached": [self.north["id"]]})
+        # North's history stays, as North's own goal; South's empty copy is gone.
+        kept = Goal.objects.get(id=north_root)
+        self.assertIsNone(kept.template_goal_id)
+        self.assertFalse(Goal.objects.filter(team_id=self.south["id"], is_rollup=False).exists())
+        self.assertFalse(Goal.objects.filter(is_rollup=True).exists())  # no team left to total
+        # Ticking again starts a fresh copy.
+        self.apply(self.north)
+        self.assertEqual(self.instance_metric(self.north, self.mrr).current_value, Decimal(0))
 
     def test_average_and_lowest_rules(self):
         self.apply(self.north, self.south)
@@ -290,6 +330,7 @@ class TeamTemplateTests(TestCase):
     def test_a_lead_plans_the_teams_below(self):
         lead = self.ok(self.alice, "team-members", team=self.sales["id"], user_id=self.frank.user_id, role="lead")
         east = self.ok(self.alice, "teams", org=self.org["id"], name="East", parent=self.north["id"])
+        self.tick_totals("org", self.sales["id"], self.north["id"])
         self.apply(self.north, east)
         self.post_plan(self.frank, self.total(self.mrr, self.north), 90)
         self.post_plan(self.frank, self.total(self.mrr, self.sales), 90, status=403)

@@ -20,6 +20,8 @@ import { apiRequest } from "../lib/api/client";
 import { errorMessage } from "../lib/api/goalMembers";
 import {
   applyTemplate,
+  leaveTemplate,
+  setTemplateTotals,
   fetchBoard,
   fetchTemplates,
   saveCheckIns,
@@ -89,10 +91,12 @@ const BOARD_CSS = `.gn-board-wrap { overflow-x: auto; }
 .gn-board thead th { position: sticky; z-index: 2; font-weight: 600; text-align: left; transform: translateY(var(--gn-head-y, 0px)); }
 .gn-board thead tr:first-child th { top: 0; }
 .gn-board thead tr:nth-child(2) th { top: 2.1rem; font-weight: 500; }
-.gn-board .gn-team { position: sticky; left: 0; z-index: 1; min-width: 14rem; max-width: 20rem; box-shadow: inset -1px 0 0 var(--tblr-border-color, #e6e7e9); }
+.gn-board .gn-team { position: sticky; left: 0; z-index: 1; width: 1px; box-shadow: inset -1px 0 0 var(--tblr-border-color, #e6e7e9); }
 .gn-board thead .gn-team { z-index: 3; }
 .gn-board tr.gn-total > * { background: var(--tblr-bg-surface-secondary, #f6f8fb); font-weight: 600; }
 .gn-board tr.gn-muted > * { color: var(--tblr-secondary, #667382); }
+.gn-board tr.gn-group > * { background: var(--tblr-bg-surface-secondary, #f6f8fb); font-weight: 600; }
+.gn-board .gn-tick { display: inline-block; margin: 0 .4rem 0 0; vertical-align: -2px; }
 .gn-board .gn-board-goal { border-left: 2px solid var(--tblr-border-color, #e6e7e9); }
 .gn-board .gn-head-btn { all: unset; cursor: pointer; }
 .gn-board .gn-head-remove { all: unset; cursor: pointer; margin-left: .3rem; color: var(--tblr-secondary, #667382); opacity: .45; font-size: .8rem; line-height: 1; }
@@ -244,7 +248,8 @@ const isNumber = (value: string) => value.trim() !== "" && Number.isFinite(Numbe
 
 interface Row {
   key: string;
-  kind: "org" | "total" | "instance";
+  /** "group": a team with sub-teams whose total isn't calculated - just its name (Check in mode). */
+  kind: "org" | "total" | "group" | "instance";
   label: string;
   depth: number;
   team?: BoardTeam;
@@ -253,6 +258,8 @@ interface Row {
   /** A team with no instance yet - can be ticked to apply the template. */
   missing?: boolean;
   own?: boolean;
+  /** A total row: whether it's ticked to be calculated (`Board.total_for`). */
+  ticked?: boolean;
 }
 
 interface Column {
@@ -284,7 +291,14 @@ function goalOrder(board: Board): { id: string; title: string; depth: number }[]
   return out;
 }
 
-function buildRows(board: Board, root: string, mode: Mode): Row[] {
+/**
+ * The board's rows. Targets mode shows every team: a tick on a team's row
+ * adds it to the template (or takes it out), a tick on a total calculates
+ * it. Check in mode shows only what's in play - teams with a copy, the
+ * totals that are calculated, and the name of a team with sub-teams that
+ * holds them - and counts the teams left out (`notJoined`).
+ */
+function buildRows(board: Board, root: string, mode: Mode): { rows: Row[]; notJoined: number } {
   const children = new Map<string | null, BoardTeam[]>();
   const known = new Set(board.teams.map((t) => t.id));
   for (const team of board.teams) {
@@ -292,28 +306,37 @@ function buildRows(board: Board, root: string, mode: Mode): Row[] {
     children.set(key, [...(children.get(key) ?? []), team]);
   }
   for (const list of children.values()) list.sort((a, b) => a.name.localeCompare(b.name));
-  const rows: Row[] = [];
-  if (!root) rows.push({ key: "org", kind: "org", label: "Whole organization", depth: 0, total: board.totals.org });
-  const showMissing = mode === "targets" && board.can_manage;
-  const visit = (team: BoardTeam, depth: number) => {
+  const targets = mode === "targets";
+  const totalFor = new Set(board.total_for ?? ["org"]);
+  let notJoined = 0;
+  const visit = (team: BoardTeam, depth: number): Row[] => {
     const kids = children.get(team.id) ?? [];
     const instance = board.instances[team.id];
-    if (kids.length > 0) {
-      rows.push({ key: `total-${team.id}`, kind: "total", label: team.name, depth, team, total: board.totals[team.id] });
-      if (instance || showMissing) {
-        rows.push({
-          key: `own-${team.id}`, kind: "instance", label: `${team.name} (own)`, depth: depth + 1, team, instance,
-          missing: !instance, own: true,
-        });
-      }
-      for (const kid of kids) visit(kid, depth + 1);
-    } else {
-      rows.push({ key: `team-${team.id}`, kind: "instance", label: team.name, depth, team, instance, missing: !instance });
+    if (kids.length === 0) {
+      if (instance || targets) return [{ key: `team-${team.id}`, kind: "instance", label: team.name, depth, team, instance, missing: !instance }];
+      notJoined += 1;
+      return [];
     }
+    const below = kids.flatMap((kid) => visit(kid, depth + 1));
+    const own: Row[] =
+      instance || targets
+        ? [{ key: `own-${team.id}`, kind: "instance", label: `${team.name} (own)`, depth: depth + 1, team, instance, missing: !instance, own: true }]
+        : [];
+    const total = board.totals[team.id];
+    if (!targets && own.length === 0 && below.length === 0) return [];
+    const head: Row =
+      targets || total
+        ? { key: `total-${team.id}`, kind: "total", label: team.name, depth, team, total, ticked: totalFor.has(team.id) }
+        : { key: `group-${team.id}`, kind: "group", label: team.name, depth, team };
+    return [head, ...own, ...below];
   };
+  const rows: Row[] = [];
+  if (!root && (targets || board.totals.org)) {
+    rows.push({ key: "org", kind: "org", label: "Whole organization", depth: 0, total: board.totals.org, ticked: totalFor.has("org") });
+  }
   const start = root ? board.teams.filter((t) => t.id === root) : children.get(null) ?? [];
-  for (const team of start) visit(team, root ? 0 : 1);
-  return rows;
+  for (const team of start) rows.push(...visit(team, root ? 0 : 1));
+  return { rows, notJoined };
 }
 
 const ClockIcon = (
@@ -359,10 +382,12 @@ function TeamBoardScreen({
   // A template goal or metric to remove, waiting for "Remove" in the confirmation.
   const [removing, setRemoving] = useState<(EditTarget & { name: string }) | null>(null);
   const [removeBusy, setRemoveBusy] = useState(false);
-  // The edit drawer and the remove confirmation open outside the card - leave full screen for them.
+  // A team row unticked in Targets mode, waiting for "Take out" in the confirmation.
+  const [leaving, setLeaving] = useState<Row | null>(null);
+  // The edit drawer and the confirmations open outside the card - leave full screen for them.
   useEffect(() => {
-    if ((editing || removing) && document.fullscreenElement) void document.exitFullscreen();
-  }, [editing, removing]);
+    if ((editing || removing || leaving) && document.fullscreenElement) void document.exitFullscreen();
+  }, [editing, removing, leaving]);
   const [orgs, setOrgs] = useState<OrgOption[] | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<GoalTemplate[]>([]);
@@ -387,7 +412,6 @@ function TeamBoardScreen({
   const [notes, setNotes] = useState<Map<string, string>>(new Map());
   const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
   const [targets, setTargets] = useState<Map<string, TargetChange>>(new Map());
-  const [applyTeams, setApplyTeams] = useState<Set<string>>(new Set());
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -501,14 +525,16 @@ function TeamBoardScreen({
       })),
     );
   }, [board]);
-  const rows = useMemo(() => (board ? buildRows(board, root, mode) : []), [board, root, mode]);
+  const { rows, notJoined } = useMemo(
+    () => (board ? buildRows(board, root, mode) : { rows: [], notJoined: 0 }),
+    [board, root, mode],
+  );
 
   function resetDrafts() {
     setValues(new Map());
     setNotes(new Map());
     setOpenNotes(new Set());
     setTargets(new Map());
-    setApplyTeams(new Set());
   }
 
   function pickOrg(id: string) {
@@ -594,14 +620,15 @@ function TeamBoardScreen({
     }
   }
 
-  async function apply() {
-    if (!board || applyTeams.size === 0) return;
+  /** Ticked in Targets mode: the team gets its copy of the template in this cycle. */
+  async function join(row: Row) {
+    if (!board || !row.team) return;
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
-      await applyTemplate(accessToken, board.template.id, [...applyTeams], cycleId === NO_CYCLE ? null : cycleId);
-      setNotice(`Added the template to ${applyTeams.size} team${applyTeams.size === 1 ? "" : "s"}. Set their targets below.`);
-      setApplyTeams(new Set());
+      await applyTemplate(accessToken, board.template.id, [row.team.id], cycleId === NO_CYCLE ? null : cycleId);
+      setNotice(`Added ${row.team.name} to the template. Set its targets in its row.`);
       setVersion((v) => v + 1);
     } catch (e) {
       setError(errorMessage(e));
@@ -610,14 +637,21 @@ function TeamBoardScreen({
     }
   }
 
-  /** One team, from its row's "Add" (Check in mode). */
-  async function addTeam(teamId: string, label: string) {
-    if (!board) return;
+  /** Unticked, then confirmed: the team leaves the template in this cycle. */
+  async function confirmLeave() {
+    if (!board || !leaving?.team) return;
+    const team = leaving.team;
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
-      await applyTemplate(accessToken, board.template.id, [teamId], cycleId === NO_CYCLE ? null : cycleId);
-      setNotice(`Added the template to ${label}. Set its targets in Targets.`);
+      const result = await leaveTemplate(accessToken, board.template.id, [team.id], cycleId === NO_CYCLE ? null : cycleId);
+      setNotice(
+        result.detached.length
+          ? `Took ${team.name} out of the template - its goals and check-ins stay, as ${team.name}'s own.`
+          : `Took ${team.name} out of the template.`,
+      );
+      setLeaving(null);
       setVersion((v) => v + 1);
     } catch (e) {
       setError(errorMessage(e));
@@ -625,6 +659,25 @@ function TeamBoardScreen({
       setBusy(false);
     }
   }
+
+  /** A total's tick: calculate it (from every team below) or not. */
+  async function toggleTotal(key: string, on: boolean) {
+    if (!board) return;
+    const current = board.total_for ?? ["org"];
+    const next = on ? [...current.filter((k) => k !== key), key] : current.filter((k) => k !== key);
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await setTemplateTotals(accessToken, board.template.id, next);
+      setVersion((v) => v + 1);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
 
   /** Enter moves down the column, like a spreadsheet. */
   function onCellKey(event: KeyboardEvent<HTMLInputElement>) {
@@ -902,36 +955,24 @@ function TeamBoardScreen({
   }
 
   function rowCells(row: Row) {
-    if (row.kind !== "instance") return columns.flatMap((column) => [totalCell(row, column), updateCell(row, column)]);
+    const span = Math.max(columns.length + updateColumns, 1);
+    if (row.kind === "group") return <td colSpan={span}></td>;
+    if (row.kind !== "instance") {
+      if (row.total) return columns.flatMap((column) => [totalCell(row, column), updateCell(row, column)]);
+      return (
+        <td colSpan={span} className="text-secondary fw-normal">
+          {row.ticked
+            ? "Added up once a team below uses the template."
+            : board?.can_manage
+              ? "Not added up - tick to total the teams below."
+              : "Not added up."}
+        </td>
+      );
+    }
     if (row.missing) {
       return (
-        <td colSpan={Math.max(columns.length + updateColumns, 1)} className="text-secondary">
-          {mode === "targets" && board?.can_manage && row.team ? (
-            <label className="form-check mb-0">
-              <Checkbox
-                checked={applyTeams.has(row.team.id)}
-                onChange={(checked) =>
-                  setApplyTeams((prev) => {
-                    const next = new Set(prev);
-                    if (checked) next.add(row.team!.id);
-                    else next.delete(row.team!.id);
-                    return next;
-                  })
-                }
-              />
-              <span className="form-check-label">Not set up - tick to add this template to {row.label}</span>
-            </label>
-          ) : board?.can_manage && row.team ? (
-            <>
-              Doesn't use this template in this cycle.{" "}
-              <Button variant="primary" outline className="ms-2" disabled={busy}
-                onClick={() => void addTeam(row.team!.id, row.label)}>
-                Add
-              </Button>
-            </>
-          ) : (
-            "Doesn't use this template in this cycle."
-          )}
+        <td colSpan={span} className="text-secondary">
+          {board?.can_manage ? `Not in this template - tick to add ${row.label}.` : "Doesn't use this template in this cycle."}
         </td>
       );
     }
@@ -1163,6 +1204,19 @@ function TeamBoardScreen({
                 )}
               </div>
             ) : (
+              <>
+              {mode === "checkin" && notJoined > 0 && (
+                <div className="px-3 py-2 small text-secondary border-bottom">
+                  {notJoined} team{notJoined === 1 ? " doesn't" : "s don't"} use this template in this cycle.{" "}
+                  {board.can_manage ? (
+                    <Button variant="link" className="p-0 align-baseline small" onClick={() => { setMode("targets"); resetDrafts(); }}>
+                      Add them in Targets
+                    </Button>
+                  ) : (
+                    "An owner or admin adds teams in Targets."
+                  )}
+                </div>
+              )}
               <div ref={wrapRef} className="gn-board-wrap">
                 <table className="gn-board">
                   <thead>
@@ -1235,15 +1289,32 @@ function TeamBoardScreen({
                     {rows.map((row) => (
                       <tr
                         key={row.key}
-                        className={`${row.kind !== "instance" ? "gn-total" : ""}${row.missing ? " gn-muted" : ""}`}
+                        className={`${row.kind === "org" || row.kind === "total" ? "gn-total" : ""}${row.kind === "group" ? " gn-group" : ""}${row.missing || ((row.kind === "org" || row.kind === "total") && !row.total) ? " gn-muted" : ""}`}
                       >
                         <th className="gn-team" style={{ paddingLeft: `${0.55 + row.depth * 1.1}rem` }}>
+                          {mode === "targets" && board.can_manage && row.kind !== "group" && (
+                            <Checkbox
+                              className="gn-tick"
+                              disabled={busy}
+                              checked={row.kind === "instance" ? !row.missing : !!row.ticked}
+                              aria-label={
+                                row.kind === "instance"
+                                  ? `${row.label} uses this template`
+                                  : `Add up ${row.kind === "org" ? "the whole organization" : row.label}`
+                              }
+                              onChange={(checked) => {
+                                if (row.kind !== "instance") void toggleTotal(row.kind === "org" ? "org" : row.team!.id, checked);
+                                else if (checked) void join(row);
+                                else setLeaving(row);
+                              }}
+                            />
+                          )}
                           {row.kind === "instance" && row.instance?.root && goalHref ? (
                             <a href={goalHref(row.instance.root)}>{row.label}</a>
                           ) : (
                             row.label
                           )}
-                          {row.kind !== "instance" && <span className="gn-sub">Total</span>}
+                          {(row.kind === "org" || row.kind === "total") && row.ticked && <span className="gn-sub">Total</span>}
                           {row.instance?.visibility === "team" && <span className="gn-sub">Team only</span>}
                         </th>
                         {rowCells(row)}
@@ -1252,6 +1323,7 @@ function TeamBoardScreen({
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </CardBody>
           <div className="card-footer d-flex flex-wrap gap-2 align-items-center">
@@ -1259,11 +1331,6 @@ function TeamBoardScreen({
               title={fullscreen ? "Leave full screen (Esc)" : "Show the board on the whole screen"}>
               {fullscreen ? "Exit full screen" : "⛶ Full screen"}
             </Button>
-            {mode === "targets" && board.can_manage && (
-              <Button variant="primary" outline onClick={() => void apply()} disabled={busy || applyTeams.size === 0}>
-                Add to {applyTeams.size || ""} team{applyTeams.size === 1 ? "" : "s"}
-              </Button>
-            )}
             <span className="text-secondary small ms-auto">
               {dirtyCount > 0 ? `${dirtyCount} unsaved change${dirtyCount === 1 ? "" : "s"}` : "Totals are calculated from the teams."}
             </span>
@@ -1279,6 +1346,31 @@ function TeamBoardScreen({
         </Card>
         </div>
       )}
+      <Modal
+        open={leaving !== null}
+        onClose={() => !busy && setLeaving(null)}
+        size="sm"
+        title={leaving?.team ? `Take ${leaving.team.name} out of the template?` : ""}
+        footer={
+          <>
+            <Button variant="secondary" outline onClick={() => setLeaving(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={() => void confirmLeave()} disabled={busy}>
+              Take out
+            </Button>
+          </>
+        }
+      >
+        {leaving?.team && (
+          <p className="mb-0">
+            {Object.values(leaving.instance?.metrics ?? {}).some((m) => m.last_checked_in_at)
+              ? `${leaving.team.name} has check-ins: its goals and their history stay, as ${leaving.team.name}'s own goals, no longer part of the template.`
+              : `${leaving.team.name}'s copy of the template and its targets are deleted.`}{" "}
+            The totals above it stop counting it. Tick it again to start a fresh copy.
+          </p>
+        )}
+      </Modal>
       <Modal
         open={removing !== null}
         onClose={() => !removeBusy && setRemoving(null)}

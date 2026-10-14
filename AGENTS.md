@@ -297,15 +297,20 @@ updates any tree; `push_template` runs after every template write; removal
 detaches rows with check-ins). Template-owned fields are refused on
 instances (`LOCKED_*_FIELDS`); base/target need `can_set_targets`, a
 check-in `can_check_in`. **Totals** (`goalnexa/rollups.py`) are rollup goal
-trees (`Goal.is_rollup`, `team_id` = the node, null = org; only teams WITH
-sub-teams get one - a leaf's would copy its own goal) recomputed from
+trees (`Goal.is_rollup`, `team_id` = the node, null = org; only nodes
+ticked in `GoalTemplate.total_for` - the org by default, teams WITH
+sub-teams when ticked, `POST goal-templates/<id>/totals`; a leaf's would
+copy its own goal) recomputed from
 EVERY instance in the subtree (never from child totals), per metric rule
 (`TemplateMetric.rollup`), with `Metric.planned_target`; values are
 synthetic check-ins (`source="rollup"`, one per day). They're triggered from
 `refresh_goal` on any instance goal; wrap multi-writes in `rollups.batched()`.
 Totals are read-only everywhere and don't count toward `max_goals`.
 **Team board**: `GET goal-templates/<id>/board?cycle=` (one call with the
-grid), `POST goal-templates/<id>/targets`, `POST goal-templates/<id>/apply`,
+grid), `POST goal-templates/<id>/targets`, `POST goal-templates/<id>/apply`
+(ticking a team in Targets mode; unticking = `/leave`: a copy with
+check-ins is detached, an empty one deleted; Check in mode shows only
+teams that run the template),
 `POST check-ins/bulk` (all or nothing); `board?show=<period>&at=<ISO>` adds
 each cell's `shown` numbers in that period (`periods.shown`; totals by
 `_combine_shown`) for the board's "Show by" - goalnexa-frontend's

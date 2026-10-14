@@ -119,6 +119,8 @@ export interface Board {
   instances: Record<string, BoardInstance>;
   /** Team id, or "org" for the whole organization -> its total. */
   totals: Record<string, BoardTotal>;
+  /** Which totals are calculated (ticked): "org" and/or team ids. */
+  total_for: string[];
 }
 
 export function fetchTemplates(accessToken: string, orgId: string): Promise<GoalTemplate[]> {
@@ -169,6 +171,24 @@ export function applyTemplate(
     method: "POST",
     data: { teams, cycle: cycleId },
   });
+}
+
+/** Take teams out (unticked): a copy with check-ins is kept as the team's own goals, an empty one deleted. */
+export function leaveTemplate(
+  accessToken: string,
+  templateId: string,
+  teams: string[],
+  cycleId: string | null,
+): Promise<{ deleted: string[]; detached: string[] }> {
+  return apiRequest(`/api/v1/goal-templates/${templateId}/leave`, accessToken, {
+    method: "POST",
+    data: { teams, cycle: cycleId },
+  });
+}
+
+/** Which totals are calculated: "org" and/or ids of teams with sub-teams. */
+export function setTemplateTotals(accessToken: string, templateId: string, totalFor: string[]): Promise<{ total_for: string[] }> {
+  return apiRequest(`/api/v1/goal-templates/${templateId}/totals`, accessToken, { method: "POST", data: { total_for: totalFor } });
 }
 
 export function createTemplate(

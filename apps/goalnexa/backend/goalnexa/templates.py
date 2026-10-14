@@ -16,6 +16,8 @@ per cycle; rollup trees (`goalnexa.rollups`) use the same code.
 - `remove_template_goal` / `remove_template_metric`: an instance row with
   check-ins is DETACHED (becomes the team's own, history kept); an empty
   one is deleted; rollup rows are always deleted.
+- `leave_template` takes teams out (unticked on the board): a copy with
+  check-ins is detached, an empty one deleted.
 - `roll_over_instance` (closing a cycle): the team's instance in the next
   cycle, every target blank (= base) so the team commits again.
 """
@@ -318,6 +320,40 @@ def apply_template(template: GoalTemplate, team_ids, cycle, actor_id) -> list[Go
             roots.extend(g for g in goal_by_tg.values() if g.parent_id is None)
         schedule(template.id, cycle.id if cycle else None)
     return roots
+
+
+def leave_template(template: GoalTemplate, team_ids, cycle) -> dict:
+    """Take teams out of the template in `cycle` (unticked on the team
+    board). A team's copy with check-ins is DETACHED - kept as the team's
+    own goals, history and all; an empty one is deleted. Returns
+    {"deleted": [team ids], "detached": [team ids]}."""
+    from goalnexa.rollups import batched, schedule
+
+    out = {"deleted": [], "detached": []}
+    with batched():
+        for team_id in team_ids:
+            goals = list(tree_goals(template.id, team_id, cycle.id if cycle else None, False))
+            if not goals:
+                continue
+            metric_ids = Metric.objects.filter(goal__in=goals).values_list("id", flat=True)
+            if has_check_ins(metric_ids):
+                Metric.objects.filter(goal__in=goals).update(template_metric=None)
+                Goal.objects.filter(id__in=[g.id for g in goals]).update(template_goal=None)
+                out["detached"].append(str(team_id))
+            else:
+                Goal.objects.filter(id__in=[g.id for g in goals]).delete()
+                out["deleted"].append(str(team_id))
+        schedule(template.id, cycle.id if cycle else None)
+    return out
+
+
+def recompute_totals(template: GoalTemplate) -> None:
+    """Every cycle's totals - after `total_for` changed."""
+    from goalnexa.rollups import batched, schedule
+
+    with batched():
+        for cycle_id in {k[1] for k in tree_keys(template.id)}:
+            schedule(template.id, cycle_id)
 
 
 def roll_over_instance(goal: Goal, next_cycle) -> Goal | None:

@@ -13,6 +13,13 @@ class RollupRule(models.TextChoices):
     NONE = "none", "Not rolled up"
 
 
+ORG_TOTAL = "org"
+
+
+def default_total_for() -> list:
+    return [ORG_TOTAL]
+
+
 class GoalTemplate(TimestampedModel):
     """One goal system that several teams of an org run - its goals,
     sub-goals and metrics (the SHAPE), with each team's instance holding
@@ -26,6 +33,10 @@ class GoalTemplate(TimestampedModel):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     owner_id = models.UUIDField()
+    # Which totals are calculated: "org" and/or ids of teams with sub-teams
+    # (ticked on the team board). Null (a row the previous release wrote)
+    # = the org's only.
+    total_for = models.JSONField("totals for", null=True, blank=True, default=default_total_for)
 
     class Meta:
         db_table = "goal_template"

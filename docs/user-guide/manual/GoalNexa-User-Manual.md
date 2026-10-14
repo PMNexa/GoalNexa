@@ -634,20 +634,25 @@ Pick **Organization**, **Goal template**, **Cycle** and **Teams** at the
 top. Rows are the teams in their tree; columns are the template's
 metrics.
 
-- **Whole organization** and each department show **totals**, calculated
-  from the teams (read-only), with the planned target and the gap.
+- **Whole organization** and each department ticked in Targets show
+  **totals**, calculated from the teams below (read-only), with the
+  planned target and the gap.
 - Each team's cell shows current / target, %, and the pace needed
   ("≈ 2.16/week to go"). Cell colors go from red (behind) to green.
 - **Last update** shows when each team last checked in.
-- A team that doesn't run the template shows **Add**.
+- Only teams that run the template are shown; a line above the board
+  counts the others (**Add them in Targets**).
 
 ### Set targets
 
 1. Click **Targets** (top right).
 2. Type each team's **Start** and **Target**; on a total row, a
    **Planned** top-down target.
-3. Tick "Not set up" teams to add the template to them (**Add to N
-   teams**).
+3. The tick before a team's name says whether it runs the template:
+   tick to add it, untick to take it out (a team with check-ins keeps
+   them as its own goals). The tick on **Whole organization** or a
+   department adds up the teams below it into a total - only ticked ones
+   are calculated.
 4. Click **Save targets**.
 
 ![Targets mode](images/board-targets.png)

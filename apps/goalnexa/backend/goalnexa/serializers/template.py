@@ -22,6 +22,8 @@ class GoalTemplateSerializer(BaseSerializer):
             "description": {"help_text": "Optional. What it's for, and how teams should use it."},
             "org_id": {"label": "Organization", "help_text": "The organization whose teams run it. Only its owners and admins change the template."},
             "owner_id": {"read_only": True},
+            "total_for": {"read_only": True, "help_text": 'Which totals are calculated: "org" and/or ids of teams with '
+                          "sub-teams. Set with POST goal-templates/<id>/totals (the team board's ticks)."},
         }
         related_endpoints = {"org_id": "/api/v1/orgs"}
 

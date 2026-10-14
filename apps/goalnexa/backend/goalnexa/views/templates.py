@@ -54,6 +54,7 @@ from goalnexa.models import (
 )
 from goalnexa.periods import local_date, pace_hint, shown, zone_for
 from goalnexa.progress import metric_pct, refresh_goal, refresh_metric
+from goalnexa.models.template import ORG_TOTAL, default_total_for
 from goalnexa.rollups import batched, combine, schedule
 from goalnexa.serializers import GoalTemplateSerializer, TemplateGoalSerializer, TemplateMetricSerializer
 from goalnexa.teams import can_plan, can_set_targets, can_check_in, is_org_manager, team_names, team_parents
@@ -65,6 +66,8 @@ from goalnexa.templates import (
     remove_template_goal,
     remove_template_metric,
     apply_template,
+    leave_template,
+    recompute_totals,
 )
 from goalnexa.teams import subtree
 
@@ -194,6 +197,63 @@ class GoalTemplateViewSet(BaseViewSet):
         for root in roots:
             record(root.id, ActivityVerb.GOAL_CREATED, request.user.id, title=root.title, template=template.title)
         return Response({"goals": [str(r.id) for r in roots]}, status=201)
+
+    @extend_schema(
+        description="Take teams out of the template in a cycle (organization owners and admins): a team's "
+        "copy with check-ins is detached - kept as the team's own goals - and an empty one is deleted.",
+        request=inline_serializer("LeaveTemplate", {
+            "teams": serializers.ListField(child=serializers.UUIDField(), help_text="Team ids, in the template's organization."),
+            "cycle": serializers.UUIDField(required=False, allow_null=True, help_text="The cycle, or null for none."),
+        }),
+        responses={200: inline_serializer("LeftTemplate", {
+            "deleted": serializers.ListField(child=serializers.UUIDField()),
+            "detached": serializers.ListField(child=serializers.UUIDField()),
+        })},
+    )
+    @action(detail=True, methods=["post"])
+    def leave(self, request, pk=None):
+        template = self.get_object()
+        _check_manager(request, template.org_id)
+        team_ids = request.data.get("teams")
+        if not isinstance(team_ids, list) or not team_ids:
+            raise ValidationError({"teams": ["Pick at least one team."]})
+        known = {str(t): t for t in team_parents(template.org_id)}
+        if any(str(t) not in known for t in team_ids):
+            raise ValidationError({"teams": ["Only teams of the template's organization."]})
+        cycle = self._cycle(template, request.data.get("cycle"), open_only=True)
+        with transaction.atomic():
+            result = leave_template(template, [known[str(t)] for t in team_ids], cycle)
+        return Response(result)
+
+    @extend_schema(
+        description="Which totals the template calculates (organization owners and admins): \"org\" for the "
+        "whole organization and/or teams that have sub-teams. Replaces the list; every cycle's totals follow.",
+        request=inline_serializer("TemplateTotals", {
+            "total_for": serializers.ListField(child=serializers.CharField(), help_text='"org" and/or team ids.'),
+        }),
+        responses={200: inline_serializer("TemplateTotalsSet", {"total_for": serializers.ListField(child=serializers.CharField())})},
+    )
+    @action(detail=True, methods=["post"])
+    def totals(self, request, pk=None):
+        template = self.get_object()
+        _check_manager(request, template.org_id)
+        wanted = request.data.get("total_for")
+        if not isinstance(wanted, list):
+            raise ValidationError({"total_for": ["A list: \"org\" and/or team ids."]})
+        parents = team_parents(template.org_id)
+        with_children = {str(p) for p in parents.values() if p}
+        picked = []
+        for item in wanted:
+            item = str(item)
+            if item != ORG_TOTAL and item not in with_children:
+                raise ValidationError({"total_for": ["Only \"org\" or a team of the organization that has sub-teams."]})
+            if item not in picked:
+                picked.append(item)
+        with transaction.atomic():
+            template.total_for = picked
+            template.save(update_fields=["total_for", "updated_at"])
+            recompute_totals(template)
+        return Response({"total_for": picked})
 
     @extend_schema(
         description="Everything the team board shows for one cycle: the template's goals and metrics, the "
@@ -360,6 +420,7 @@ class GoalTemplateViewSet(BaseViewSet):
                 instances[key] = {"visible": False, "goals": {}, "metrics": {}}
         return Response({
             "template": {"id": str(template.id), "title": template.title, "org_id": str(template.org_id)},
+            "total_for": template.total_for if template.total_for is not None else default_total_for(),
             "cycle": str(cycle_id) if cycle_id else None,
             "show": show,
             "can_manage": is_org_manager(request, template.org_id),
