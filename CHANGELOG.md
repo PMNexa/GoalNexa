@@ -9,6 +9,11 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Teams org chart**: Organizations > Teams opens as an org chart - the
+  organization on top, each team with its lead and members, sub-teams
+  below. Owners and admins create, rename, move and delete teams and
+  add, promote and remove people right on the chart; "List" switches to
+  the table.
 - **One reading per period** (`docs/period-targets.md`). A metric can
   count only the last check-in of each day, week, month, quarter or year
   ("Which check-ins count"): a later check-in replaces the earlier one,

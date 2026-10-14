@@ -282,6 +282,11 @@ tree + `TeamMembership` lead/member, `/api/v1/teams`, `/api/v1/team-members`;
 org owners/admins change them; leaving the org leaves its teams; deleting
 a team moves its sub-teams up and sends `core_api.system.team_removed`,
 `?instances=move|archive`; every tree change sends `team_changed`).
+Their page (`/platform-org/teams`, platform-org's `routes/teams.tsx`) is
+an org chart by default (`TeamChartScreen`: the org on top, each team a
+card with its lead(s) and members; owners/admins add, rename, move and
+delete teams and add, promote and remove people in place) or the generic
+list (`?view=list`, remembered per browser).
 goalnexa reads teams through core's registry by endpoint, never platform-org's
 models (`goalnexa/teams.py`, also the permission rules). A **template**
 (`GoalTemplate` -> `TemplateGoal` tree -> `TemplateMetric`, org owners/admins
