@@ -96,7 +96,11 @@ const BOARD_CSS = `.gn-board-wrap { overflow-x: auto; }
 .gn-board tr.gn-total > * { background: var(--tblr-bg-surface-secondary, #f6f8fb); font-weight: 600; }
 .gn-board tr.gn-muted > * { color: var(--tblr-secondary, #667382); }
 .gn-board tr.gn-group > * { background: var(--tblr-bg-surface-secondary, #f6f8fb); font-weight: 600; }
-.gn-board .gn-pick { width: 1px; text-align: center; padding-left: .45rem; padding-right: .45rem; }
+.gn-board .gn-pick { position: sticky; z-index: 1; width: 3rem; min-width: 3rem; max-width: 3rem; text-align: center; padding-left: .3rem; padding-right: .3rem; }
+.gn-board .gn-pick-own { left: var(--gn-team-w, 0px); }
+.gn-board .gn-pick-total { left: calc(var(--gn-team-w, 0px) + 3rem); box-shadow: inset -1px 0 0 var(--tblr-border-color, #e6e7e9); }
+.gn-board.gn-picking .gn-team { box-shadow: none; }
+.gn-board thead .gn-pick { z-index: 3; }
 .gn-board thead th.gn-pick { text-align: center; font-size: .75rem; vertical-align: bottom; }
 .gn-board .gn-pick .form-check-input { margin: 0; float: none; }
 .gn-board .gn-board-goal { border-left: 2px solid var(--tblr-border-color, #e6e7e9); }
@@ -425,6 +429,17 @@ function TeamBoardScreen({
   // The template wizard: open for a new template, or to set up an empty one.
   const [wizard, setWizard] = useState<{ existing: GoalTemplate | null } | null>(null);
   const [orgTeams, setOrgTeams] = useState<TeamOption[]>([]);
+
+  // Targets mode's tick columns stick next to the team column, whose width
+  // follows its longest name - so their offset is measured (`--gn-team-w`).
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    const team = wrap?.querySelector<HTMLElement>("thead .gn-team");
+    if (!wrap || !team) return;
+    const observer = new ResizeObserver(() => wrap.style.setProperty("--gn-team-w", `${team.offsetWidth}px`));
+    observer.observe(team);
+    return () => observer.disconnect();
+  }, [board, mode]);
 
   // The page scrolls, not the board (it only scrolls sideways, for many
   // columns) - and a sideways scroll box would pin a CSS-sticky header to
@@ -964,11 +979,11 @@ function TeamBoardScreen({
 
   /** Targets mode, managers: the "Own" and "Total" ticks of a row. */
   function pickCells(row: Row) {
-    if (row.kind === "instance" && row.own) return [<td key="own" className="gn-pick" />, <td key="total" className="gn-pick" />];
+    if (row.kind === "instance" && row.own) return [<td key="own" className="gn-pick gn-pick-own" />, <td key="total" className="gn-pick gn-pick-total" />];
     const owns = row.kind === "instance" ? !row.missing : row.kind === "total" ? !!row.owns : null;
     const leaf = row.kind === "instance";
     return [
-      <td key="own" className="gn-pick">
+      <td key="own" className="gn-pick gn-pick-own">
         {owns === null ? (
           <span className="text-secondary" title="The whole organization is the sum of its teams">-</span>
         ) : (
@@ -982,7 +997,7 @@ function TeamBoardScreen({
           />
         )}
       </td>,
-      <td key="total" className="gn-pick">
+      <td key="total" className="gn-pick gn-pick-total">
         <Checkbox
           disabled={busy || leaf}
           checked={!leaf && !!row.ticked}
@@ -1258,7 +1273,7 @@ function TeamBoardScreen({
                 </div>
               )}
               <div ref={wrapRef} className="gn-board-wrap">
-                <table className="gn-board">
+                <table className={`gn-board${picking ? " gn-picking" : ""}`}>
                   <thead>
                     <tr>
                       <th className="gn-team" rowSpan={2}>
@@ -1269,10 +1284,10 @@ function TeamBoardScreen({
                       </th>
                       {picking && (
                         <>
-                          <th className="gn-pick" rowSpan={2} title="The team runs the template: it has its own targets and check-ins">
+                          <th className="gn-pick gn-pick-own" rowSpan={2} title="The team runs the template: it has its own targets and check-ins">
                             Own
                           </th>
-                          <th className="gn-pick" rowSpan={2} title="Add up the teams below into a total">
+                          <th className="gn-pick gn-pick-total" rowSpan={2} title="Add up the teams below into a total">
                             Total
                           </th>
                         </>
