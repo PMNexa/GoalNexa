@@ -156,8 +156,8 @@ date (default now), mode: **Check in** | **Targets**.
                      │ Revenue                         │ Hiring (sub-goal)
 Team                 │ MRR ($)          │ Deals (#)     │ Hires (#)
 ─────────────────────┼──────────────────┼───────────────┼──────────────
-▾ Sales (total)      │ 82k / 100k  ⚑120k  gap -20k      │ ...   read-only
-    Sales (own)      │ [ 12k ] 15k      │ [   ] 3/5  ⏰ │ ...
+▾ Sales            │ [ 12k ] 15k      │ [   ] 3/5  ⏰ │ ...
+                     │ Total 82k / 100k │ Total 30/40   │      read-only
   ▾ North (total)    │ 40k / 50k        │ ...           │
       Team A         │ [ 22k ] 25k      │ [ 2 ] 8/10    │ [ 1 ] 1/2
       Team B         │ [     ] 18/25k   │ ...           │
@@ -167,8 +167,10 @@ Team                 │ MRR ($)          │ Deals (#)     │ Hires (#)
 - **Columns**: grouped headers goal -> sub-goal -> metric (unit),
   template metrics only. A team's local metrics expand in a row under it.
 - **Rows**: the team tree, indented, collapsible. Leaf team: one editable
-  row. Middle team with an instance: read-only **total** row + editable
-  **own** row. Middle team without: total row only.
+  row. Middle team with an instance: ONE row, its own editable numbers,
+  with its total (if ticked) as a read-only line under each cell - no
+  "(own)" row; its Planned target isn't editable there. Middle team
+  without: total row only.
 - **Cell**: current / target, an input, due clock (`isCheckInDue`),
   progress heat in health colors, note popover.
 - **Input meaning**: `sum` = amount done ("+12"); `latest` = the new

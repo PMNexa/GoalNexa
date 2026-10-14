@@ -14,6 +14,8 @@ of you beyond the usual upgrade steps.
   to the template or takes it out (a team with check-ins keeps them as
   its own goals); "Total" calculates a department's or the whole
   organization's total - a department's total is no longer automatic.
+  A department with its own targets is one row: its own numbers, its
+  total as a line under each cell. Both columns stay pinned.
   Check in shows only the teams that run the template, with a count of
   the others. The team column is only as wide as its longest name.
   Existing totals stay ticked.
@@ -275,6 +277,8 @@ of you beyond the usual upgrade steps.
 
 ### Fixed
 
+- **Folded sidebar**: a group's flyout no longer closes while the
+  pointer moves from the icon onto it.
 - Team board "Show by": a reading metric shows only a check-in made in
   that period ("—, no check-in"), no longer the last earlier reading.
 - Forms show why a save was refused, under each field and spelled out,

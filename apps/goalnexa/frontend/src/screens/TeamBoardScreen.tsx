@@ -97,6 +97,7 @@ const BOARD_CSS = `.gn-board-wrap { overflow-x: auto; }
 .gn-board tr.gn-muted > * { color: var(--tblr-secondary, #667382); }
 .gn-board tr.gn-group > * { background: var(--tblr-bg-surface-secondary, #f6f8fb); font-weight: 600; }
 .gn-board .gn-pick { position: sticky; z-index: 1; width: 3rem; min-width: 3rem; max-width: 3rem; text-align: center; padding-left: .3rem; padding-right: .3rem; }
+.gn-board .gn-total-line { margin-top: .3rem; padding-top: .2rem; border-top: 1px dashed var(--tblr-border-color, #e6e7e9); font-weight: 600; }
 .gn-board .gn-pick-own { left: var(--gn-team-w, 0px); }
 .gn-board .gn-pick-total { left: calc(var(--gn-team-w, 0px) + 3rem); box-shadow: inset -1px 0 0 var(--tblr-border-color, #e6e7e9); }
 .gn-board.gn-picking .gn-team { box-shadow: none; }
@@ -263,12 +264,10 @@ interface Row {
   instance?: BoardInstance;
   /** A team with no instance yet - can be ticked to apply the template. */
   missing?: boolean;
-  own?: boolean;
   /** A total row: whether it's ticked to be calculated (`Board.total_for`). */
   ticked?: boolean;
-  /** A team with sub-teams (its total row): whether it has goals of its own - its "Own goals" tick. */
-  owns?: boolean;
-  ownInstance?: BoardInstance;
+  /** A team with sub-teams that has its own copy: one row with its own numbers, and its total (if ticked) under each cell. */
+  parent?: boolean;
 }
 
 interface Column {
@@ -303,8 +302,8 @@ function goalOrder(board: Board): { id: string; title: string; depth: number }[]
 /**
  * The board's rows. Targets mode shows every team: a tick on a team's row
  * adds it to the template (or takes it out), a tick on a total calculates
- * it. A team with sub-teams has both on its one row ("Own goals", "Total");
- * its "(own)" row, where its own targets go, shows once it has a copy. Check in mode shows only what's in play - teams with a copy, the
+ * it. A team with sub-teams that has its own copy is one row: its own
+ * numbers, with its total (if ticked) as a line under each cell. Check in mode shows only what's in play - teams with a copy, the
  * totals that are calculated, and the name of a team with sub-teams that
  * holds them - and counts the teams left out (`notJoined`).
  */
@@ -328,17 +327,15 @@ function buildRows(board: Board, root: string, mode: Mode): { rows: Row[]; notJo
       return [];
     }
     const below = kids.flatMap((kid) => visit(kid, depth + 1));
-    const own: Row[] =
-      instance
-        ? [{ key: `own-${team.id}`, kind: "instance", label: `${team.name} (own)`, depth: depth + 1, team, instance, missing: !instance, own: true }]
-        : [];
     const total = board.totals[team.id];
-    if (!targets && own.length === 0 && below.length === 0) return [];
+    const ticked = totalFor.has(team.id);
+    if (instance) return [{ key: `team-${team.id}`, kind: "instance", label: team.name, depth, team, instance, total, ticked, parent: true }, ...below];
+    if (!targets && below.length === 0) return [];
     const head: Row =
       targets || total
-        ? { key: `total-${team.id}`, kind: "total", label: team.name, depth, team, total, ticked: totalFor.has(team.id), owns: !!instance, ownInstance: instance }
+        ? { key: `total-${team.id}`, kind: "total", label: team.name, depth, team, total, ticked }
         : { key: `group-${team.id}`, kind: "group", label: team.name, depth, team };
-    return [head, ...own, ...below];
+    return [head, ...below];
   };
   const rows: Row[] = [];
   if (!root && (targets || board.totals.org)) {
@@ -872,6 +869,22 @@ function TeamBoardScreen({
     );
   }
 
+  /** A team with sub-teams and its own copy: its ticked total, as a line under its own numbers. */
+  function totalLine(row: Row, column: Column) {
+    if (!row.parent || !row.ticked) return null;
+    const numbers = row.total?.metrics[column.metric.id];
+    if (!numbers) return <span className="gn-sub gn-total-line">Total -</span>;
+    return (
+      <span className="gn-sub gn-total-line" title="The total of this team and every team below it">
+        Total{" "}
+        {numbers.target_per && numbers.target_value !== numbers.base_value
+          ? periodLine(numbers)
+          : `${fmt(numbers.current_value)} / ${fmt(numbers.target_value)}`}
+        {numbers.progress !== null && ` · ${Math.round(numbers.progress)}%`}
+      </span>
+    );
+  }
+
   function instanceCell(row: Row, column: Column) {
     const instance = row.instance;
     const numbers = instance?.metrics[column.metric.id];
@@ -890,6 +903,7 @@ function TeamBoardScreen({
             </span>
           )}
           {instance.can_check_in && checkInInput(numbers, column, row)}
+          {totalLine(row, column)}
         </td>
       );
     }
@@ -946,6 +960,7 @@ function TeamBoardScreen({
             {mode === "checkin" && instance.can_check_in && checkInInput(numbers, column, row)}
           </>
         )}
+        {totalLine(row, column)}
       </td>
     );
   }
@@ -973,15 +988,19 @@ function TeamBoardScreen({
         {update && !update.on_day && (
           <span className="gn-sub">{update.last ? `last ${updateDate.format(Date.parse(update.last))}` : "no check-ins yet"}</span>
         )}
+        {row.parent && row.ticked && row.total?.updated?.[goalId] && (
+          <span className="gn-sub gn-total-line">
+            {row.total.updated[goalId].updated}/{row.total.updated[goalId].teams} teams
+          </span>
+        )}
       </td>
     );
   }
 
   /** Targets mode, managers: the "Own" and "Total" ticks of a row. */
   function pickCells(row: Row) {
-    if (row.kind === "instance" && row.own) return [<td key="own" className="gn-pick gn-pick-own" />, <td key="total" className="gn-pick gn-pick-total" />];
-    const owns = row.kind === "instance" ? !row.missing : row.kind === "total" ? !!row.owns : null;
-    const leaf = row.kind === "instance";
+    const owns = row.kind === "instance" ? !row.missing : row.kind === "total" ? false : null;
+    const leaf = row.kind === "instance" && !row.parent;
     return [
       <td key="own" className="gn-pick gn-pick-own">
         {owns === null ? (
@@ -992,7 +1011,7 @@ function TeamBoardScreen({
             checked={owns}
             aria-label={`${row.label} has its own targets`}
             onChange={(checked) =>
-              checked ? void join(row) : setLeaving(leaf ? row : { ...row, instance: row.ownInstance })
+              checked ? void join(row) : setLeaving(row)
             }
           />
         )}

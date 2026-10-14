@@ -651,7 +651,8 @@ metrics.
 3. Two tick columns follow the team names. **Own**: the team runs the
    template, with its own targets and check-ins - tick to add it, untick
    to take it out (a team with check-ins keeps them as its own goals); a
-   department's own targets go in its "(own)" row. **Total**: the
+   department with its own targets keeps them on its own row, with its
+   total (if ticked) as a line under each cell. **Total**: the
    department, or **Whole organization**, adds up the teams below it -
    only ticked totals are calculated. A team with no teams below has no
    Total.
