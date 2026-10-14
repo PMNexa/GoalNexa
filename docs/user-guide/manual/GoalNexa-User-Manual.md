@@ -648,11 +648,13 @@ metrics.
 1. Click **Targets** (top right).
 2. Type each team's **Start** and **Target**; on a total row, a
    **Planned** top-down target.
-3. The tick before a team's name says whether it runs the template:
-   tick to add it, untick to take it out (a team with check-ins keeps
-   them as its own goals). The tick on **Whole organization** or a
-   department adds up the teams below it into a total - only ticked ones
-   are calculated.
+3. Two tick columns follow the team names. **Own**: the team runs the
+   template, with its own targets and check-ins - tick to add it, untick
+   to take it out (a team with check-ins keeps them as its own goals); a
+   department's own targets go in its "(own)" row. **Total**: the
+   department, or **Whole organization**, adds up the teams below it -
+   only ticked totals are calculated. A team with no teams below has no
+   Total.
 4. Click **Save targets**.
 
 ![Targets mode](images/board-targets.png)

@@ -308,7 +308,8 @@ synthetic check-ins (`source="rollup"`, one per day). They're triggered from
 Totals are read-only everywhere and don't count toward `max_goals`.
 **Team board**: `GET goal-templates/<id>/board?cycle=` (one call with the
 grid), `POST goal-templates/<id>/targets`, `POST goal-templates/<id>/apply`
-(ticking a team in Targets mode; unticking = `/leave`: a copy with
+(Targets mode's "Own" tick column; its "Total" column = `totals`;
+unticking Own = `/leave`: a copy with
 check-ins is detached, an empty one deleted; Check in mode shows only
 teams that run the template),
 `POST check-ins/bulk` (all or nothing); `board?show=<period>&at=<ISO>` adds
