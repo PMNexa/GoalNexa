@@ -393,9 +393,12 @@ class BoardShowByTests(TestCase):
         data = board(show="day", periods=3)
         north_calls = data["instances"][north["id"]]["metrics"][calls["id"]]
         self.assertNotIn("history", north_calls["shown"])
-        self.assertEqual([h["value"] for h in north_calls["history"]], [0.0, 6.0, 4.0])
+        # A period with nothing checked in is None, not 0.
+        self.assertEqual([h["value"] for h in north_calls["history"]], [None, 6.0, 4.0])
+        self.assertEqual([h["count"] for h in north_calls["history"]], [0, 1, 1])
+        self.assertEqual(north_calls["history"][-1]["last_at"][:13], noon.isoformat()[:13])
         self.assertEqual(north_calls["history"][-1]["start"], noon.date().isoformat())
-        self.assertEqual([h["value"] for h in data["totals"]["org"]["metrics"][calls["id"]]["history"]], [0.0, 13.0, 4.0])
+        self.assertEqual([h["value"] for h in data["totals"]["org"]["metrics"][calls["id"]]["history"]], [None, 13.0, 4.0])
         self.assertNotIn("history", board(show="day")["instances"][north["id"]]["metrics"][calls["id"]])
         for bad in ({"periods": 3}, {"show": "day", "periods": -1}, {"show": "day", "periods": 61}, {"show": "day", "periods": "x"}):
             self.assertEqual(self.alice.get(f"{API}/goal-templates/{template['id']}/board", bad).status_code, 400, bad)

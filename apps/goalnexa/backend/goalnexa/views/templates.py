@@ -107,11 +107,13 @@ def _num(value) -> float | None:
 def _combine_shown(rule: str, rows: list[dict]) -> dict | None:
     """A total's numbers in a shown period, from its teams': added up, the
     mean or the lowest (by the template metric's rule) - None when it isn't
-    totalled or no team has a number yet."""
+    totalled; `value` None when no team checked in in that period."""
     values = [row["value"] for row in rows if row["value"] is not None]
-    if rule == RollupRule.NONE or not rows or not values:
+    if rule == RollupRule.NONE or not rows:
         return None
-    if rule == RollupRule.SUM:
+    if not values:
+        value = None
+    elif rule == RollupRule.SUM:
         value = sum(values)
     elif rule == RollupRule.AVG:
         value = sum(values) / len(values)
@@ -121,8 +123,10 @@ def _combine_shown(rule: str, rows: list[dict]) -> dict | None:
     quota = None
     if quotas and all(q is not None for q in quotas):
         quota = sum(quotas) if rule == RollupRule.SUM else sum(quotas) / len(quotas) if rule == RollupRule.AVG else None
-    return {"start": rows[0]["start"], "last": rows[0]["last"], "value": round(value, 2),
-            "quota": None if quota is None else round(quota, 2)}
+    times = [row["last_at"] for row in rows if row.get("last_at")]
+    return {"start": rows[0]["start"], "last": rows[0]["last"], "value": None if value is None else round(value, 2),
+            "quota": None if quota is None else round(quota, 2),
+            "count": sum(row.get("count", 0) for row in rows), "last_at": max(times) if times else None}
 
 
 class GoalTemplateViewSet(BaseViewSet):

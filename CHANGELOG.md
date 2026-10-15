@@ -13,6 +13,15 @@ of you beyond the usual upgrade steps.
   and metrics, columns the last 14 days (or weeks, months... with Show
   by), each cell what was done in that period against its target
   (`board?show=&periods=N`). The pickers fold to one line (remembered).
+- **Team board charts**: Check in and Over time switch between Table and
+  Chart (remembered). Check in's chart is a bar per team for each metric,
+  as a % of its target (totals last); Over time's, a line per team across
+  the periods, hover for every team's and total's numbers.
+- **Over time cells**: hover for the details (period, value / target, %,
+  how many check-ins and when); click a team's cell to type its number for
+  that period - a reading is checked in as is, an amount as the difference.
+  A period with no check-in shows "—", not 0 (`shown`/`history` cells
+  carry `count` and `last_at`; `value` is null then, SUM metrics too).
 - **Team board: pick who plays and what adds up**. In Targets, two tick
   columns next to the team names: "Own" adds a team (a department too)
   to the template or takes it out (a team with check-ins keeps them as

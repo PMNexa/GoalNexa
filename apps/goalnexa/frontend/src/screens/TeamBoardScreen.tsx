@@ -14,6 +14,8 @@ import {
   type LinkComponent,
 } from "platform-core";
 import TemplateWizard from "./TemplateWizard";
+import { BOARD_CHART_CSS, BoardBarCharts, BoardLineCharts, type ChartPoint, type ChartSeries } from "./board/BoardCharts";
+import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
 import { fetchCycles, type Cycle } from "../lib/api/cycles";
 import { fetchOrgs, fetchTeams, type OrgOption, type TeamOption } from "../lib/api/dashboard";
 import { apiRequest } from "../lib/api/client";
@@ -67,6 +69,13 @@ const MODES: { value: Mode; label: string }[] = [
   { value: "targets", label: "Targets" },
   { value: "history", label: "Over time" },
 ];
+/** Check in and Over time show the board as a table or as charts (remembered per browser). */
+type View = "table" | "chart";
+const VIEWS: { value: View; label: string }[] = [
+  { value: "table", label: "Table" },
+  { value: "chart", label: "Chart" },
+];
+const VIEW_KEY = "goalnexa:board-view";
 /** "Over time": how many periods it shows, up to the picked day. */
 const HISTORY_COUNT: Record<Snap, number> = { day: 14, week: 12, month: 12, quarter: 8, year: 5 };
 const NO_CYCLE = "none";
@@ -91,6 +100,13 @@ const BOARD_CSS = `.gn-board-wrap { overflow-x: auto; }
 .gn-history .gn-history-goal { font-weight: 600; }
 .gn-history .gn-history-metric { font-weight: 400; }
 .gn-history td.gn-num, .gn-history th.gn-num { text-align: right; }
+.gn-history td.gn-period-edit { cursor: pointer; }
+.gn-history td.gn-period-edit:hover, .gn-history td.gn-period-edit:focus-visible { box-shadow: inset 0 0 0 1px var(--tblr-primary, #066fd1); outline: none; }
+.gn-history input.form-control { width: 6rem; text-align: right; }
+.gn-period-tip { position: fixed; z-index: 1080; pointer-events: none; max-width: 280px; padding: .4rem .6rem; border-radius: 6px; font-size: .75rem; line-height: 1.45;
+  background: var(--tblr-bg-surface, #fff); color: var(--tblr-body-color, #1d273b); border: 1px solid var(--tblr-border-color, #e6e7e9); box-shadow: 0 4px 16px rgba(0, 0, 0, .12); }
+.gn-period-tip > div:first-child { font-weight: 600; }
+.gn-period-tip > div:last-child:not(:first-child) { color: var(--tblr-secondary, #667382); }
 .gn-fold-btn { display: inline-flex; align-items: center; gap: .4rem; max-width: 100%; min-width: 0; font-weight: 500; }
 .gn-board-card:fullscreen { background: var(--tblr-body-bg, #f6f8fb); padding: 1rem; overflow: auto; }
 .gn-board-card:fullscreen .gn-board-wrap { overflow: auto; max-height: calc(100vh - 6.5rem); }
@@ -248,6 +264,34 @@ function whenFor(start: number, per: Snap): string {
   return start === periodStart(Date.now(), per) ? nowLocal() : localInput(midPeriod(start, per));
 }
 
+const SNAP_RANK: Record<string, number> = { day: 0, week: 1, month: 2, quarter: 3, year: 4 };
+
+/**
+ * Whether an "Over time" cell can be set by one check-in: not when the
+ * metric keeps one reading per a different period (the new one would
+ * replace another), or snaps check-ins to a longer one (it would land
+ * outside the cell).
+ */
+function periodEditable(metric: BoardMetric, per: Snap): boolean {
+  if (metric.one_per && metric.one_per !== per && metric.aggregation === "sum") return false;
+  return !metric.snap_to || SNAP_RANK[metric.snap_to] <= SNAP_RANK[per];
+}
+
+/** When a check-in that sets an "Over time" cell is made: now in the current period, else inside it - a reading at its end, so it's the period's last. */
+function periodCheckInAt(cell: ShownNumbers, per: Snap, reading: boolean): string {
+  const [y, m, d] = cell.start.split("-").map(Number);
+  const start = new Date(y, m - 1, d).getTime();
+  if (start === periodStart(Date.now(), per)) return new Date().toISOString();
+  if (reading) {
+    const [ly, lm, ld] = cell.last.split("-").map(Number);
+    return new Date(ly, lm - 1, ld, 23, 59).toISOString();
+  }
+  return new Date(midPeriod(start, per)).toISOString();
+}
+
+const tipTime = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const tipDay = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+
 function today(): string {
   return nowLocal().slice(0, 10);
 }
@@ -276,6 +320,18 @@ interface Row {
   ticked?: boolean;
   /** A team with sub-teams that has its own copy: one row with its own numbers, and its total (if ticked) under each cell. */
   parent?: boolean;
+}
+
+/** A team's (or total's) cells, for Over time and the charts. */
+interface BoardBlock {
+  key: string;
+  label: string;
+  /** "Total" on a total. */
+  sub?: string;
+  depth: number;
+  metrics: Record<string, CellNumbers>;
+  /** A team's own copy the user may check in on. */
+  canCheckIn?: boolean;
 }
 
 interface Column {
@@ -431,6 +487,12 @@ function TeamBoardScreen({
     setPickersFoldedState(value);
     writeStored(PICKERS_KEY, value);
   }
+  const [view, setViewState] = useState<View>(() => readStored<View>(VIEW_KEY, "table"));
+  function setView(value: View) {
+    setViewState(value);
+    writeStored(VIEW_KEY, value);
+    resetDrafts();
+  }
   function setShow(value: Snap | "") {
     setShowState(value);
     writeStored(SHOW_KEY, value);
@@ -440,6 +502,7 @@ function TeamBoardScreen({
   const boardAt = when ? new Date(when).toISOString() : "";
   // "Over time": one column per period (Show by; a day when it's "Running totals").
   const historyPer: Snap | null = mode === "history" ? show || "day" : null;
+  const charting = mode !== "targets" && view === "chart";
   const [values, setValues] = useState<Map<string, string>>(new Map());
   const [notes, setNotes] = useState<Map<string, string>>(new Map());
   const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
@@ -449,14 +512,26 @@ function TeamBoardScreen({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // The template wizard: open for a new template, or to set up an empty one.
+  // "Over time": the cell being typed into, and the hovered one's details (floating under it).
+  const [periodEdit, setPeriodEdit] = useState<{ key: string; value: string } | null>(null);
+  const [periodTip, setPeriodTip] = useState<{ left: number; top: number; lines: string[] } | null>(null);
+  // Esc drops the typed number - the input's blur then mustn't save it.
+  const periodCancel = useRef(false);
   const [wizard, setWizard] = useState<{ existing: GoalTemplate | null } | null>(null);
   const [orgTeams, setOrgTeams] = useState<TeamOption[]>([]);
 
-  // "Over time" opens on the latest periods (the right end).
+  // "Over time" opens on the latest periods (the right end) - once per board
+  // shown, so saving a cell (which reloads it) keeps the scroll where it was.
+  const scrolledFor = useRef("");
   useEffect(() => {
     const wrap = wrapRef.current;
-    if (wrap && mode === "history") wrap.scrollLeft = wrap.scrollWidth;
-  }, [board, mode]);
+    const key = `${mode}:${board?.template.id}:${board?.cycle}:${historyPer}:${boardAt}:${view}`;
+    // Not before the board with the periods is in (switching keeps the previous one meanwhile).
+    const hasHistory = !!board && Object.values(board.instances).some((i) => Object.values(i.metrics).some((n) => n.history));
+    if (!wrap || mode !== "history" || !hasHistory || scrolledFor.current === key) return;
+    scrolledFor.current = key;
+    wrap.scrollLeft = wrap.scrollWidth;
+  }, [board, mode, historyPer, boardAt, view]);
 
   // Targets mode's tick columns stick next to the team column, whose width
   // follows its longest name - so their offset is measured (`--gn-team-w`).
@@ -891,25 +966,121 @@ function TeamBoardScreen({
    * columns the periods up to the picked day; a cell is what was done in
    * that period (or its last reading), against its target per that period.
    */
-  function historyTable(per: Snap) {
-    if (!board) return null;
-    const blocks: { key: string; label: string; sub?: string; depth: number; metrics: Record<string, CellNumbers> }[] = [];
+  /** The board's teams and calculated totals, in row order, with their cells - for Over time and the charts. */
+  function boardBlocks(): BoardBlock[] {
+    const blocks: BoardBlock[] = [];
     for (const row of rows) {
       if (row.kind === "group") continue;
       const own = row.kind === "instance" && row.instance?.visible ? row.instance.metrics : null;
-      if (own) blocks.push({ key: row.key, label: row.label, depth: row.depth, metrics: own });
+      if (own) blocks.push({ key: row.key, label: row.label, depth: row.depth, metrics: own, canCheckIn: !!row.instance?.can_check_in });
       const total = (row.kind !== "instance" || (row.parent && row.ticked)) && row.total ? row.total.metrics : null;
       if (total) {
         blocks.push({ key: `${row.key}-total`, label: row.label, sub: "Total", depth: row.depth, metrics: total });
       }
     }
-    // The periods' first days, from any cell that has them all (a team's always does).
+    return blocks;
+  }
+
+  /** Over time's periods: their first days, from any cell that has them all (a team's always does), and their names. */
+  function historyStarts(blocks: ReturnType<typeof boardBlocks>, per: Snap) {
     const sample = blocks.flatMap((b) => Object.values(b.metrics)).find((n) => n.history?.length && n.history.every(Boolean));
     const starts = sample?.history?.map((h) => h!.start) ?? [];
     const label = (start: string) => {
       const [y, m, d] = start.split("-").map(Number);
       return periodLabel(new Date(y, m - 1, d).getTime(), per);
     };
+    return { starts, label };
+  }
+
+  /** A Check in cell as one number for its bar - the same number its table cell leads with. */
+  function chartPoint(numbers: CellNumbers, metric: BoardMetric): ChartPoint {
+    if (showing) {
+      const shown = numbers.shown;
+      if (!shown) return { value: null, target: null, pct: null };
+      const target =
+        shown.quota !== null ? shown.quota
+        : metric.aggregation === "latest" && !numbers.target_per && numbers.target_value !== numbers.base_value ? numbers.target_value
+        : null;
+      return { value: shown.value, target, pct: shownPct(shown, numbers, metric) };
+    }
+    if (numbers.target_value === numbers.base_value) return { value: numbers.current_value, target: null, pct: null };
+    if (numbers.target_per) {
+      const pace = numbers.pace;
+      if (!pace || pace.in_period === false || !pace.quota) return { value: numbers.current_value, target: null, pct: null };
+      const done = pace.done ?? 0;
+      return { value: done, target: pace.quota, pct: (done / pace.quota) * 100 };
+    }
+    return { value: numbers.current_value, target: numbers.target_value, pct: numbers.progress };
+  }
+
+  function boardCharts() {
+    if (!board) return null;
+    const blocks = boardBlocks();
+    const series: ChartSeries[] = blocks.map((b) => ({ key: b.key, label: b.label, total: !!b.sub, metrics: b.metrics }));
+    const goals = goalOrder(board);
+    if (historyPer) {
+      const { starts, label } = historyStarts(blocks, historyPer);
+      return <BoardLineCharts goals={goals} metrics={board.metrics} series={series} starts={starts} label={label} />;
+    }
+    return <BoardBarCharts goals={goals} metrics={board.metrics} series={series} point={chartPoint} />;
+  }
+
+  /**
+   * Sets an "Over time" cell to `typed`: a reading (or a one-per-period
+   * total) is checked in as is; an amount, as the difference from what the
+   * period has - its check-ins stay.
+   */
+  async function savePeriod(metric: BoardMetric, numbers: CellNumbers, cell: ShownNumbers, per: Snap, typed: string) {
+    setPeriodEdit(null);
+    const text = typed.trim();
+    if (text === "" || (cell.value !== null && Number(text) === cell.value)) return;
+    if (!isNumber(text)) return setError("A check-in needs a number.");
+    const reading = metric.aggregation === "latest" || metric.one_per === per;
+    const value = reading ? Number(text) : Number(text) - (cell.value ?? 0);
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      await saveCheckIns(accessToken, [{ metric: numbers.id, value: String(value), checked_in_at: periodCheckInAt(cell, per, reading) }]);
+      setNotice(reading ? `Saved ${fmt(value)}.` : `Checked in ${value > 0 ? "+" : ""}${fmt(value)}.`);
+      setVersion((v) => v + 1);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** The hover details of an "Over time" cell. */
+  function periodTipLines(block: BoardBlock, metric: BoardMetric, cell: ShownNumbers | null, label: string, editable: boolean): string[] {
+    const lines = [`${block.label}${block.sub ? " · total" : ""} · ${metric.name}`];
+    if (!cell) return [...lines, "Not totalled"];
+    lines.push(cell.start === cell.last ? label : `${label} (${tipDay.format(new Date(`${cell.start}T00:00`))} – ${tipDay.format(new Date(`${cell.last}T00:00`))})`);
+    const unit = metric.unit ? ` ${metric.unit}` : "";
+    if (cell.value === null) lines.push("No check-in");
+    else {
+      const pct = shownPct(cell, block.metrics[metric.id], metric);
+      lines.push(`${fmt(cell.value)}${cell.quota !== null ? ` / ${fmt(cell.quota)}` : ""}${unit}${pct !== null ? ` · ${Math.round(pct)}%` : ""}`);
+    }
+    if (cell.count && cell.last_at) {
+      const last = tipTime.format(new Date(cell.last_at));
+      lines.push(cell.count === 1 ? `1 check-in, ${last}` : `${cell.count} check-ins, last ${last}`);
+    }
+    if (editable) lines.push(cell.value === null ? "Click to add" : "Click to change");
+    else if (block.sub) lines.push("Calculated from the teams");
+    else if (block.canCheckIn && metric.one_per) lines.push(`Counts one check-in ${PER_LABELS[metric.one_per]} - check in from Check in`);
+    return lines;
+  }
+
+  function showPeriodTip(target: HTMLElement, lines: string[]) {
+    const rect = target.getBoundingClientRect();
+    setPeriodTip({ left: Math.max(8, Math.min(rect.left, window.innerWidth - 280)), top: rect.bottom + 4, lines });
+  }
+
+  function historyTable(per: Snap) {
+    if (!board) return null;
+    const blocks = boardBlocks();
+    const { starts, label } = historyStarts(blocks, per);
     const span = Math.max(starts.length, 1);
     const goals = goalOrder(board);
     const metricDepth = (metric: BoardMetric): number => {
@@ -922,6 +1093,7 @@ function TeamBoardScreen({
       return depth;
     };
     return (
+      <>
       <table className="gn-board gn-history">
         <thead>
           <tr>
@@ -964,8 +1136,59 @@ function TeamBoardScreen({
                           {starts.map((start, index) => {
                             const cell = numbers?.history?.[index] ?? null;
                             const pct = cell && numbers ? shownPct(cell, numbers, metric) : null;
+                            const key = `${block.key}:${metric.id}:${index}`;
+                            const editable = !!block.canCheckIn && !!numbers && !!cell && !busy && periodEditable(metric, per);
+                            if (periodEdit?.key === key && numbers && cell) {
+                              return (
+                                <td key={start} className="gn-cell gn-num">
+                                  <FormControl
+                                    autoFocus
+                                    inputMode="decimal"
+                                    aria-label={`${metric.name}, ${block.label}, ${label(start)}`}
+                                    value={periodEdit.value}
+                                    onChange={(e) => setPeriodEdit({ key, value: e.target.value })}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                      else if (e.key === "Escape") {
+                                        periodCancel.current = true;
+                                        setPeriodEdit(null);
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      if (periodCancel.current) periodCancel.current = false;
+                                      else void savePeriod(metric, numbers, cell, per, e.currentTarget.value);
+                                    }}
+                                  />
+                                </td>
+                              );
+                            }
+                            const tip = () => periodTipLines(block, metric, cell, label(start), editable);
+                            const startEdit = () => {
+                              periodCancel.current = false;
+                              setPeriodTip(null);
+                              setPeriodEdit({ key, value: cell?.value === null || !cell ? "" : String(cell.value) });
+                            };
                             return (
-                              <td key={start} className={`gn-cell gn-num ${heat(pct)}`}>
+                              <td
+                                key={start}
+                                className={`gn-cell gn-num ${heat(pct)}${editable ? " gn-period-edit" : ""}`}
+                                tabIndex={editable ? 0 : undefined}
+                                onClick={editable ? startEdit : undefined}
+                                onKeyDown={
+                                  editable
+                                    ? (e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                          e.preventDefault();
+                                          startEdit();
+                                        }
+                                      }
+                                    : undefined
+                                }
+                                onMouseEnter={(e) => showPeriodTip(e.currentTarget, tip())}
+                                onMouseLeave={() => setPeriodTip(null)}
+                                onFocus={(e) => showPeriodTip(e.currentTarget, tip())}
+                                onBlur={() => setPeriodTip(null)}
+                              >
                                 {cell?.value === null || cell === null ? "—" : fmt(cell.value)}
                                 {cell?.quota !== null && cell?.quota !== undefined && (
                                   <span className="text-secondary"> / {fmt(cell.quota)}</span>
@@ -983,6 +1206,12 @@ function TeamBoardScreen({
           ))}
         </tbody>
       </table>
+      {periodTip && (
+        <div className="gn-period-tip" style={{ left: periodTip.left, top: periodTip.top }} role="tooltip">
+          {periodTip.lines.map((line, i) => <div key={i}>{line}</div>)}
+        </div>
+      )}
+      </>
     );
   }
 
@@ -1281,6 +1510,16 @@ function TeamBoardScreen({
       <style href="gn-team-board" precedence="default">
         {BOARD_CSS}
       </style>
+      {charting && (
+        <>
+          <style href="goalnexa-dashboard" precedence="default">
+            {DASHBOARD_CSS}
+          </style>
+          <style href="gn-board-charts" precedence="default">
+            {BOARD_CHART_CSS}
+          </style>
+        </>
+      )}
       <div className="d-flex flex-wrap align-items-end gap-3 mb-3">
         <div>
           <h2 className="page-title mb-1">Team board</h2>
@@ -1308,7 +1547,12 @@ function TeamBoardScreen({
               {ChevronIcon(!pickersFolded)}
               <span className="text-truncate">{pickerSummary()}</span>
             </button>
-            <div className="ms-auto">{modeControl()}</div>
+            <div className="ms-auto d-flex gap-2 flex-wrap">
+              {mode !== "targets" && (
+                <SegmentedControl label="View" variant="secondary" options={VIEWS} value={view} onChange={setView} />
+              )}
+              {modeControl()}
+            </div>
           </CardBody>
           {!pickersFolded && (
           <CardBody className="border-top">
@@ -1467,7 +1711,10 @@ function TeamBoardScreen({
                   )}
                 </div>
               )}
-              <div ref={wrapRef} className="gn-board-wrap">
+              {charting ? (
+                <div className="gn-charts gn-viz">{boardCharts()}</div>
+              ) : (
+              <div ref={wrapRef} className="gn-board-wrap" onScroll={periodTip ? () => setPeriodTip(null) : undefined}>
                 {historyPer ? historyTable(historyPer) : (
                 <table className={`gn-board${picking ? " gn-picking" : ""}`}>
                   <thead>
@@ -1569,6 +1816,7 @@ function TeamBoardScreen({
                 </table>
                 )}
               </div>
+              )}
               </>
             )}
           </CardBody>
@@ -1577,7 +1825,7 @@ function TeamBoardScreen({
               title={fullscreen ? "Leave full screen (Esc)" : "Show the board on the whole screen"}>
               {fullscreen ? "Exit full screen" : "⛶ Full screen"}
             </Button>
-            {mode !== "history" && (<>
+            {mode !== "history" && !charting && (<>
             <span className="text-secondary small ms-auto">
               {dirtyCount > 0 ? `${dirtyCount} unsaved change${dirtyCount === 1 ? "" : "s"}` : "Totals are calculated from the teams."}
             </span>

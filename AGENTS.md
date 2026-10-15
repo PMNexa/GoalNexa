@@ -315,8 +315,12 @@ teams that run the template),
 `POST check-ins/bulk` (all or nothing); `board?show=<period>&at=<ISO>` adds
 each cell's `shown` numbers in that period (`periods.shown`; totals by
 `_combine_shown`) for the board's "Show by"; `&periods=N` adds `history`
-(that many periods up to `at`, `periods.shown_series`) for its "Over
-time" mode (rows team -> goal -> metric, columns periods) - goalnexa-frontend's
+(that many periods up to `at`, `periods.shown_series`; a cell's `value` is
+null with no check-in in it, `count`/`last_at` describe them) for its "Over
+time" mode (a team's cell is edited in place: one check-in, the difference
+for an amount - `savePeriod`) (rows team -> goal -> metric, columns periods); Check in and Over time
+also draw as charts (Table/Chart, `screens/board/BoardCharts.tsx`: bars as
+% of each team's target, lines per team; totals listed apart) - goalnexa-frontend's
 `TeamBoardScreen` (`createTeamBoardRoutes("board")`; templates' pages:
 `createTemplatesRoutes()`). `Goal.visibility = "team"` (`access._team_visible`).
 The dashboard tags a team's goal with its team and a total with "Total"

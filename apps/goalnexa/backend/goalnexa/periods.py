@@ -362,25 +362,31 @@ def shown(metric, goal, check_ins, per: str, day: date, *, zone: ZoneInfo | None
     """One metric in the period `per` around `day` - the team board's "Show
     by": `value` = the amount done in it (SUM; only check-ins that count,
     see `counted`) or its last reading (LATEST; None without a check-in in
-    that period - an earlier reading isn't carried forward), and `quota` = its target when the metric's target is per that
-    same period (prorated, like `current_quota`), else None."""
+    that period - an earlier reading isn't carried forward; SUM too: None
+    = nothing checked in, not 0), `count` = the check-ins that count in it,
+    `last_at` = the latest one's time, and `quota` = its target when the
+    metric's target is per that same period (prorated, like
+    `current_quota`), else None."""
     from goalnexa.models import MetricAggregation
 
     zone = zone or zone_for(goal)
     start = period_start(day, per)
     last = next_start(start, per) - timedelta(days=1)
     kept, _ = counted(metric, check_ins, zone)
-    if metric.aggregation == MetricAggregation.SUM:
-        value = float(sum((c.value for c in kept if start <= local_date(c.checked_in_at, zone) <= last), Decimal(0)))
+    inside = [c for c in kept if start <= local_date(c.checked_in_at, zone) <= last]
+    if not inside:
+        value = None
+    elif metric.aggregation == MetricAggregation.SUM:
+        value = float(sum((c.value for c in inside), Decimal(0)))
     else:
-        readings = [c for c in kept if start <= local_date(c.checked_in_at, zone) <= last]
-        value = float(readings[-1].value) if readings else None
+        value = float(inside[-1].value)
     quota = None
     if metric.target_per == per and metric.target_value != metric.base_value:
         first = min((local_date(c.checked_in_at, zone) for c in check_ins), default=None)
         period, amount = current_quota(metric, goal, today=min(max(day, start), last), zone=zone, first_check_in=first)
         quota = round(amount, 2) if period is not None else None
-    return {"start": start, "last": last, "value": None if value is None else round(value, 2), "quota": quota}
+    return {"start": start, "last": last, "value": None if value is None else round(value, 2), "quota": quota,
+            "count": len(inside), "last_at": max(c.checked_in_at for c in inside).isoformat() if inside else None}
 
 
 def shown_series(metric, goal, check_ins, per: str, day: date, count: int, *, zone: ZoneInfo | None = None) -> list[dict]:

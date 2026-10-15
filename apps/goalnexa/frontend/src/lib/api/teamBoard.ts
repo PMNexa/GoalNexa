@@ -85,6 +85,10 @@ export interface ShownNumbers {
   last: string;
   value: number | null;
   quota: number | null;
+  /** The check-ins that count in it (0: none - `value` is null then). */
+  count?: number;
+  /** The latest one's time (ISO). */
+  last_at?: string | null;
 }
 
 export interface BoardInstance {

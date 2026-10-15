@@ -677,7 +677,19 @@ by time: one row per team, its goals and their metrics, one column per
 day - or per week, month... with **Show by** - up to the picked **Day**
 (the last 14 days, 12 weeks, 12 months, 8 quarters or 5 years). A cell
 is what was done in that period (or its last reading), "/ 10" its target
-per period. The arrow at the left of the top line folds the pickers away.
+per period; "—" means nobody checked in. Hover a cell for its details
+(the dates, the % of target, how many check-ins and the last one's time).
+Click a team's cell to type its number for that period and press Enter
+(Esc cancels): a reading is saved as is; for an amount, the difference
+from what the period already has is checked in, so earlier check-ins
+stay. The arrow at the left of the top line folds the pickers away.
+
+**Table / Chart** (next to the modes, in Check in and Over time) draws
+the board instead. In Check in, each metric gets a bar per team - how
+far along its own target it is, the tick marking 100% - with the totals
+under a dashed line. In Over time, each metric gets a line per team
+across the periods; hover a period to see every team's and total's
+number. Check-ins are entered in the table.
 
 **Full screen** shows the board alone, for a team meeting; **Exit full
 screen** (or Esc) returns.
