@@ -147,7 +147,8 @@ export interface BoardLineChartsProps {
 
 /**
  * "Over time"'s chart: per metric, one line per team across the periods
- * (a gap where a period has no check-in); the target per period is a
+ * (a gap where a period has no check-in), each chart over its own periods
+ * from first to last check-in; the target per period is a
  * dashed line when the teams share it. Totals aren't drawn - they'd
  * flatten the teams - but hovering a period lists them with the teams.
  */
@@ -177,7 +178,7 @@ export function BoardLineCharts({ goals, metrics, series, starts, label }: Board
 function LineChart({
   metric,
   series,
-  starts,
+  starts: periods,
   label,
 }: {
   metric: BoardMetric;
@@ -192,7 +193,14 @@ function LineChart({
   const plotW = Math.max(width - margin.left - margin.right, 10);
   const plotH = HEIGHT - margin.top - margin.bottom;
   const teams = series.filter((s) => !s.total);
-  const cell = (s: ChartSeries, i: number) => s.metrics[metric.id]?.history?.[i] ?? null;
+  // Each chart spans only the periods from its metric's first check-in to
+  // its last (any team's or total's), so charts differ in range.
+  const has = (i: number) => series.some((s) => (s.metrics[metric.id]?.history?.[i]?.value ?? null) !== null);
+  const first = periods.findIndex((_, i) => has(i));
+  let last = periods.length - 1;
+  while (last > first && !has(last)) last -= 1;
+  const starts = first < 0 ? [] : periods.slice(first, last + 1);
+  const cell = (s: ChartSeries, i: number) => s.metrics[metric.id]?.history?.[first + i] ?? null;
   // The target per period, when every team that has one shares it.
   const quotas = starts.map((_, i) => {
     const set = new Set(teams.map((s) => cell(s, i)?.quota).filter((q): q is number => q !== null && q !== undefined));

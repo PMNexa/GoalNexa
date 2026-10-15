@@ -289,11 +289,19 @@ class TenantIsolationTests(TestCase):
         self.assertFalse(error, text)
         self.assertIn("Asia/Ho_Chi_Minh", self.mcp(self.alice, "reminder_settings_get")[1])
         self.assertNotIn("Asia/Ho_Chi_Minh", self.mcp(self.bob, "reminder_settings_get")[1])
+        # Bulk check-ins and closing a cycle: only on what the caller can see.
+        error, text = self.mcp(self.alice, "check_ins_bulk", items=[{"metric": self.metric["id"], "value": 3}])
+        self.assertFalse(error, text)
+        self.assertTrue(self.mcp(self.bob, "check_ins_bulk", items=[{"metric": self.metric["id"], "value": 3}])[0])
+        self.assertTrue(self.mcp(self.bob, "cycles_close", id=self.cycle["id"])[0])
 
     def test_mcp_offers_goal_tracking_not_administration(self):
         response = self.alice.post(f"{API}/mcp", {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, format="json")
         names = {tool["name"] for tool in response.json()["result"]["tools"]}
-        for expected in ("goals_list", "check_ins_create", "org_invitations_create", "goals_chart", "reminder_settings_update"):
+        for expected in ("goals_list", "check_ins_create", "org_invitations_create", "goals_chart", "reminder_settings_update",
+                         "check_ins_bulk", "cycles_close", "goal_templates_board", "goal_templates_targets",
+                         "goal_templates_apply", "goal_templates_leave", "goal_templates_totals",
+                         "goals_reorder", "metrics_reorder"):
             self.assertIn(expected, names)
         for prefix in ("users_", "roles_", "permissions_", "role_assignments_", "system_settings_", "audit_events_"):
             self.assertFalse([name for name in names if name.startswith(prefix)], prefix)

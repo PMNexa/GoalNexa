@@ -972,7 +972,10 @@ check in by chat from a phone). What keeps that working:
   `goals_chart` (`GET goals/<id>/chart` - each metric's readings over
   time, for an assistant to draw) and `reminder_settings_get/_update/
   _test` (`PATCH reminder-settings` changes only the fields sent; `PUT`
-  still replaces).
+  still replaces), plus every custom action a user needs: `check_ins_bulk`,
+  `cycles_close`, `goal_templates_board/_targets/_apply/_leave/_totals`,
+  `goals_reorder`/`metrics_reorder`. A new `@action` is not a tool until
+  it's declared here (annotations: a write is open-world).
 - The reply link is `/dashboard?goal=<id>`: the dashboard opens on that
   goal's organization with just it selected (`goalFromUrl`, read once).
   A user with goals but no organization gets the dashboard, not the

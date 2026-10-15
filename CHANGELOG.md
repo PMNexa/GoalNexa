@@ -17,6 +17,14 @@ of you beyond the usual upgrade steps.
   Chart (remembered). Check in's chart is a bar per team for each metric,
   as a % of its target (totals last); Over time's, a line per team across
   the periods, hover for every team's and total's numbers.
+- **Board charts fit their data**: each Over time chart spans its own
+  periods, from its metric's first check-in to its last.
+- **MCP: team tools**: `check_ins_bulk`, `cycles_close`,
+  `goal_templates_board` / `_targets` / `_apply` / `_leave` / `_totals`,
+  `goals_reorder`, `metrics_reorder`; the server's instructions say when
+  to use the team board.
+- **Check-in table: team tags**: a team's goal shows its team after the
+  title, a team total "Total" (as on the dashboard).
 - **Over time cells**: hover for the details (period, value / target, %,
   how many check-ins and when); click a team's cell to type its number for
   that period - a reading is checked in as is, an amount as the difference.

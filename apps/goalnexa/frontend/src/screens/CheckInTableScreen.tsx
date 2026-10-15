@@ -7,6 +7,8 @@ import {
   fetchAll,
   fetchGoals,
   fetchOrgs,
+  fetchTeams,
+  goalTeamName,
   type OrgOption,
 } from "../lib/api/dashboard";
 import { apiRequest } from "../lib/api/client";
@@ -29,6 +31,7 @@ import CreateRecordModal, {
   type CreateTarget,
 } from "./dashboard/CreateRecordModal";
 import RowMenu from "./dashboard/RowMenu";
+import GoalTag from "./dashboard/GoalTag";
 import {
   buildTree,
   CollapseToggle,
@@ -95,6 +98,7 @@ const TABLE_CSS = `.gn-table-wrap { overflow: auto; max-height: calc(100vh - 14r
 .gn-table tbody tr[data-drop="after"] > * { box-shadow: inset 0 -2px 0 var(--tblr-primary, #066fd1); }
 .gn-table .gn-collapse { color: var(--tblr-secondary, #667382); flex-shrink: 0; }
 .gn-table .gn-collapse-gap { display: inline-block; width: 1.25rem; flex-shrink: 0; }
+.gn-table .gn-goal-tag { margin: 0 0 0 .4rem; border: 1px solid var(--tblr-border-color, #e6e7e9); color: var(--tblr-secondary, #667382); font-weight: 500; }
 .gn-table .gn-target { color: var(--tblr-secondary, #667382); text-align: right; }
 `;
 
@@ -113,6 +117,8 @@ interface Row {
   /** Has rows under it (sub-goals, metrics, sub-metrics) - gets a collapse toggle. */
   hasChildren: boolean;
   label: string;
+  /** A goal row: the goal, for its team tag. */
+  goal?: Goal;
   target?: string;
   /** Hover text explaining `target`. */
   targetTitle?: string;
@@ -243,6 +249,8 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
     goals: Goal[];
     metrics: Metric[];
     checkIns: CheckIn[];
+    /** Team id -> name, for the goal rows' team tags. */
+    teamNames: Map<string, string>;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -362,17 +370,27 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
     if (orgKey === null) return;
     let live = true;
     setError(null);
-    fetchGoals(accessToken, orgKey === PERSONAL_ORG ? null : orgKey)
-      .then(async (all) => {
+    const org = orgKey === PERSONAL_ORG ? null : orgKey;
+    Promise.all([fetchGoals(accessToken, org), org ? fetchTeams(accessToken, org) : []])
+      .then(async ([all, teams]) => {
         const goals = all.filter((g) => g.status !== "archived");
         const rest = await loadAll(accessToken, goals);
-        if (live) setData({ org: orgKey, goals, ...rest });
+        const teamNames = new Map(teams.map((team) => [team.id, team.name]));
+        if (live) setData({ org: orgKey, goals, ...rest, teamNames });
       })
       .catch((e) => live && setError(String(e?.message ?? e)));
     return () => {
       live = false;
     };
   }, [accessToken, orgKey, version]);
+
+  /** A goal row's tag: "Total" on a team total, else its team - not on a sub-goal in its parent's team (or total). */
+  function rowTag(goal: Goal) {
+    if (!data) return null;
+    const parent = goal.parent ? data.goals.find((g) => g.id === goal.parent) : undefined;
+    if (parent && parent.team_id === goal.team_id && parent.is_rollup === goal.is_rollup) return null;
+    return <GoalTag goal={goal} team={goalTeamName(goal, data.teamNames)} />;
+  }
 
   const table = useMemo(() => {
     if (!data || data.org !== orgKey) return null;
@@ -523,6 +541,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
         ancestors,
         hasChildren,
         label: goal.title,
+        goal,
         cells,
       };
     };
@@ -857,6 +876,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
                               )}
                               <span className="flex-grow-1 text-truncate">
                                 {row.label}
+                                {row.goal && rowTag(row.goal)}
                               </span>
                               <RowMenu
                                 label={`Add to ${row.label}`}
