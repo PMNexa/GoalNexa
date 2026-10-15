@@ -52,7 +52,7 @@ from goalnexa.models import (
     TemplateGoal,
     TemplateMetric,
 )
-from goalnexa.periods import local_date, pace_hint, shown, zone_for
+from goalnexa.periods import local_date, pace_hint, shown, shown_series, zone_for
 from goalnexa.progress import metric_pct, refresh_goal, refresh_metric
 from goalnexa.models.template import ORG_TOTAL, default_total_for
 from goalnexa.rollups import batched, combine, schedule
@@ -265,6 +265,9 @@ class GoalTemplateViewSet(BaseViewSet):
             OpenApiParameter("show", OpenApiTypes.STR, enum=["day", "week", "month", "quarter", "year"],
                              description="Also give each cell that period's numbers (`shown`): the amount done in it, or "
                              "its last reading in it (none without one), and its target when the metric's target is per that period."),
+            OpenApiParameter("periods", OpenApiTypes.INT,
+                             description="With `show`: also each cell's numbers in that many periods ending with the one "
+                             "around `at` (`history`, oldest first; 1-60)."),
             OpenApiParameter("at", OpenApiTypes.DATETIME, description="The day each team's `last_update` is for, "
                              "and with `show` the period around this time (each goal's time zone). Default: now."),
         ],
@@ -296,6 +299,12 @@ class GoalTemplateViewSet(BaseViewSet):
         if request.query_params.get("at") and at is None:
             raise ValidationError({"at": ["An ISO 8601 date and time."]})
         at = at or timezone.now()
+        try:
+            history_count = int(request.query_params.get("periods") or 0)
+        except ValueError:
+            raise ValidationError({"periods": ["A whole number, 1-60."]}) from None
+        if history_count and not (show and 1 <= history_count <= 60):
+            raise ValidationError({"periods": ["A whole number, 1-60, with show."]})
         if timezone.is_naive(at):
             at = timezone.make_aware(at)
         check_ins_by_metric: dict = {}
@@ -321,8 +330,15 @@ class GoalTemplateViewSet(BaseViewSet):
         def shown_row(metric) -> dict:
             goal = goal_by_id[metric.goal_id]
             zone = zone_for(goal, zones)
-            numbers = shown(metric, goal, check_ins_by_metric.get(metric.id, []), show, local_date(at, zone), zone=zone)
-            return {**numbers, "start": numbers["start"].isoformat(), "last": numbers["last"].isoformat()}
+            check_ins = check_ins_by_metric.get(metric.id, [])
+            numbers = shown(metric, goal, check_ins, show, local_date(at, zone), zone=zone)
+            row = {**numbers, "start": numbers["start"].isoformat(), "last": numbers["last"].isoformat()}
+            if history_count:
+                row["history"] = [
+                    {**n, "start": n["start"].isoformat(), "last": n["last"].isoformat()}
+                    for n in shown_series(metric, goal, check_ins, show, local_date(at, zone), history_count, zone=zone)
+                ]
+            return row
 
         def metric_row(metric, rollup=False):
             goal = goal_by_id[metric.goal_id]
@@ -379,9 +395,13 @@ class GoalTemplateViewSet(BaseViewSet):
                         _, teams_target, _ = combine(tm.rollup, numbers)
                         row["teams_target"] = _num(teams_target)
                     if show and tm is not None:
-                        row["shown"] = _combine_shown(
-                            tm.rollup, [n for team, n in shown_numbers.get(metric.template_metric_id, []) if team in members]
-                        )
+                        team_rows = [n for team, n in shown_numbers.get(metric.template_metric_id, []) if team in members]
+                        row["shown"] = _combine_shown(tm.rollup, team_rows)
+                        if history_count and team_rows:
+                            row["history"] = [
+                                _combine_shown(tm.rollup, [n["history"][i] for n in team_rows])
+                                for i in range(history_count)
+                            ]
                     entry["metrics"][str(metric.template_metric_id)] = row
                 continue
             entry = instances.setdefault(key, {"goals": {}, "metrics": {}, "visible": False})
@@ -400,7 +420,11 @@ class GoalTemplateViewSet(BaseViewSet):
             for metric in metrics_by_goal.get(goal.id, []):
                 entry["metrics"][str(metric.template_metric_id)] = metric_row(metric)
                 if show:
-                    entry["metrics"][str(metric.template_metric_id)]["shown"] = shown_by_metric[metric.id]
+                    numbers = dict(shown_by_metric[metric.id])
+                    history = numbers.pop("history", None)
+                    entry["metrics"][str(metric.template_metric_id)]["shown"] = numbers
+                    if history is not None:
+                        entry["metrics"][str(metric.template_metric_id)]["history"] = history
         # A total's "Last update": how many of its teams' copies were updated that day.
         updated_by_tg: dict = {}
         for goal in goals:

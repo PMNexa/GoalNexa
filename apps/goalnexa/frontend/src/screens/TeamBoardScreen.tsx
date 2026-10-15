@@ -61,11 +61,14 @@ interface EditTarget {
   id: string;
 }
 
-type Mode = "checkin" | "targets";
+type Mode = "checkin" | "targets" | "history";
 const MODES: { value: Mode; label: string }[] = [
   { value: "checkin", label: "Check in" },
   { value: "targets", label: "Targets" },
+  { value: "history", label: "Over time" },
 ];
+/** "Over time": how many periods it shows, up to the picked day. */
+const HISTORY_COUNT: Record<Snap, number> = { day: 14, week: 12, month: 12, quarter: 8, year: 5 };
 const NO_CYCLE = "none";
 /** Org id -> the template last opened there. */
 const TEMPLATE_KEY = "goalnexa:board-template";
@@ -82,8 +85,13 @@ function stickyTop(): number {
 
 /** The board's "Show by" period ("" = running totals), remembered per browser. */
 const SHOW_KEY = "goalnexa:board-show";
+const PICKERS_KEY = "goalnexa:board-pickers-folded";
 
 const BOARD_CSS = `.gn-board-wrap { overflow-x: auto; }
+.gn-history .gn-history-goal { font-weight: 600; }
+.gn-history .gn-history-metric { font-weight: 400; }
+.gn-history td.gn-num, .gn-history th.gn-num { text-align: right; }
+.gn-fold-btn { display: inline-flex; align-items: center; gap: .4rem; max-width: 100%; min-width: 0; font-weight: 500; }
 .gn-board-card:fullscreen { background: var(--tblr-body-bg, #f6f8fb); padding: 1rem; overflow: auto; }
 .gn-board-card:fullscreen .gn-board-wrap { overflow: auto; max-height: calc(100vh - 6.5rem); }
 .gn-board { border-collapse: separate; border-spacing: 0; font-size: .85rem; min-width: 100%; }
@@ -346,6 +354,15 @@ function buildRows(board: Board, root: string, mode: Mode): { rows: Row[]; notJo
   return { rows, notJoined };
 }
 
+const summaryDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+
+/** Down when the pickers are open, right when folded. */
+const ChevronIcon = (open: boolean) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={open ? "M6 9l6 6l6 -6" : "M9 6l6 6l-6 6"} />
+  </svg>
+);
+
 const ClockIcon = (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -408,6 +425,12 @@ function TeamBoardScreen({
   // "Now" for the period pickers (render must not read the clock).
   const [openedAt] = useState(() => Date.now());
   const [show, setShowState] = useState<Snap | "">(() => readStored<Snap | "">(SHOW_KEY, ""));
+  // The picker card folds to one summary line (remembered per browser).
+  const [pickersFolded, setPickersFoldedState] = useState(() => readStored<boolean>(PICKERS_KEY, false));
+  function setPickersFolded(value: boolean) {
+    setPickersFoldedState(value);
+    writeStored(PICKERS_KEY, value);
+  }
   function setShow(value: Snap | "") {
     setShowState(value);
     writeStored(SHOW_KEY, value);
@@ -415,6 +438,8 @@ function TeamBoardScreen({
   // The shown period follows "Checked in at"; only refetched while showing by a period.
   // The board's day ("Last update") and shown period both follow "Checked in at".
   const boardAt = when ? new Date(when).toISOString() : "";
+  // "Over time": one column per period (Show by; a day when it's "Running totals").
+  const historyPer: Snap | null = mode === "history" ? show || "day" : null;
   const [values, setValues] = useState<Map<string, string>>(new Map());
   const [notes, setNotes] = useState<Map<string, string>>(new Map());
   const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
@@ -426,6 +451,12 @@ function TeamBoardScreen({
   // The template wizard: open for a new template, or to set up an empty one.
   const [wizard, setWizard] = useState<{ existing: GoalTemplate | null } | null>(null);
   const [orgTeams, setOrgTeams] = useState<TeamOption[]>([]);
+
+  // "Over time" opens on the latest periods (the right end).
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (wrap && mode === "history") wrap.scrollLeft = wrap.scrollWidth;
+  }, [board, mode]);
 
   // Targets mode's tick columns stick next to the team column, whose width
   // follows its longest name - so their offset is measured (`--gn-team-w`).
@@ -522,13 +553,18 @@ function TeamBoardScreen({
       return;
     }
     let cancelled = false;
-    fetchBoard(accessToken, templateId, cycleId === NO_CYCLE ? null : cycleId, { show, at: boardAt })
+    fetchBoard(
+      accessToken,
+      templateId,
+      cycleId === NO_CYCLE ? null : cycleId,
+      historyPer ? { show: historyPer, at: boardAt, periods: HISTORY_COUNT[historyPer] } : { show, at: boardAt },
+    )
       .then((data) => !cancelled && setBoard(data))
       .catch((e) => !cancelled && setError(errorMessage(e)));
     return () => {
       cancelled = true;
     };
-  }, [accessToken, templateId, cycleId, templates, version, show, boardAt]);
+  }, [accessToken, templateId, cycleId, templates, version, show, boardAt, historyPer]);
 
   const columns = useMemo<Column[]>(() => {
     if (!board) return [];
@@ -836,8 +872,139 @@ function TeamBoardScreen({
    * that period instead (a day, or this/an earlier week, month, ...) - the
    * board shows it, and check-ins go to it.
    */
+  function modeControl() {
+    return (
+      <SegmentedControl
+        label="Mode"
+        options={MODES}
+        value={mode}
+        onChange={(m) => {
+          setMode(m);
+          resetDrafts();
+        }}
+      />
+    );
+  }
+
+  /**
+   * "Over time": rows are teams (and totals) -> their goals -> metrics,
+   * columns the periods up to the picked day; a cell is what was done in
+   * that period (or its last reading), against its target per that period.
+   */
+  function historyTable(per: Snap) {
+    if (!board) return null;
+    const blocks: { key: string; label: string; sub?: string; depth: number; metrics: Record<string, CellNumbers> }[] = [];
+    for (const row of rows) {
+      if (row.kind === "group") continue;
+      const own = row.kind === "instance" && row.instance?.visible ? row.instance.metrics : null;
+      if (own) blocks.push({ key: row.key, label: row.label, depth: row.depth, metrics: own });
+      const total = (row.kind !== "instance" || (row.parent && row.ticked)) && row.total ? row.total.metrics : null;
+      if (total) {
+        blocks.push({ key: `${row.key}-total`, label: row.label, sub: "Total", depth: row.depth, metrics: total });
+      }
+    }
+    // The periods' first days, from any cell that has them all (a team's always does).
+    const sample = blocks.flatMap((b) => Object.values(b.metrics)).find((n) => n.history?.length && n.history.every(Boolean));
+    const starts = sample?.history?.map((h) => h!.start) ?? [];
+    const label = (start: string) => {
+      const [y, m, d] = start.split("-").map(Number);
+      return periodLabel(new Date(y, m - 1, d).getTime(), per);
+    };
+    const span = Math.max(starts.length, 1);
+    const goals = goalOrder(board);
+    const metricDepth = (metric: BoardMetric): number => {
+      let depth = 0;
+      let parent = metric.parent;
+      while (parent) {
+        depth += 1;
+        parent = board.metrics.find((m) => m.id === parent)?.parent ?? null;
+      }
+      return depth;
+    };
+    return (
+      <table className="gn-board gn-history">
+        <thead>
+          <tr>
+            <th className="gn-team">Team · goal · metric</th>
+            {starts.length ? starts.map((start) => <th key={start} className="gn-num">{label(start)}</th>) : <th>No check-ins in these periods.</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {blocks.map((block) => (
+            <Fragment key={block.key}>
+              <tr className={block.sub ? "gn-total" : "gn-group"}>
+                <th className="gn-team" style={{ paddingLeft: `${0.55 + block.depth * 1.1}rem` }}>
+                  {block.label}
+                  {block.sub && <span className="gn-sub">{block.sub}</span>}
+                </th>
+                <td colSpan={span}></td>
+              </tr>
+              {goals.map((goal) => {
+                const metrics = board.metrics.filter((m) => m.template_goal === goal.id);
+                if (metrics.length === 0) return null;
+                return (
+                  <Fragment key={goal.id}>
+                    <tr>
+                      <th className="gn-team gn-history-goal" style={{ paddingLeft: `${1.2 + (block.depth + goal.depth) * 1.1}rem` }}>
+                        {goal.title}
+                      </th>
+                      <td colSpan={span}></td>
+                    </tr>
+                    {metrics.map((metric) => {
+                      const numbers = block.metrics[metric.id];
+                      return (
+                        <tr key={metric.id}>
+                          <th
+                            className="gn-team gn-history-metric"
+                            style={{ paddingLeft: `${2.3 + (block.depth + goal.depth + metricDepth(metric)) * 1.1}rem` }}
+                          >
+                            {metric.name}
+                            {metric.unit && <span className="text-secondary"> ({metric.unit})</span>}
+                          </th>
+                          {starts.map((start, index) => {
+                            const cell = numbers?.history?.[index] ?? null;
+                            const pct = cell && numbers ? shownPct(cell, numbers, metric) : null;
+                            return (
+                              <td key={start} className={`gn-cell gn-num ${heat(pct)}`}>
+                                {cell?.value === null || cell === null ? "—" : fmt(cell.value)}
+                                {cell?.quota !== null && cell?.quota !== undefined && (
+                                  <span className="text-secondary"> / {fmt(cell.quota)}</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </Fragment>
+                );
+              })}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  /** The folded picker card's one line: what the board shows. */
+  function pickerSummary() {
+    const parts: string[] = [];
+    if (orgs && orgs.length > 1) parts.push(orgs.find((o) => o.id === orgId)?.name ?? "");
+    parts.push(templates.find((t) => t.id === templateId)?.title ?? "No template");
+    parts.push(cycleId === NO_CYCLE ? "No cycle" : cycles.find((c) => c.id === cycleId)?.name ?? "");
+    parts.push(root ? board?.teams.find((t) => t.id === root)?.name ?? "" : "All teams");
+    if (mode !== "targets") {
+      const per = historyPer ?? show;
+      parts.push(`${historyPer ? "up to " : ""}${summaryDate.format(when ? new Date(when) : new Date(openedAt))}`);
+      parts.push(per ? `by ${SNAP_LABELS[per].toLowerCase()}` : "Running totals");
+    }
+    return parts.filter(Boolean).join(" · ");
+  }
+
   function whenPicker() {
-    if (!show) {
+    // "Over time" picks the last period shown, by its own period.
+    const per = historyPer ?? show;
+    if (!per) {
       return (
         <>
           <FormLabel htmlFor="gn-board-when">Checked in at</FormLabel>
@@ -845,8 +1012,8 @@ function TeamBoardScreen({
         </>
       );
     }
-    const picked = periodStart(when ? new Date(when).getTime() : openedAt, show);
-    if (show === "day") {
+    const picked = periodStart(when ? new Date(when).getTime() : openedAt, per);
+    if (per === "day") {
       return (
         <>
           <FormLabel htmlFor="gn-board-when">Day</FormLabel>
@@ -855,14 +1022,14 @@ function TeamBoardScreen({
         </>
       );
     }
-    const periods = recentPeriods(show, openedAt);
-    if (!periods.some((p) => p.start === picked)) periods.push({ start: picked, label: periodLabel(picked, show) });
+    const periods = recentPeriods(per, openedAt);
+    if (!periods.some((p) => p.start === picked)) periods.push({ start: picked, label: periodLabel(picked, per) });
     return (
       <>
-        <FormLabel htmlFor="gn-board-when">{SNAP_LABELS[show]}</FormLabel>
-        <FormSelect id="gn-board-when" value={String(picked)} onChange={(e) => setWhen(whenFor(Number(e.target.value), show))}>
+        <FormLabel htmlFor="gn-board-when">{SNAP_LABELS[per]}</FormLabel>
+        <FormSelect id="gn-board-when" value={String(picked)} onChange={(e) => setWhen(whenFor(Number(e.target.value), per))}>
           {periods.map((p, index) => (
-            <option key={p.start} value={p.start}>{index === 0 ? `This ${show} (${p.label})` : p.label}</option>
+            <option key={p.start} value={p.start}>{index === 0 ? `This ${per} (${p.label})` : p.label}</option>
           ))}
         </FormSelect>
       </>
@@ -1129,8 +1296,23 @@ function TeamBoardScreen({
 
       {orgs !== null && orgs.length > 0 && (
         <Card className="mb-3">
-          <CardBody>
-            <div className="row g-2 align-items-start">
+          <CardBody className="py-2 d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className="btn btn-ghost-secondary btn-sm gn-fold-btn"
+              aria-expanded={!pickersFolded}
+              aria-controls="gn-board-pickers"
+              title={pickersFolded ? "Show the pickers" : "Hide the pickers"}
+              onClick={() => setPickersFolded(!pickersFolded)}
+            >
+              {ChevronIcon(!pickersFolded)}
+              <span className="text-truncate">{pickerSummary()}</span>
+            </button>
+            <div className="ms-auto">{modeControl()}</div>
+          </CardBody>
+          {!pickersFolded && (
+          <CardBody className="border-top">
+            <div id="gn-board-pickers" className="row g-2 align-items-start">
               {orgs.length > 1 && (
                 <div className="col-sm-6 col-lg-2">
                   <FormLabel htmlFor="gn-board-org">Organization</FormLabel>
@@ -1192,33 +1374,27 @@ function TeamBoardScreen({
                     ))}
                 </FormSelect>
               </div>
-              {mode === "checkin" && (
+              {mode !== "targets" && (
                 <div className="col-sm-6 col-lg-3">{whenPicker()}</div>
               )}
-              {mode === "checkin" && (
+              {mode !== "targets" && (
                 <div className="col-sm-6 col-lg-2">
                   <FormLabel htmlFor="gn-board-show">Show by</FormLabel>
-                  <FormSelect id="gn-board-show" value={show} onChange={(e) => setShow(e.target.value as Snap | "")}>
-                    <option value="">Running totals</option>
+                  <FormSelect
+                    id="gn-board-show"
+                    value={historyPer ?? show}
+                    onChange={(e) => setShow(e.target.value as Snap | "")}
+                  >
+                    {mode === "checkin" && <option value="">Running totals</option>}
                     {(Object.keys(SNAP_LABELS) as Snap[]).map((per) => (
                       <option key={per} value={per}>{SNAP_LABELS[per]}</option>
                     ))}
                   </FormSelect>
                 </div>
               )}
-              <div className="col-auto ms-auto align-self-end">
-                <SegmentedControl
-                  label="Mode"
-                  options={MODES}
-                  value={mode}
-                  onChange={(m) => {
-                    setMode(m);
-                    resetDrafts();
-                  }}
-                />
-              </div>
             </div>
           </CardBody>
+          )}
         </Card>
       )}
 
@@ -1292,6 +1468,7 @@ function TeamBoardScreen({
                 </div>
               )}
               <div ref={wrapRef} className="gn-board-wrap">
+                {historyPer ? historyTable(historyPer) : (
                 <table className={`gn-board${picking ? " gn-picking" : ""}`}>
                   <thead>
                     <tr>
@@ -1390,6 +1567,7 @@ function TeamBoardScreen({
                     ))}
                   </tbody>
                 </table>
+                )}
               </div>
               </>
             )}
@@ -1399,6 +1577,7 @@ function TeamBoardScreen({
               title={fullscreen ? "Leave full screen (Esc)" : "Show the board on the whole screen"}>
               {fullscreen ? "Exit full screen" : "⛶ Full screen"}
             </Button>
+            {mode !== "history" && (<>
             <span className="text-secondary small ms-auto">
               {dirtyCount > 0 ? `${dirtyCount} unsaved change${dirtyCount === 1 ? "" : "s"}` : "Totals are calculated from the teams."}
             </span>
@@ -1410,6 +1589,7 @@ function TeamBoardScreen({
                 ? `Save ${dirtyCount || ""} check-in${dirtyCount === 1 ? "" : "s"}`
                 : "Save targets"}
             </Button>
+            </>)}
           </div>
         </Card>
         </div>

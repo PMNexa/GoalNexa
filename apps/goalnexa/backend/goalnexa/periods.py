@@ -383,6 +383,16 @@ def shown(metric, goal, check_ins, per: str, day: date, *, zone: ZoneInfo | None
     return {"start": start, "last": last, "value": None if value is None else round(value, 2), "quota": quota}
 
 
+def shown_series(metric, goal, check_ins, per: str, day: date, count: int, *, zone: ZoneInfo | None = None) -> list[dict]:
+    """`shown` for the `count` periods `per` ending with the one around
+    `day`, oldest first - the team board's "Over time" columns."""
+    zone = zone or zone_for(goal)
+    starts = [period_start(day, per)]
+    while len(starts) < count:
+        starts.append(period_start(starts[-1] - timedelta(days=1), per))
+    return [shown(metric, goal, check_ins, per, start, zone=zone) for start in reversed(starts)]
+
+
 def pace_hint(metric, goal, *, zone: ZoneInfo | None = None, today: date | None = None) -> dict | None:
     """What's left, for screens and assistants. A period metric: this
     period's amount, its quota and what's left of it. A whole-goal SUM

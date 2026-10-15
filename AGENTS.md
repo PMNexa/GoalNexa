@@ -314,7 +314,9 @@ check-ins is detached, an empty one deleted; Check in mode shows only
 teams that run the template),
 `POST check-ins/bulk` (all or nothing); `board?show=<period>&at=<ISO>` adds
 each cell's `shown` numbers in that period (`periods.shown`; totals by
-`_combine_shown`) for the board's "Show by" - goalnexa-frontend's
+`_combine_shown`) for the board's "Show by"; `&periods=N` adds `history`
+(that many periods up to `at`, `periods.shown_series`) for its "Over
+time" mode (rows team -> goal -> metric, columns periods) - goalnexa-frontend's
 `TeamBoardScreen` (`createTeamBoardRoutes("board")`; templates' pages:
 `createTemplatesRoutes()`). `Goal.visibility = "team"` (`access._team_visible`).
 The dashboard tags a team's goal with its team and a total with "Total"

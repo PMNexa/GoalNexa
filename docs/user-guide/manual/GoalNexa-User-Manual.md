@@ -672,6 +672,13 @@ running totals - good for "how did each region do this week".
 
 ![Show by week](images/board-showby.png)
 
+**Over time** (next to Check in and Targets) lays the same numbers out
+by time: one row per team, its goals and their metrics, one column per
+day - or per week, month... with **Show by** - up to the picked **Day**
+(the last 14 days, 12 weeks, 12 months, 8 quarters or 5 years). A cell
+is what was done in that period (or its last reading), "/ 10" its target
+per period. The arrow at the left of the top line folds the pickers away.
+
 **Full screen** shows the board alone, for a team meeting; **Exit full
 screen** (or Esc) returns.
 

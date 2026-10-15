@@ -9,6 +9,10 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Team board "Over time"**: a third mode - rows are teams, their goals
+  and metrics, columns the last 14 days (or weeks, months... with Show
+  by), each cell what was done in that period against its target
+  (`board?show=&periods=N`). The pickers fold to one line (remembered).
 - **Team board: pick who plays and what adds up**. In Targets, two tick
   columns next to the team names: "Own" adds a team (a department too)
   to the template or takes it out (a team with check-ins keeps them as

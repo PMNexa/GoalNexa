@@ -389,6 +389,16 @@ class BoardShowByTests(TestCase):
         today_board = board()
         self.assertIsNone(today_board["instances"][south["id"]]["last_update"][tg["id"]]["on_day"])  # South: yesterday only
         self.assertEqual(today_board["totals"]["org"]["updated"][tg["id"]], {"teams": 2, "updated": 1})
+        # "Over time" (`periods`): each cell's numbers in that many periods, oldest first.
+        data = board(show="day", periods=3)
+        north_calls = data["instances"][north["id"]]["metrics"][calls["id"]]
+        self.assertNotIn("history", north_calls["shown"])
+        self.assertEqual([h["value"] for h in north_calls["history"]], [0.0, 6.0, 4.0])
+        self.assertEqual(north_calls["history"][-1]["start"], noon.date().isoformat())
+        self.assertEqual([h["value"] for h in data["totals"]["org"]["metrics"][calls["id"]]["history"]], [0.0, 13.0, 4.0])
+        self.assertNotIn("history", board(show="day")["instances"][north["id"]]["metrics"][calls["id"]])
+        for bad in ({"periods": 3}, {"show": "day", "periods": -1}, {"show": "day", "periods": 61}, {"show": "day", "periods": "x"}):
+            self.assertEqual(self.alice.get(f"{API}/goal-templates/{template['id']}/board", bad).status_code, 400, bad)
 
 
 @override_settings(AUTH_FIRST_RUN_SETUP=False)

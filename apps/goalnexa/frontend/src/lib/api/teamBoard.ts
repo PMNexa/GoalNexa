@@ -69,6 +69,8 @@ export interface CellNumbers {
   pace: Pace | null;
   /** With "Show by": this cell's numbers in that period - see `ShownNumbers`. */
   shown?: ShownNumbers | null;
+  /** With `periods`: its numbers in each of those periods, oldest first ("Over time"). */
+  history?: (ShownNumbers | null)[];
 }
 
 /**
@@ -127,12 +129,15 @@ export function fetchTemplates(accessToken: string, orgId: string): Promise<Goal
   return fetchAll<GoalTemplate>(`/api/v1/goal-templates?filter{org_id}=${encodeURIComponent(orgId)}&sort=title`, accessToken);
 }
 
-/** `show` + `at` (ISO): also each cell's numbers in the period around `at` (the board's "Show by"). */
+/**
+ * `show` + `at` (ISO): also each cell's numbers in the period around `at`
+ * (the board's "Show by"); + `periods`: in that many periods up to it ("Over time").
+ */
 export function fetchBoard(
   accessToken: string,
   templateId: string,
   cycleId: string | null,
-  shownPeriod?: { show: string; at: string },
+  shownPeriod?: { show: string; at: string; periods?: number },
 ): Promise<Board> {
   return apiRequest<Board>(`/api/v1/goal-templates/${templateId}/board`, accessToken, {
     params: { cycle: cycleId ?? "none", ...(shownPeriod ?? {}) },
