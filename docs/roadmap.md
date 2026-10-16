@@ -256,7 +256,8 @@ order.
 
 Native apps, Android first (Kotlin + Compose), then iOS (Swift). The
 server computes everything; the apps only show it. Push goes through a
-free relay that serves self-hosted servers too. Design:
+free relay that serves self-hosted servers too. The apps' source is
+private (`goalnexa-cloud`); the server side is here. Design:
 `docs/mobile-app.md`. Listed in build order.
 
 | ID   | Item                               | Requirement                                                                                                                                                                                                    | Status   | Notes |
@@ -267,9 +268,9 @@ free relay that serves self-hosted servers too. Design:
 | P-70 | Today endpoint                     | `GET me/today`: due metrics, this period's pace per metric and goals at risk in one call, scoped like every list                                                                                               | Done     | 2026-10-16. `GET /api/v1/today` (not `me/today`), `?org=<id>|personal`; open goals only, no totals |
 | P-71 | Chart payload                      | Each metric's replayed series and projection from the server, ready to draw, so a client doesn't repeat `lib/progress.ts`                                                                                      | Done     | 2026-10-16. Extends `GET goals/<id>/chart`: manual order, `tracked`, `projection`, `range`, `now` |
 | P-72 | App versions                       | `auth/config` carries a minimum app version; the API keeps working for app versions released in the last 6 months                                                                                              | Done     | 2026-10-16. Settings `apps.min_android_version`/`apps.min_ios_version` (env `APPS_MIN_*`); the rule is in AGENTS.md |
-| P-73 | Push relay                         | A free relay we run that forwards content-free pushes (FCM, later APNs) for any GoalNexa server, self-hosted included: handles bound to one server, signed server keys, rate limits, pruning (`platform-push`) | Proposed |  |
+| P-73 | Push relay                         | A free relay we run that forwards content-free pushes (FCM, later APNs) for any GoalNexa server, self-hosted included: handles bound to one server, signed server keys, rate limits, pruning (relay in `goalnexa-cloud`, server half here) | Proposed |  |
 | P-74 | Push reminders                     | Reminders, end-of-period nudges and the digest can go to the app through the relay; reminder settings choose Apprise, push or both; device rows cleaned up on account deletion and by retention                | Proposed |  |
-| P-75 | Android app v1                     | Kotlin + Compose app (`apps/android/`): sign in with a server URL, Today, check in, goals and goal detail with charts and activity, organization switch, push, account deletion                                | Proposed |  |
+| P-75 | Android app v1                     | Kotlin + Compose app (`goalnexa-cloud`'s `apps/android/`): sign in with a server URL, Today, check in, goals and goal detail with charts and activity, organization switch, push, account deletion                                | Proposed |  |
 | P-76 | Android release                    | CI build, Play internal and closed test (12 testers, 14 days), Data safety form, demo account, production release built from `goalnexa-cloud`                                                                  | Proposed |  |
 | P-77 | Android widget, shortcuts, offline | A home-screen widget (today's quotas, tap to check in), app shortcuts, and check-ins queued offline and sent later                                                                                             | Proposed |  |
 | P-78 | More push options                  | UnifiedPush on Android (no relay, no Google); opt-in notifications for comments on your goals and health changes                                                                                               | Proposed |  |
