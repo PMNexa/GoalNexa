@@ -1005,6 +1005,34 @@ broke the skills' absolute URLs and react-router's action CSRF origin
 check (a form submitted before hydration came back as a bare
 "Bad Request").
 
+**Phone apps** (`docs/mobile-app.md`; native Android first, then iOS;
+the apps compute nothing - every %, pace, projection and series comes
+from the server). What the server gives them:
+- **Native sessions** (platform-auth): `"client": "native"` on login (and
+  signup/setup/password change) returns the refresh token in the body,
+  no cookie; refresh/logout take it in the body; rotations stay native.
+  **SSO** from an app: `auth/sso/start?app_redirect=goalnexa://auth/sso&code_challenge=`
+  -> the callback redirects to the app with a one-time code -> `POST
+  auth/sso/token {code, code_verifier}` (PKCE). `PLATFORM_AUTH_APP_REDIRECTS`
+  (main's settings, env) lists the allowed app addresses.
+- **Check-ins can't duplicate**: `CheckIn.client_ref` (unique per author,
+  set once): the same one again answers 200 with the first check-in, on
+  another metric 409. `X-GoalNexa-Client: mobile` makes `source`
+  "mobile" (`activity.request_source`; feed, tooltips, Status, Insights).
+- `GET /api/v1/today` (`views/today.py`): due metrics, period quotas with
+  `pace`, goals at risk - open goals only, no totals, `?org=<id>|personal`.
+- `GET goals/<id>/chart`: metrics in manual order with `tracked`,
+  `projection` (the same math as the goal's `projected_progress`) and the
+  `range` to draw.
+- **Old app versions stay in the wild**: `auth/config`'s
+  `min_app_version` (settings `apps.min_android_version`/`_ios_version`)
+  makes an older app ask to update - raise it only when the server stopped
+  working with older apps. The API keeps working for apps from the last 6
+  months: add fields freely, but a field an app reads is never removed or
+  renamed in one release (add the new one first), the same rule as
+  migrations.
+Tests: `tests/test_mobile.py`.
+
 **Hosted (SaaS) edition hooks**: a hosted edition is a private
 downstream fork (`goalnexa-cloud`) that merges this repo and only ADDS
 files - so the seams it needs live here, doing nothing by default:

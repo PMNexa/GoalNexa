@@ -252,6 +252,30 @@ order.
 | P-66 | Board: who plays, what adds up | In the team board's Targets mode a tick per team adds it to the template or takes it out (copies with check-ins detached, empty ones deleted), and a tick per department / the org calculates its total (no longer automatic; the org's on by default); Check in mode shows only the teams that run the template, counting the others | Done | 2026-10-14. `GoalTemplate.total_for`; `POST goal-templates/<id>/totals`, `POST goal-templates/<id>/leave`; existing totals migrated as ticked |
 
 
+### Next - Q1 2027 - Phone apps
+
+Native apps, Android first (Kotlin + Compose), then iOS (Swift). The
+server computes everything; the apps only show it. Push goes through a
+free relay that serves self-hosted servers too. Design:
+`docs/mobile-app.md`. Listed in build order.
+
+| ID   | Item                               | Requirement                                                                                                                                                                                                    | Status   | Notes |
+| ---- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----- |
+| P-67 | Native app sign-in                 | Login and refresh can return the refresh token in the response body for a native app (single-use rotation unchanged); each device is a session the user and admins can see and sign out                        | Done     | 2026-10-16. `RefreshToken.client`/`device_name`; works on signup, setup and password change too |
+| P-68 | SSO for apps                       | SSO from the app: a Custom Tab, PKCE, a `goalnexa://` redirect with a one-time code the app exchanges for tokens                                                                                               | Done     | 2026-10-16. `sso/start?app_redirect=&code_challenge=`, `POST auth/sso/token`, `AppAuthCode` (2 minutes, once); allowed addresses in `PLATFORM_AUTH_APP_REDIRECTS` |
+| P-69 | Idempotent check-ins               | A check-in can carry a client reference, unique per author, so a retried request returns the first check-in instead of a duplicate; check-ins from the app have source "mobile"                                | Done     | 2026-10-16. Same reference on another metric: 409; `source` from the `X-GoalNexa-Client: mobile` header; not in `check-ins/bulk` |
+| P-70 | Today endpoint                     | `GET me/today`: due metrics, this period's pace per metric and goals at risk in one call, scoped like every list                                                                                               | Done     | 2026-10-16. `GET /api/v1/today` (not `me/today`), `?org=<id>|personal`; open goals only, no totals |
+| P-71 | Chart payload                      | Each metric's replayed series and projection from the server, ready to draw, so a client doesn't repeat `lib/progress.ts`                                                                                      | Done     | 2026-10-16. Extends `GET goals/<id>/chart`: manual order, `tracked`, `projection`, `range`, `now` |
+| P-72 | App versions                       | `auth/config` carries a minimum app version; the API keeps working for app versions released in the last 6 months                                                                                              | Done     | 2026-10-16. Settings `apps.min_android_version`/`apps.min_ios_version` (env `APPS_MIN_*`); the rule is in AGENTS.md |
+| P-73 | Push relay                         | A free relay we run that forwards content-free pushes (FCM, later APNs) for any GoalNexa server, self-hosted included: handles bound to one server, signed server keys, rate limits, pruning (`platform-push`) | Proposed |  |
+| P-74 | Push reminders                     | Reminders, end-of-period nudges and the digest can go to the app through the relay; reminder settings choose Apprise, push or both; device rows cleaned up on account deletion and by retention                | Proposed |  |
+| P-75 | Android app v1                     | Kotlin + Compose app (`apps/android/`): sign in with a server URL, Today, check in, goals and goal detail with charts and activity, organization switch, push, account deletion                                | Proposed |  |
+| P-76 | Android release                    | CI build, Play internal and closed test (12 testers, 14 days), Data safety form, demo account, production release built from `goalnexa-cloud`                                                                  | Proposed |  |
+| P-77 | Android widget, shortcuts, offline | A home-screen widget (today's quotas, tap to check in), app shortcuts, and check-ins queued offline and sent later                                                                                             | Proposed |  |
+| P-78 | More push options                  | UnifiedPush on Android (no relay, no Google); opt-in notifications for comments on your goals and health changes                                                                                               | Proposed |  |
+| P-79 | iOS app                            | SwiftUI app at parity with the Android one, APNs through the same relay                                                                                                                                        | Proposed |  |
+
+
 ### Later - Q2-Q3 2027 - Fit into your stack
 
 

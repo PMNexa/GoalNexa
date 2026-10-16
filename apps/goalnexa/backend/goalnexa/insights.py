@@ -47,6 +47,10 @@ def register_insights() -> None:
         kind="daily",
     ))
     register_insight_series(InsightSeries(
+        "check_ins_mobile", "Check-ins by phone app", "Goals", lambda day: _check_ins(day, CheckInSource.MOBILE),
+        kind="daily",
+    ))
+    register_insight_series(InsightSeries(
         "engaged", "Engaged users", "Activity", engaged_users,
         help=f"Checked in during the last {ENGAGED_DAYS} days.",
     ))

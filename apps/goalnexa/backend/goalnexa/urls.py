@@ -34,6 +34,7 @@ from goalnexa.views import (
     SharedDashboardView,
     TemplateGoalViewSet,
     TemplateMetricViewSet,
+    TodayView,
 )
 
 # trailing_slash=False - same convention platform_org.urls uses (no
@@ -78,5 +79,7 @@ urlpatterns = [
     path("dashboard-shares", DashboardShareListView.as_view(), name="dashboard-shares"),
     path("dashboard-shares/<str:pk>", DashboardShareDetailView.as_view(), name="dashboard-share"),
     path("shared-dashboards/<str:token>", SharedDashboardView.as_view(), name="shared-dashboard"),
+    # The phone app's home screen in one call (views/today.py).
+    path("today", TodayView.as_view(), name="today"),
     *router.urls,
 ]

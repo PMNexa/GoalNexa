@@ -15,5 +15,5 @@ export interface CheckIn {
   replaces?: { id: string; value: string; checked_in_at: string } | null;
 }
 
-/** Where a check-in came from: the web app, an AI agent over MCP, or a script/webhook with the metric's ingest token. */
-export type CheckInSource = "web" | "agent" | "ingest";
+/** Where a check-in came from: the web app, the phone app, an AI agent over MCP, or a script/webhook with the metric's ingest token. */
+export type CheckInSource = "web" | "mobile" | "agent" | "ingest";

@@ -9,6 +9,16 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Ready for phone apps** (P-67..P-72, `docs/mobile-app.md`): native
+  sessions (`"client": "native"` returns the refresh token in the body;
+  refresh/logout take it there), single sign-on from an app (one-time
+  code + PKCE, `POST auth/sso/token`, `PLATFORM_AUTH_APP_REDIRECTS`),
+  `CheckIn.client_ref` so a retried check-in is never logged twice, the
+  "phone app" check-in source (`X-GoalNexa-Client: mobile`),
+  `GET /api/v1/today`, a chart payload with each metric's projection and
+  the range to draw, and `min_app_version` in `auth/config` (System >
+  Settings > Phone apps). The admin's session list shows app sessions.
+
 - **Team board "Over time"**: a third mode - rows are teams, their goals
   and metrics, columns the last 14 days (or weeks, months... with Show
   by), each cell what was done in that period against its target

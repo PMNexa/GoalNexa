@@ -121,7 +121,7 @@ def usage() -> list[dict]:
         total = sum(sources.values())
         shares = (
             f"{source} {sources.get(source, 0)} ({round(sources.get(source, 0) * 100 / total) if total else 0}%)"
-            for source in ("web", "agent", "ingest")
+            for source in ("web", "mobile", "agent", "ingest")
         )
         return {"label": f"Check-ins, last {days} days", "value": total, "hint": " · ".join(shares)}
 
