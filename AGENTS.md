@@ -1006,7 +1006,8 @@ check (a form submitted before hydration came back as a bare
 "Bad Request").
 
 **Phone apps** (`docs/mobile-app.md`; native Android first, then iOS;
-the apps compute nothing - every %, pace, projection and series comes
+their source is private - `goalnexa-cloud`'s `apps/android/`, never
+this repo -; the apps compute nothing - every %, pace, projection and series comes
 from the server). What the server gives them:
 - **Native sessions** (platform-auth): `"client": "native"` on login (and
   signup/setup/password change) returns the refresh token in the body,

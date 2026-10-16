@@ -35,25 +35,26 @@ cycle, the system console. The app links out to the web for those.
 
 ## Where the source code lives
 
+**The apps' source is private: it lives only in `goalnexa-cloud`**, not
+in this repo. This repo holds the server side every app talks to - the
+API, sign-in and the instance's half of push - so a self-hosted server
+works with the published apps.
+
 | What | Where | Why |
 |---|---|---|
-| Android app | `apps/android/` - a plain directory in this public repo (like `apps/main`), not a submodule | The app and the API it calls change in the same PR, and CI checks the app against the same commit's schema |
-| iOS app (later) | `apps/ios/`, same rules | |
-| Push relay + server half | `apps/platform-push/` - a new submodule (`PMNexa/platform-push`), packaged like the other `platform-*` modules | Generic, not goal-specific; one Django app with two roles (relay, client) |
-| API snapshot | `apps/android/api/openapi.yaml`, committed, written by a script from the backend | The Kotlin client is generated from it at build time (OpenAPI Generator Gradle plugin) and never committed. CI regenerates the snapshot and fails if it differs |
-| License | PolyForm Shield like everything else; the repo's `LICENSE` covers the app | |
-| Signing and service keys | **Never in either repo's files** - CI secrets of `goalnexa-cloud` only: the Play **upload** key, the Play service account JSON, the production `google-services.json` | Play App Signing keeps the real signing key at Google, so a lost upload key can be reset |
-| Store listing text, screenshots | `apps/android/fastlane/metadata/` | Reviewed like code |
-| Releases | Built **only in `goalnexa-cloud`**, the same rule as server deploys: a tag `android-v<x.y.z>` there builds the AAB and uploads it to Play's internal track (Fastlane) | Secrets live there; the public repo never publishes |
+| Android app | `apps/android/` in `goalnexa-cloud` (a plain directory, like `apps/extensions/`) | Not published; cloud merges this repo, so the app and the server it builds against sit in one checkout |
+| iOS app (later) | `apps/ios/` in `goalnexa-cloud`, same rules | |
+| Push relay | Runs from `goalnexa-cloud` (hosted only) | It's our service; self-hosters use it, they don't run it |
+| Server half of push | This repo (`PushDevice`, sending to the relay) | Every server, self-hosted included, has to push |
+| API snapshot | `apps/android/api/openapi.yaml` in `goalnexa-cloud`, committed, written by a script from the backend | The Kotlin client is generated from it at build time (OpenAPI Generator Gradle plugin) and never committed. Cloud CI regenerates it and fails if it differs - so a sync from this repo that changes the API shows up there |
+| API compatibility | This repo's `AGENTS.md` (the rule) and `tests/` | The apps are private, but the API they read is here |
+| Signing and service keys | **Never in files** - CI secrets of `goalnexa-cloud` only: the Play **upload** key, the Play service account JSON, the production `google-services.json` | Play App Signing keeps the real signing key at Google, so a lost upload key can be reset |
+| Store listing text, screenshots | `apps/android/fastlane/metadata/` in `goalnexa-cloud` | Reviewed like code |
+| Releases | A tag `android-v<x.y.z>` in `goalnexa-cloud` builds the AAB and uploads it to Play's internal track (Fastlane) | Same rule as server deploys |
 
-A build from the public source works without our secrets: debug builds
-have push turned off unless the builder supplies their own
-`google-services.json` (and then their own relay - documented in
-`apps/android/README.md`).
-
-Public CI builds and tests the app on an Ubuntu runner, only when
+Cloud CI builds and tests the app on an Ubuntu runner, only when
 `apps/android/**` or the API snapshot changes (path filter). `apps/ios/`
-will need a macOS runner (free on a public repo).
+will need a macOS runner (billed minutes on a private repo).
 
 ## Android stack
 
@@ -76,7 +77,7 @@ when check-ins are due?"), not at first launch.
 5. **Settings** - organization switch, notifications, sign out, delete
    account (Play requires in-app deletion).
 
-## Backend changes (public repo, useful beyond mobile)
+## Backend changes (this repo, useful beyond mobile)
 
 | Item | Change |
 |---|---|
