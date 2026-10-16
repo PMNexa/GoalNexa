@@ -723,7 +723,7 @@ class AgentPathTests(ApiTestCase):
         CheckIn.objects.create(metric=metric, value=3, source="agent")
         rows = {row["label"]: row for row in usage()}
         self.assertEqual(rows["Check-ins, last 30 days"]["value"], 3)
-        self.assertEqual(rows["Check-ins, last 7 days"]["hint"], "web 1 (33%) · agent 2 (67%) · ingest 0 (0%)")
+        self.assertEqual(rows["Check-ins, last 7 days"]["hint"], "web 1 (33%) · mobile 0 (0%) · agent 2 (67%) · ingest 0 (0%)")
 
     def test_mcp_tools_point_at_real_endpoints(self):
         from django.urls import resolve

@@ -6,7 +6,7 @@ const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumF
 const FULL = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 const TOOLTIP_DATE = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 const AXIS_DATE = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-const SOURCE_LABELS = { agent: "AI agent", ingest: "ingest URL" } as const;
+const SOURCE_LABELS = { agent: "AI agent", mobile: "phone app", ingest: "ingest URL" } as const;
 
 export interface ValueLineChartProps {
   label: string;

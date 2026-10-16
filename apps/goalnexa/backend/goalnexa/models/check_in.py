@@ -11,6 +11,7 @@ class CheckInSource(models.TextChoices):
     WEB = "web", "Web"
     AGENT = "agent", "AI agent"
     INGEST = "ingest", "Ingest URL"
+    MOBILE = "mobile", "Phone app"
     ROLLUP = "rollup", "Team total"
 
 
@@ -31,8 +32,12 @@ class CheckIn(TimestampedModel):
 
     `author_id` (bare user id; null for an ingest-token check-in) and
     `source` say who and what logged it - the web app, an AI agent over
-    MCP, or a script/webhook with the metric's ingest token
+    MCP, the phone app, or a script/webhook with the metric's ingest token
     (`CheckInViewSet`, `views/ingest.py`). Both read-only.
+
+    `client_ref` is the caller's own id for the check-in (a phone app's
+    offline queue): unique per author, so sending the same one again
+    returns the first check-in instead of logging it twice.
     """
 
     id = models.UUIDField(primary_key=True, default=generate_uuid7, editable=False)
@@ -49,6 +54,10 @@ class CheckIn(TimestampedModel):
     # A later check-in in the same period replaced this one (its metric's
     # `one_per`): kept, but it doesn't count. Kept by `refresh_metric`.
     replaced = models.BooleanField(default=False, db_default=False)
+    client_ref = models.CharField(
+        max_length=64, blank=True, default="", db_default="",
+        help_text="Optional. Your own id for this check-in: sending the same one again returns the first check-in instead of a duplicate.",
+    )
 
     def save(self, *args, **kwargs):
         # A metric whose check-ins are for a period (`Metric.snap_to`): the
@@ -66,3 +75,8 @@ class CheckIn(TimestampedModel):
         verbose_name = "check-in"
         verbose_name_plural = "check-ins"
         indexes = [models.Index(fields=["metric", "checked_in_at"], name="check_in_metric_time_idx")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["author_id", "client_ref"], condition=~models.Q(client_ref=""), name="check_in_client_ref_uniq"
+            )
+        ]

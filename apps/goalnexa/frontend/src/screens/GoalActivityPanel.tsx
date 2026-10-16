@@ -83,7 +83,7 @@ function describe(activity: Activity): string {
   const d = activity.data;
   const metric = `"${String(d.metric_name ?? "a metric")}"`;
   const amount = `${String(d.value ?? "")}${d.unit ? ` ${String(d.unit)}` : ""}`;
-  const via = d.source === "agent" ? " (AI agent)" : "";
+  const via = d.source === "agent" ? " (AI agent)" : d.source === "mobile" ? " (phone app)" : "";
   switch (activity.verb) {
     case "goal_created":
       return d.rolled_from ? `rolled the goal over into ${String(d.cycle ?? "the next cycle")}` : "created the goal";

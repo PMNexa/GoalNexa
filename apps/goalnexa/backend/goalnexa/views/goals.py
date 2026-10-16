@@ -8,6 +8,7 @@ sub-goals instead of leaving those fields off.
 
 from django.conf import settings
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -19,8 +20,8 @@ from goalnexa.activity import changes, record, snapshot
 from core_api.system import check_org_limit
 from goalnexa.models import ActivityVerb, CheckIn, Cycle, CycleStatus, Goal, GoalStatus, GoalVisibility, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
-from goalnexa.periods import follow_goal
-from goalnexa.progress import metric_pct, metric_readings, refresh_goal, root_metrics
+from goalnexa.periods import follow_goal, pace_pct, zone_for
+from goalnexa.progress import metric_pct, metric_readings, project_value, refresh_goal, root_metrics, target_datetime
 from goalnexa.serializers import GoalSerializer
 from goalnexa.serializers.metric import validate_one_per
 from goalnexa.teams import can_set_targets, team_org
@@ -227,17 +228,66 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         as data: each metric's readings over time (value and % of the way
         from base to target, a sum metric as its running total), plus the
         goal's own numbers and its dashboard link. For a client that draws
-        the chart itself - an AI agent, through `mcp_tools.py`."""
+        the chart itself - an AI agent through `mcp_tools.py`, the phone
+        apps.
+
+        Metrics come in their manual order (`position` - a metric's color
+        is its place in it). Each has its `projection` - where its trend
+        (a period metric: its pace) lands by the goal's target date, the
+        same numbers the goal's `projected_progress` is the mean of - or
+        null (no target date ahead, no trend). `tracked` = no target (base
+        equals target): drawn as a value, with no %. `range` is the time
+        span to draw: the first metric or reading to the later of now and
+        the target date."""
         goal = self.get_object()
-        metrics = sorted(Metric.objects.filter(goal=goal), key=lambda m: m.name.lower())
+        metrics = sorted(Metric.objects.filter(goal=goal), key=lambda m: (m.position, m.name.lower()))
         check_ins: dict = {}
         for check_in in CheckIn.objects.filter(metric__goal=goal):
             check_ins.setdefault(check_in.metric_id, []).append(check_in)
         roots = {m.id for m in root_metrics(metrics)}
+        now = timezone.now()
+        target = target_datetime(goal.target_date) if goal.target_date else None
+        zone = zone_for(goal)
 
         def pct(value, metric):
             value = metric_pct(value, metric)
             return None if value is None else round(value, 2)
+
+        def projection(metric, readings):
+            if target is None or target <= now or metric_pct(metric.current_value, metric) is None:
+                return None
+            if metric.target_per:
+                pace = pace_pct(metric)
+                return None if pace is None else {"at": target, "value": None, "progress": round(pace, 2)}
+            value = project_value(readings, target)
+            return None if value is None else {"at": target, "value": round(value, 2), "progress": pct(value, metric)}
+
+        rows = []
+        starts = []
+        for metric in metrics:
+            readings = metric_readings(metric, check_ins.get(metric.id, []), zone if metric.one_per else None)
+            starts.append(min([metric.created_at, *(when for when, _ in readings[:1])]))
+            rows.append({
+                "id": str(metric.id),
+                "name": metric.name,
+                "unit": metric.unit,
+                "aggregation": metric.aggregation,
+                "parent": str(metric.parent_id) if metric.parent_id else None,
+                "position": metric.position,
+                "counts_toward_goal": metric.id in roots,
+                "tracked": metric_pct(metric.current_value, metric) is None,
+                "base_value": float(metric.base_value),
+                "target_value": float(metric.target_value),
+                "current_value": float(metric.current_value),
+                "progress": pct(metric.current_value, metric),
+                "target_per": metric.target_per,
+                "started_at": metric.created_at,
+                "points": [
+                    {"at": when, "value": value, "progress": pct(value, metric)}
+                    for when, value in readings
+                ],
+                "projection": projection(metric, readings),
+            })
 
         app_url = (getattr(settings, "GOALNEXA_PUBLIC_URL", "") or request.build_absolute_uri("/")).rstrip("/")
         return Response({
@@ -250,23 +300,7 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
                 "health": goal.health,
             },
             "url": f"{app_url}/dashboard?goal={goal.id}",
-            "metrics": [
-                {
-                    "id": str(metric.id),
-                    "name": metric.name,
-                    "unit": metric.unit,
-                    "aggregation": metric.aggregation,
-                    "counts_toward_goal": metric.id in roots,
-                    "base_value": float(metric.base_value),
-                    "target_value": float(metric.target_value),
-                    "current_value": float(metric.current_value),
-                    "progress": pct(metric.current_value, metric),
-                    "started_at": metric.created_at,
-                    "points": [
-                        {"at": when, "value": value, "progress": pct(value, metric)}
-                        for when, value in metric_readings(metric, check_ins.get(metric.id, []))
-                    ],
-                }
-                for metric in metrics
-            ],
+            "now": now,
+            "range": {"start": min(starts) if starts else goal.created_at, "end": max(now, target) if target else now},
+            "metrics": rows,
         })
