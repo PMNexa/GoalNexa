@@ -33,6 +33,7 @@ def _goal(goal: Goal, app_url: str) -> dict:
         "id": str(goal.id),
         "title": goal.title,
         "org_id": str(goal.org_id) if goal.org_id else None,
+        "team_id": str(goal.team_id) if goal.team_id else None,
         "target_date": goal.target_date,
         "progress": _number(goal.progress),
         "projected_progress": _number(goal.projected_progress),
@@ -61,7 +62,13 @@ def _metric(metric: Metric, zones: dict) -> dict:
         "hit_rate": _number(metric.hit_rate),
         "streak": metric.streak,
         "pace": pace_hint(metric, metric.goal, zone=zone_for(metric.goal, zones)),
-        "goal": {"id": str(metric.goal_id), "title": metric.goal.title},
+        # Where the goal belongs, so an app showing every goal can tag it.
+        "goal": {
+            "id": str(metric.goal_id),
+            "title": metric.goal.title,
+            "org_id": str(metric.goal.org_id) if metric.goal.org_id else None,
+            "team_id": str(metric.goal.team_id) if metric.goal.team_id else None,
+        },
     }
 
 
@@ -75,7 +82,8 @@ class TodayView(APIView):
             f"{LIMIT}: `due` - metrics whose scheduled check-in is due (`check_in_due_at` passed), oldest due "
             "first; `periods` - metrics with a target per period, with `pace` (done, quota and what's left this "
             "period); `at_risk` - goals at risk or off track, lowest progress first. `due` and `periods` hold only "
-            "metrics the caller may check in on. `due_total` counts every due metric, past the limit too."
+            "metrics the caller may check in on. `due_total` counts every due metric, past the limit too. Each "
+            "metric's `goal` and each goal carry `org_id` and `team_id` (null for a personal goal / no team)."
         ),
         parameters=[
             OpenApiParameter(
