@@ -18,6 +18,7 @@ of you beyond the usual upgrade steps.
   `GET /api/v1/today`, a chart payload with each metric's projection and
   the range to draw, and `min_app_version` in `auth/config` (System >
   Settings > Phone apps). The admin's session list shows app sessions.
+  `GET today` names each goal's `org_id` and `team_id`.
 
 - **Team board "Over time"**: a third mode - rows are teams, their goals
   and metrics, columns the last 14 days (or weeks, months... with Show

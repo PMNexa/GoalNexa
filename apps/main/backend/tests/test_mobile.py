@@ -229,13 +229,24 @@ class TodayTests(AppDataTestCase):
         today = self.today(self.bob)
         self.assertEqual([m["id"] for m in today["due"]], [self.due["id"]])
         self.assertEqual(today["due_total"], 1)
-        self.assertEqual(today["due"][0]["goal"], {"id": self.goal["id"], "title": "Run more"})
+        self.assertEqual(today["due"][0]["goal"], {"id": self.goal["id"], "title": "Run more", "org_id": None, "team_id": None})
+        self.assertEqual((today["at_risk"][0]["org_id"], today["at_risk"][0]["team_id"]), (None, None))
         self.assertEqual([m["id"] for m in today["periods"]], [self.quota["id"]])
         self.assertEqual(today["periods"][0]["pace"]["quota"], 10)
         self.assertEqual([g["id"] for g in today["at_risk"]], [self.goal["id"]])
         self.assertTrue(today["at_risk"][0]["url"].endswith(f"/dashboard?goal={self.goal['id']}"))
         # Personal goals only; an organization of someone else's: nothing.
         self.assertEqual(len(self.today(self.bob, org="personal")["due"]), 1)
+
+    def test_an_org_goal_says_where_it_belongs(self):
+        org = self.create(self.bob, "orgs", name="Acme")
+        goal = self.create(self.bob, "goals", title="Ship it", org_id=org["id"])
+        metric = self.create(self.bob, "metrics", goal=goal["id"], name="Releases", target_value=5, check_in_every="daily")
+        Metric.objects.filter(id=metric["id"]).update(check_in_due_at=timezone.now() - timedelta(hours=2))
+        Goal.objects.filter(id=goal["id"]).update(health="off_track")
+        today = self.today(self.bob, org=org["id"])
+        self.assertEqual(today["due"][0]["goal"], {"id": goal["id"], "title": "Ship it", "org_id": org["id"], "team_id": None})
+        self.assertEqual(today["at_risk"][0]["org_id"], org["id"])
 
     def test_closed_goals_and_strangers_see_nothing(self):
         stranger = self.signup("Carol", "carol@example.com")

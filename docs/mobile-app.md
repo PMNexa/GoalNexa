@@ -158,6 +158,8 @@ service.
 - **`GET /api/v1/today`** (`?org=<id>|personal`): `due` (oldest due
   first), `periods` (with `pace`), `at_risk` (lowest progress first), up
   to 50 each, `due_total`, `now`. Only metrics the caller may check in on.
+  A metric's `goal` (`{id, title, org_id, team_id}`) and each goal at
+  risk say where the goal belongs, so "all goals" can tag it.
 - **`GET goals/<id>/chart`**: metrics by `position`, each with `parent`,
   `tracked`, `target_per`, `projection` (`{at, value, progress}` - a
   period metric's is its pace, `value` null) and the payload's `range`
