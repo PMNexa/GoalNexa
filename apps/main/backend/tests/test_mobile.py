@@ -9,7 +9,7 @@ chart payload an app draws from.
 
 import base64
 import hashlib
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
@@ -266,10 +266,11 @@ class ChartPayloadTests(AppDataTestCase):
         goal = self.create(self.bob, "goals", title="Grow", target_date=target.isoformat())
         second = self.create(self.bob, "metrics", goal=goal["id"], name="Zebra", target_value=100)
         first_by_name = self.create(self.bob, "metrics", goal=goal["id"], name="Apple", target_value=0)  # tracked: base = target
+        now = timezone.now()
         for days_ago, value in ((10, 10), (5, 20)):
             self.create(
                 self.bob, "check-ins", metric=second["id"], value=value,
-                checked_in_at=(timezone.now() - timedelta(days=days_ago)).isoformat(),
+                checked_in_at=(now - timedelta(days=days_ago)).isoformat(),
             )
         chart = self.bob.get(f"{API}/goals/{goal['id']}/chart").json()
         self.assertEqual([m["name"] for m in chart["metrics"]], ["Zebra", "Apple"])  # position, not name
@@ -277,8 +278,10 @@ class ChartPayloadTests(AppDataTestCase):
         self.assertFalse(zebra["tracked"])
         self.assertTrue(apple["tracked"])
         self.assertIsNone(apple["projection"])
-        # 10 -> 20 in 5 days: about 2 a day, carried 30 days past the last reading.
-        self.assertAlmostEqual(zebra["projection"]["value"], 20 + 2 * 35, delta=1)
+        # 10 -> 20 in 5 days: 2 a day, carried from the last reading to the
+        # target date's midnight - 34 to 35 days, depending on the time of day.
+        days = (datetime.fromisoformat(zebra["projection"]["at"]) - (now - timedelta(days=5))).total_seconds() / 86400
+        self.assertAlmostEqual(zebra["projection"]["value"], 20 + 2 * days, delta=0.1)
         self.assertEqual(zebra["projection"]["at"][:10], target.isoformat())
         self.assertEqual(chart["range"]["end"][:10], target.isoformat())
         self.assertLessEqual(chart["range"]["start"], zebra["points"][0]["at"])
