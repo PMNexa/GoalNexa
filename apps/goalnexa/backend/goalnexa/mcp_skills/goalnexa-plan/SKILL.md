@@ -49,18 +49,54 @@ From what the user said, propose:
     calls").
   - A number reported per period ("weekly sales", "monthly revenue") can get
     `snap_to: "week"` (or day/month/...): each check-in is then for a whole
-    period, its time set to the period's first day. Often with the same
-    `one_per`, so a correction replaces that period's number. When every
-    metric of the goal is reported that way, set `snap_to` on the GOAL
-    instead: its metrics follow it (`snap_to: "goal"`, the default); a
-    metric can still pick its own (`""` = any time).
-  - Suggest a check-in schedule, `check_in_every`: `"daily"`, `"weekly"` or
-    `"monthly"` (default none). An overdue metric is flagged on the dashboard and
+    period. Often with the same `one_per`, so a correction replaces that
+    period's number. When every metric of the goal is reported that way,
+    set `snap_to` on the GOAL instead: its metrics inherit it (`snap_to:
+    "goal"`, the default), so do its sub-goals (`snap_to: "parent"`, the
+    default) and a sub-metric inherits its parent metric's; a metric can
+    still pick its own (`""` = any time).
+  - With a period, ask WHEN in it the number is reported and set the
+    moment: `snap_weekday` (1 = Monday ... 7), `snap_quarter_month` (1-3),
+    `snap_month` (1-12), `snap_day` (1-31, past the month's end = its last
+    day), `snap_time` (`"HH:MM"`, 30-minute steps) - e.g. weekly sales on
+    Friday 17:00 (`snap_weekday: 5, snap_time: "17:00"`). Check-ins are dated
+    at that moment, and with `snap_due` (on by default) it's when the
+    period's check-in is due and reminded.
+  - Without a period, suggest a schedule from the last check-in,
+    `check_in_every`: `"daily"`, `"weekly"`, `"monthly"`, `"quarterly"` or
+    `"yearly"` (default none). An overdue metric is flagged on the dashboard and
     reminded, if the user has reminders set up (step 4).
 
 Before creating anything, check for duplicates: `goals_list` with
 `filter: {"title.icontains": "<keyword>"}`. If there's a close match, ask
 whether to add metrics to it instead.
+
+### The same goals for several teams
+
+When several teams should run the same goals ("each sales team gets a
+revenue and a deals target"), use a **goal template** instead of separate
+goals - organization owners and admins only:
+
+1. Draft the template's goals and metrics as above, plus each metric's
+   `default_target` and `rollup` (how totals combine the teams: `sum`,
+   `avg`, `min` or `none`; see `template_metrics_schema`).
+2. After a yes: `goal_templates_create` (`title`, `org_id`), then
+   `template_goals_create` (`template`, `title`, `parent` for a sub-goal)
+   and `template_metrics_create` (`template_goal`, ...).
+3. Teams: `teams_list` with `filter: {"org": "<id>"}`; create missing
+   ones only if asked (`teams_create`). Then `goal_templates_apply` with
+   the template `id`, `teams` and the `cycle` - each team gets its own copy
+   with the default targets.
+4. Different targets per team: `goal_templates_targets` with `items`
+   (`metric` = the team's metric id from `goal_templates_board`'s
+   `instances`, `target_value`, optionally `base_value`). A department's or
+   the organization's planned number goes on its total's metric as
+   `planned_target`. `goal_templates_totals` picks which totals exist
+   (`"org"` and/or teams with sub-teams).
+5. Link to `{{app_url}}/board`, where every team's numbers sit side by side.
+
+To take a team off, `goal_templates_leave` (a copy with check-ins is kept
+as the team's own goals, an empty one deleted) - confirm first.
 
 ## 2. Confirm
 
@@ -73,6 +109,9 @@ anything before the user says yes.
 2. `metrics_create` for each metric, with `goal` = that id. `current_value`
    starts at `base_value`, so there's no need to send it.
 3. For a sub-goal, set `parent` to the parent goal's id.
+4. To put goals or metrics in a particular order (as they show on the
+   dashboard and check-in table), `goals_reorder` / `metrics_reorder` with
+   the sibling `ids` in order.
 
 ## 4. Wrap up
 

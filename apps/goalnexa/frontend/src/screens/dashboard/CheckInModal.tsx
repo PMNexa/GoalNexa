@@ -141,7 +141,9 @@ function CheckInForm({
   });
   const periodWord = per ? (when ? THAT_PERIOD[per] : THIS_PERIOD[per]) : "";
   // A later check-in in the same period keeps counting - this one would be replaced at once.
-  const later = !!existing && Date.parse(existing.checked_in_at) > at;
+  // A check-in for a period lands on the period's moment (which may be ahead of now), like this one will.
+  const existingAt = existing ? Date.parse(existing.checked_in_at) : 0;
+  const later = !!existing && existingAt > at && !(snap && periodStart(existingAt, snap) === periodStart(at, snap));
   const replacing = !!existing && !later;
   const newTotal =
     value !== "" && Number.isFinite(Number(value))

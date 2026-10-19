@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from core_api.utils import TimestampedModel, generate_uuid7
@@ -29,6 +30,70 @@ class SnapTo(models.TextChoices):
     YEAR = "year", "A year"
 
 
+class Weekday(models.IntegerChoices):
+    MONDAY = 1, "Monday"
+    TUESDAY = 2, "Tuesday"
+    WEDNESDAY = 3, "Wednesday"
+    THURSDAY = 4, "Thursday"
+    FRIDAY = 5, "Friday"
+    SATURDAY = 6, "Saturday"
+    SUNDAY = 7, "Sunday"
+
+
+class QuarterMonth(models.IntegerChoices):
+    FIRST = 1, "1st month (Jan, Apr, Jul, Oct)"
+    SECOND = 2, "2nd month (Feb, May, Aug, Nov)"
+    THIRD = 3, "3rd month (Mar, Jun, Sep, Dec)"
+
+
+class Month(models.IntegerChoices):
+    JANUARY = 1, "January"
+    FEBRUARY = 2, "February"
+    MARCH = 3, "March"
+    APRIL = 4, "April"
+    MAY = 5, "May"
+    JUNE = 6, "June"
+    JULY = 7, "July"
+    AUGUST = 8, "August"
+    SEPTEMBER = 9, "September"
+    OCTOBER = 10, "October"
+    NOVEMBER = 11, "November"
+    DECEMBER = 12, "December"
+
+
+#: The times a check-in's moment can be at, every 30 minutes.
+SNAP_TIMES = [(f"{h:02d}:{m:02d}", f"{h:02d}:{m:02d}") for h in range(24) for m in (0, 30)]
+
+
+class SnapMoment(models.Model):
+    """When in its period a check-in for a period is (P-67): its time is
+    set to this moment, and with `snap_due` it's also when the period's
+    check-in is due (flagged and reminded). Which fields apply depends on
+    `snap_to`: a day - the time; a week - the weekday; a month - the day of
+    the month; a quarter - its month and the day; a year - the month and the
+    day. A day past a month's end is its last day. The defaults are the
+    period's first day, 00:00 - where check-ins were stamped before P-67.
+    On a goal or metric following another (`Goal.snap_to_parent`,
+    `Metric.snap_to_goal`) these hold the values in effect, like `snap_to`."""
+
+    snap_weekday = models.PositiveSmallIntegerField(
+        "day of the week", choices=Weekday.choices, default=Weekday.MONDAY, db_default=Weekday.MONDAY
+    )
+    snap_quarter_month = models.PositiveSmallIntegerField(
+        "month of the quarter", choices=QuarterMonth.choices, default=QuarterMonth.FIRST, db_default=QuarterMonth.FIRST
+    )
+    snap_month = models.PositiveSmallIntegerField("month", choices=Month.choices, default=Month.JANUARY, db_default=Month.JANUARY)
+    snap_day = models.PositiveSmallIntegerField(
+        "day of the month", default=1, db_default=1, validators=[MinValueValidator(1), MaxValueValidator(31)]
+    )
+    snap_time = models.CharField("time", max_length=5, choices=SNAP_TIMES, default="00:00", db_default="00:00")
+    # db_default False: rows from before P-67 keep their own schedule (`check_in_every`).
+    snap_due = models.BooleanField("due at that moment", default=True, db_default=False)
+
+    class Meta:
+        abstract = True
+
+
 class GoalHealth(models.TextChoices):
     """Where a goal is heading - see `goalnexa.progress.goal_health`."""
 
@@ -39,7 +104,7 @@ class GoalHealth(models.TextChoices):
     ACHIEVED = "achieved", "Achieved"
 
 
-class Goal(TimestampedModel):
+class Goal(TimestampedModel, SnapMoment):
     """`owner_id` is a bare UUIDField, not a ForeignKey - this module
     shares nothing at the DB level with whatever module owns the actual
     User table (platform-auth), same convention as platform-org's
@@ -89,6 +154,11 @@ class Goal(TimestampedModel):
         "check-ins are for", max_length=8, choices=SnapTo.choices, default=SnapTo.ANY, db_default=SnapTo.ANY,
         blank=True,
     )
+    # P-67: a sub-goal's setting follows its parent goal's (the API shows
+    # `snap_to` as "parent"; a top-level goal following nothing is any
+    # time). Like `Metric.snap_to_goal`, the stored fields hold what's in
+    # effect. db_default False: the previous release's code sends `snap_to`.
+    snap_to_parent = models.BooleanField("same as parent goal", default=True, db_default=False)
     progress = models.DecimalField(
         max_digits=9, decimal_places=2, null=True, blank=True, help_text="Mean progress of its root metrics, in %."
     )

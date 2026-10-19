@@ -317,7 +317,10 @@ each cell's `shown` numbers in that period (`periods.shown`; totals by
 `_combine_shown`) for the board's "Show by"; `&periods=N` adds `history`
 (that many periods up to `at`, `periods.shown_series`; a cell's `value` is
 null with no check-in in it, `count`/`last_at` describe them) for its "Over
-time" mode (a team's cell is edited in place: one check-in, the difference
+time" mode (its periods are a range from `PeriodPicker` - day/week/month/
+quarter/year tabs over a calendar or grid, also the single-period picker
+in Check in - sent as `at` = the last and `periods` = the count, capped at
+60; a team's cell is edited in place: one check-in, the difference
 for an amount - `savePeriod`) (rows team -> goal -> metric, columns periods); Check in and Over time
 also draw as charts (Table/Chart, `screens/board/BoardCharts.tsx`: bars as
 % of each team's target, lines per team; totals listed apart) - goalnexa-frontend's
@@ -358,7 +361,17 @@ new check-in path gets it for free; don't bypass `save()` with
 `bulk_create`. `Goal.snap_to` (P-64) is the default for its metrics:
 `Metric.snap_to_goal` (API `snap_to: "goal"`) follows it, and the stored
 `Metric.snap_to` is always the period in effect (`snap_period`) - kept
-in step by both views (`periods.follow_goal`), so read that field only. Tests:
+in step by both views (`periods.follow_plan`/`apply_follow`), so read that
+field only. **The moment** (P-67, `SnapMoment` on goals, metrics and
+template metrics: weekday, month of the quarter, month, day, "HH:MM"):
+check-ins are stamped at it instead of the first day 00:00 (always inside
+the period, so bucketing is unchanged), and `snap_due` makes it the
+schedule (`periods.due_moment` -> `check_in_due_at`; `check_in_every` only
+without it). The whole setting (`periods.SNAP_FIELDS`) is inherited:
+sub-goal from parent goal (`Goal.snap_to_parent`, API `"parent"`), metric
+from goal, sub-metric from parent metric; a change walks down and is
+validated before saving. New rows default to inherited + due; old rows'
+`db_default`s keep them as they were. Tests:
 `tests/test_period_targets.py`.
 
 **System administration** (platform-core's `platform_system` app behind
@@ -532,7 +545,9 @@ the edit form. Lists sort `position`, then title/name.
 The check-in table's "Goals" picker (`screens/GoalPicker.tsx`) narrows
 it to the ticked goals plus their sub-goals (none ticked = all; per org
 in localStorage, `goalnexa:table-goals`); its columns come from the
-shown goals' check-ins only.
+shown goals' check-ins only. Table / Chart (`screens/table/TableCharts.tsx`,
+`goalnexa:table-view`): per goal its % and its metrics', a tracked metric
+in its unit, each chart over its own first-to-last columns.
 
 **Check-in time is `CheckIn.checked_in_at`**, not `created_at`. It's
 user-set and defaults to now when left blank (the form omits the key and

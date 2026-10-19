@@ -509,9 +509,99 @@ class GoalSnapToTests(TestCase):
         self.patch(f"goals/{self.goal['id']}", snap_to="year", expect=400)
 
     def test_forms_get_each_choices_default(self):
-        """A generic form preselects what a new row gets ("Same as goal", not "Any time")."""
+        """A generic form preselects what a new row gets ("inherited", not "Any time")."""
         fields = {f["name"]: f for f in self.alice.get(f"{API}/metrics/schema").json()["fields"]}
         self.assertEqual(fields["snap_to"]["default"], "goal")
         self.assertEqual(fields["one_per"]["default"], "")
         goal_fields = {f["name"]: f for f in self.alice.get(f"{API}/goals/schema").json()["fields"]}
-        self.assertEqual(goal_fields["snap_to"]["default"], "")
+        self.assertEqual(goal_fields["snap_to"]["default"], "parent")
+
+
+@override_settings(AUTH_FIRST_RUN_SETUP=False)
+class SnapMomentTests(TestCase):
+    """P-67: when in its period a check-in is (`SnapMoment`: weekday, month
+    of the quarter, month, day, time) - its time is set to that moment, and
+    with `snap_due` it's when the period's check-in is due. Sub-goals inherit
+    their parent goal's setting, metrics their goal's, sub-metrics their
+    parent metric's."""
+
+    setUp = SnapToTests.setUp
+    ok = SnapToTests.ok
+    patch = GoalSnapToTests.patch
+
+    def metric(self, goal=None, **extra):
+        return self.ok(self.alice, "metrics", goal=(goal or self.goal)["id"], name="Revenue", aggregation="sum",
+                       target_value=1000, **extra)
+
+    def check_in(self, metric, when="2026-10-08T20:00:00Z"):  # Fri Oct 9 03:00 +07:00
+        return self.ok(self.alice, "check-ins", metric=metric["id"], value=10, checked_in_at=when)["checked_in_at"]
+
+    def test_check_ins_land_on_the_periods_moment(self):
+        cases = [
+            ({"snap_to": "day", "snap_time": "18:30"}, "2026-10-09T11:30:00Z"),  # Fri Oct 9 18:30
+            ({"snap_to": "week", "snap_weekday": 5, "snap_time": "17:00"}, "2026-10-09T10:00:00Z"),  # Fri Oct 9 17:00
+            ({"snap_to": "month", "snap_day": 31}, "2026-10-30T17:00:00Z"),  # Oct 31 00:00
+            # The 2nd month of Q4 is November; day 31 = its last day.
+            ({"snap_to": "quarter", "snap_quarter_month": 2, "snap_day": 31, "snap_time": "09:00"}, "2026-11-30T02:00:00Z"),
+            ({"snap_to": "year", "snap_month": 3, "snap_day": 15}, "2026-03-14T17:00:00Z"),  # Mar 15 00:00
+        ]
+        for settings, expected in cases:
+            with self.subTest(settings["snap_to"]):
+                self.assertEqual(self.check_in(self.metric(**settings)), expected)
+
+    def test_changing_the_moment_moves_existing_check_ins(self):
+        metric = self.metric(snap_to="week")
+        self.assertEqual(self.check_in(metric), "2026-10-04T17:00:00Z")  # Mon Oct 5 00:00
+        self.patch(f"metrics/{metric['id']}", snap_weekday=3, snap_time="08:00")
+        row = self.alice.get(f"{API}/check-ins", {"filter{metric}": metric["id"]}).json()["items"][0]
+        self.assertEqual(row["checked_in_at"], "2026-10-07T01:00:00Z")  # Wed Oct 7 08:00
+
+    def test_due_at_the_next_periods_moment(self):
+        metric = self.metric(snap_to="week", snap_weekday=5, snap_time="17:00")
+        self.assertTrue(metric["snap_due"])
+        self.check_in(metric)
+        metric = self.alice.get(f"{API}/metrics/{metric['id']}").json()
+        self.assertEqual(metric["check_in_due_at"], "2026-10-16T10:00:00Z")  # next Friday 17:00
+        # Off: no due moment (and no "check in every" schedule).
+        self.assertIsNone(self.patch(f"metrics/{metric['id']}", snap_due=False)["check_in_due_at"])
+
+    def test_a_new_metric_is_first_due_at_its_creation_periods_moment_if_still_ahead(self):
+        created = timezone.now()
+        row = SimpleNamespace(snap_to="day", snap_due=True, snap_time="23:30", last_checked_in_at=None, created_at=created,
+                              snap_weekday=1, snap_quarter_month=1, snap_month=1, snap_day=1)
+        due = periods.due_moment(row, UTC)
+        today = created.astimezone(UTC).date()
+        moment = datetime(today.year, today.month, today.day, 23, 30, tzinfo=UTC)
+        self.assertEqual(due, moment if created <= moment else moment + timedelta(days=1))
+
+    def test_sub_goals_metrics_and_sub_metrics_inherit(self):
+        self.patch(f"goals/{self.goal['id']}", snap_to="week", snap_weekday=5, snap_time="17:00")
+        sub = self.ok(self.alice, "goals", title="North", org_id=self.org["id"], parent=self.goal["id"])
+        self.assertEqual((sub["snap_to"], sub["snap_period"], sub["snap_weekday"]), ("parent", "week", 5))
+        metric = self.metric(goal=sub)
+        own = self.metric(goal=sub, snap_to="month", snap_day=10)
+        sub_metric = self.ok(self.alice, "metrics", goal=sub["id"], parent=own["id"], name="Online", aggregation="sum",
+                             target_value=100)
+        self.assertEqual((sub_metric["snap_to"], sub_metric["snap_period"], sub_metric["snap_day"]), ("goal", "month", 10))
+        self.assertEqual(self.check_in(metric), "2026-10-09T10:00:00Z")  # the top goal's Friday 17:00
+
+        # The top goal changes: the sub-goal and its inheriting metric follow, check-ins too.
+        self.patch(f"goals/{self.goal['id']}", snap_to="month", snap_day=5, snap_time="00:00")
+        self.assertEqual(self.alice.get(f"{API}/goals/{sub['id']}").json()["snap_day"], 5)
+        rows = {r["metric"]: r["checked_in_at"] for r in self.alice.get(f"{API}/check-ins").json()["items"]}
+        self.assertEqual(rows[metric["id"]], "2026-10-04T17:00:00Z")  # Oct 5 00:00
+        self.assertEqual(self.alice.get(f"{API}/metrics/{sub_metric['id']}").json()["snap_day"], 10)  # its parent's own
+
+        # The parent metric changes: its inheriting sub-metric follows.
+        self.patch(f"metrics/{own['id']}", snap_to="quarter", snap_day=20)
+        sub_metric = self.alice.get(f"{API}/metrics/{sub_metric['id']}").json()
+        self.assertEqual((sub_metric["snap_period"], sub_metric["snap_day"]), ("quarter", 20))
+
+        # A goal of its own stops following.
+        self.patch(f"goals/{sub['id']}", snap_to="")
+        self.patch(f"goals/{self.goal['id']}", snap_to="year")
+        self.assertEqual(self.alice.get(f"{API}/goals/{sub['id']}").json()["snap_to"], "")
+
+    def test_a_top_level_goal_inheriting_is_any_time(self):
+        goal = self.ok(self.alice, "goals", title="Solo", org_id=self.org["id"], snap_to="parent")
+        self.assertEqual((goal["snap_to"], goal["snap_period"]), ("parent", ""))

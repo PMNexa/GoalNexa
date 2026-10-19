@@ -128,8 +128,16 @@ def _add_months(when: datetime, months: int) -> datetime:
     return when.replace(year=year, month=month, day=min(when.day, calendar.monthrange(year, month)[1]))
 
 
-def next_due(metric: Metric) -> datetime | None:
-    """The last check-in (or the metric's creation) plus its cadence."""
+#: Months per cadence, past a week.
+CADENCE_MONTHS = {CheckInCadence.MONTHLY: 1, CheckInCadence.QUARTERLY: 3, CheckInCadence.YEARLY: 12}
+
+
+def next_due(metric: Metric, zone=None) -> datetime | None:
+    """A metric due at its period's moment (`snap_due`, P-67): that moment
+    of the period after its latest check-in's (`periods.due_moment`). Else
+    the last check-in (or the metric's creation) plus its cadence."""
+    if metric.snap_to and metric.snap_due:
+        return periods.due_moment(metric, zone)
     start = metric.last_checked_in_at or metric.created_at
     if not metric.check_in_every or start is None:
         return None
@@ -137,7 +145,7 @@ def next_due(metric: Metric) -> datetime | None:
         return start + timedelta(days=1)
     if metric.check_in_every == CheckInCadence.WEEKLY:
         return start + timedelta(weeks=1)
-    return _add_months(start, 1)
+    return _add_months(start, CADENCE_MONTHS.get(metric.check_in_every, 1))
 
 
 def refresh_metric(metric_id, *, sync_value: bool = True) -> Metric | None:
@@ -169,7 +177,7 @@ def refresh_metric(metric_id, *, sync_value: bool = True) -> Metric | None:
         updates.update(periods.compute(metric, metric.goal, kept, zone=zone))
         for name in ("period_value", "cumulative_target", "expected_value", "hit_rate", "streak"):
             setattr(metric, name, updates[name])
-    metric.check_in_due_at = updates["check_in_due_at"] = next_due(metric)
+    metric.check_in_due_at = updates["check_in_due_at"] = next_due(metric, zone)
     if metric.check_in_due_at != old_due:
         # A new due date starts a new reminder cycle (goalnexa.reminders).
         metric.reminded_at = updates["reminded_at"] = None

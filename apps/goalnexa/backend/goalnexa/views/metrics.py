@@ -28,7 +28,7 @@ from goalnexa.access import visible_goals
 from goalnexa.activity import changes, record, snapshot
 from goalnexa.models import ActivityVerb, Goal, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
-from goalnexa.periods import resnap
+from goalnexa.periods import NEW_SETTINGS, SNAP_FIELDS, STAMP_FIELDS, apply_follow, metric_follow_plan, resnap, snap_settings
 from goalnexa.progress import refresh_goal, refresh_metric, refresh_metric_and_goal
 from goalnexa.serializers import MetricSerializer
 from goalnexa.serializers.metric import SNAP_TO_GOAL, validate_one_per
@@ -83,30 +83,50 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
             raise ValidationError({"parent": ["A metric can't be its own parent."]})
         return get_object_or_404(Metric.objects.filter(visible_goals(self.request, "goal__")), id=parent_id)
 
-    def _snap_period(self, serializer, goal) -> dict:
-        """`snap_to`/`snap_to_goal` to save: "goal" (and, on a new metric,
-        nothing sent) follows `goal.snap_to`; any other value is the
-        metric's own. The period in effect is checked against the metric's
-        target and one-reading periods."""
+    def _snap_settings(self, serializer, goal, parent) -> dict:
+        """The check-in setting to save (`snap_to` + `SnapMoment` +
+        `snap_to_goal`): "goal" (and, on a new metric, nothing sent) is
+        inherited - a sub-metric's from its parent metric (same goal), else
+        the goal's; anything else is the metric's own, the fields sent over
+        what it had. The period in effect is checked against the metric's
+        target and one-reading periods. Takes the fields out of
+        `validated_data`."""
         data, instance = serializer.validated_data, serializer.instance
-        if "snap_to" not in data:
-            follows = instance.snap_to_goal if instance else True
-            own = instance.snap_to if instance else ""
+        sent = {name: data.pop(name) for name in SNAP_FIELDS if name in data}
+        if "snap_to" in sent:
+            follows = (sent["snap_to"] or "") == SNAP_TO_GOAL
         else:
-            sent = data.pop("snap_to") or ""
-            follows, own = sent == SNAP_TO_GOAL, sent
-        period = goal.snap_to if follows else own
+            follows = instance.snap_to_goal if instance else True
+        if follows:
+            source = parent if parent is not None and parent.goal_id == goal.id else goal
+            value = snap_settings(source)
+        else:
+            value = {**(snap_settings(instance) if instance else NEW_SETTINGS), **sent}
         one_per = data.get("one_per", getattr(instance, "one_per", ""))
         target_per = data.get("target_per", getattr(instance, "target_per", ""))
         try:
-            validate_one_per(one_per, target_per, period)
+            validate_one_per(one_per, target_per, value["snap_to"])
         except ValidationError:
             if not follows:
                 raise
             raise ValidationError({"snap_to": [
-                f"Its goal's check-ins are for a whole {period}, longer than this metric's target or one-reading period. Pick a period for this metric."
+                f"What it inherits is check-ins for a whole {value['snap_to']}, longer than this metric's target or one-reading period. Pick a period for this metric."
             ]})
-        return {"snap_to": period, "snap_to_goal": follows}
+        return {**value, "snap_to_goal": follows}
+
+    @staticmethod
+    def _sub_metric_plan(metric_id, goal, value) -> list:
+        """The inheriting sub-metrics (all the way down) that follow
+        `metric_id`'s new setting - checked like the metric itself."""
+        plan = metric_follow_plan(goal.id, snap_settings(goal), {metric_id: value})
+        for sub, sub_value in plan:
+            try:
+                validate_one_per(sub.one_per, sub.target_per, sub_value["snap_to"])
+            except ValidationError:
+                raise ValidationError({"snap_to": [
+                    f'"{sub.name}" inherits this setting and can\'t have check-ins for a whole {sub_value["snap_to"]}. Pick a period for it first.'
+                ]})
+        return plan
 
     def perform_create(self, serializer):
         # A new metric starts at its base, unless the caller gave a current
@@ -117,7 +137,8 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         goal = self._resolve_goal()
         if goal.is_rollup:
             raise ValidationError({"goal": [TOTAL_READ_ONLY]})
-        metric = serializer.save(goal=goal, parent=self._resolve_parent(), **self._snap_period(serializer, goal), **extra)
+        parent = self._resolve_parent()
+        metric = serializer.save(goal=goal, parent=parent, **self._snap_settings(serializer, goal, parent), **extra)
         metric.position = next_position(metric)
         metric.save(update_fields=["position"])
         refresh_metric_and_goal(metric.id)
@@ -146,18 +167,24 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         parent = (self._resolve_parent(exclude_id=instance.id) if data.get("parent") else None) if "parent" in data else instance.parent
         old_goal_id = instance.goal_id
         old_value_rule = (instance.aggregation, instance.base_value, instance.one_per, instance.snap_to)
+        old_stamp = tuple(getattr(instance, name) for name in STAMP_FIELDS)
         before = snapshot(instance, FEED_FIELDS)
         old_siblings = sibling_key(instance)
-        metric = serializer.save(goal=goal, parent=parent, **self._snap_period(serializer, goal))
+        snap = self._snap_settings(serializer, goal, parent)
+        value = {name: snap[name] for name in SNAP_FIELDS}
+        sub_plan = self._sub_metric_plan(instance.id, goal, value) if value != snap_settings(instance) or goal.id != instance.goal_id else []
+        metric = serializer.save(goal=goal, parent=parent, **snap)
         if sibling_key(metric) != old_siblings:  # moved - it goes last in its new place
             metric.position = next_position(metric)
             metric.save(update_fields=["position"])
         # A current value set by hand stays - unless what check-ins add up
         # to just changed (a SUM metric counts from its base; which
         # check-ins count follows `one_per`).
-        if metric.snap_to != old_value_rule[3]:
-            resnap(metric)  # existing check-ins move to their period too
-        refresh_metric(metric.id, sync_value=(metric.aggregation, metric.base_value, metric.one_per, metric.snap_to) != old_value_rule)
+        moved = tuple(getattr(metric, name) for name in STAMP_FIELDS) != old_stamp
+        if moved:
+            resnap(metric)  # existing check-ins move to their period's moment too
+        refresh_metric(metric.id, sync_value=moved or (metric.aggregation, metric.base_value, metric.one_per, metric.snap_to) != old_value_rule)
+        apply_follow([], sub_plan)  # its inheriting sub-metrics follow
         refresh_goal(metric.goal_id)
         if old_goal_id != metric.goal_id:
             refresh_goal(old_goal_id)

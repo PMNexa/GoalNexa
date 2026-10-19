@@ -14,6 +14,7 @@ import {
   type LinkComponent,
 } from "platform-core";
 import TemplateWizard from "./TemplateWizard";
+import PeriodPicker from "./PeriodPicker";
 import { BOARD_CHART_CSS, BoardBarCharts, BoardLineCharts, type ChartPoint, type ChartSeries } from "./board/BoardCharts";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
 import { fetchCycles, type Cycle } from "../lib/api/cycles";
@@ -41,7 +42,7 @@ import {
 } from "../lib/api/teamBoard";
 import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../lib/currentOrg";
 import { readStored, writeStored } from "../lib/storedState";
-import { midPeriod, periodLabel, periodStart, recentPeriods, SNAP_LABELS, type Snap } from "../lib/periods";
+import { midPeriod, nextPeriodStart, periodLabel, periodStart, SNAP_LABELS, type Snap } from "../lib/periods";
 
 export interface TeamBoardScreenProps {
   accessToken: string;
@@ -78,6 +79,22 @@ const VIEWS: { value: View; label: string }[] = [
 const VIEW_KEY = "goalnexa:board-view";
 /** "Over time": how many periods it shows, up to the picked day. */
 const HISTORY_COUNT: Record<Snap, number> = { day: 14, week: 12, month: 12, quarter: 8, year: 5 };
+/** The most periods Over time asks for (the API's cap). */
+const MAX_HISTORY = 60;
+
+/** The first day of the period `count` periods before the one starting at `start`. */
+function periodsBack(start: number, per: Snap, count: number): number {
+  let at = start;
+  for (let i = 0; i < count; i += 1) at = periodStart(at - 1, per);
+  return at;
+}
+
+/** How many periods from the one starting at `from` to the one at `to`, both in (stops past MAX_HISTORY). */
+function periodsBetween(from: number, to: number, per: Snap): number {
+  let count = 1;
+  for (let at = from; at < to && count <= MAX_HISTORY; count += 1) at = nextPeriodStart(at, per);
+  return count;
+}
 const NO_CYCLE = "none";
 /** Org id -> the template last opened there. */
 const TEMPLATE_KEY = "goalnexa:board-template";
@@ -502,6 +519,15 @@ function TeamBoardScreen({
   const boardAt = when ? new Date(when).toISOString() : "";
   // "Over time": one column per period (Show by; a day when it's "Running totals").
   const historyPer: Snap | null = mode === "history" ? show || "day" : null;
+  // Over time's range: From (a period's first day; null = the default count back) to `when`.
+  const [historyFrom, setHistoryFrom] = useState<number | null>(null);
+  const historyTo = historyPer ? periodStart(when ? new Date(when).getTime() : openedAt, historyPer) : 0;
+  const historyStart = historyPer
+    ? historyFrom !== null && periodStart(historyFrom, historyPer) <= historyTo
+      ? periodStart(historyFrom, historyPer)
+      : periodsBack(historyTo, historyPer, HISTORY_COUNT[historyPer] - 1)
+    : 0;
+  const historyCount = historyPer ? Math.min(MAX_HISTORY, periodsBetween(historyStart, historyTo, historyPer)) : 0;
   const charting = mode !== "targets" && view === "chart";
   const [values, setValues] = useState<Map<string, string>>(new Map());
   const [notes, setNotes] = useState<Map<string, string>>(new Map());
@@ -632,14 +658,14 @@ function TeamBoardScreen({
       accessToken,
       templateId,
       cycleId === NO_CYCLE ? null : cycleId,
-      historyPer ? { show: historyPer, at: boardAt, periods: HISTORY_COUNT[historyPer] } : { show, at: boardAt },
+      historyPer ? { show: historyPer, at: boardAt, periods: historyCount } : { show, at: boardAt },
     )
       .then((data) => !cancelled && setBoard(data))
       .catch((e) => !cancelled && setError(errorMessage(e)));
     return () => {
       cancelled = true;
     };
-  }, [accessToken, templateId, cycleId, templates, version, show, boardAt, historyPer]);
+  }, [accessToken, templateId, cycleId, templates, version, show, boardAt, historyPer, historyCount]);
 
   const columns = useMemo<Column[]>(() => {
     if (!board) return [];
@@ -1224,15 +1250,46 @@ function TeamBoardScreen({
     parts.push(root ? board?.teams.find((t) => t.id === root)?.name ?? "" : "All teams");
     if (mode !== "targets") {
       const per = historyPer ?? show;
-      parts.push(`${historyPer ? "up to " : ""}${summaryDate.format(when ? new Date(when) : new Date(openedAt))}`);
+      parts.push(
+        historyPer
+          ? `${periodLabel(periodsBack(historyTo, historyPer, historyCount - 1), historyPer)} – ${periodLabel(historyTo, historyPer)}`
+          : summaryDate.format(when ? new Date(when) : new Date(openedAt)),
+      );
       parts.push(per ? `by ${SNAP_LABELS[per].toLowerCase()}` : "Running totals");
     }
     return parts.filter(Boolean).join(" · ");
   }
 
+  /** Over time: the first and last period, picked by day/week/... (at most MAX_HISTORY periods). */
+  function rangePicker(per: Snap) {
+    const from = periodsBack(historyTo, per, historyCount - 1);
+    const capped = historyFrom !== null && periodStart(historyFrom, per) < from;
+    return (
+      <>
+        <FormLabel htmlFor="gn-board-when">Periods</FormLabel>
+        <PeriodPicker
+          id="gn-board-when"
+          range
+          per={per}
+          onPerChange={(next) => {
+            setHistoryFrom(null); // a new kind of period starts from its default span
+            setShow(next);
+          }}
+          from={from}
+          to={historyTo}
+          onChange={(first, last) => {
+            setHistoryFrom(first);
+            setWhen(whenFor(last, per));
+          }}
+        />
+        {capped && <div className="form-hint">Up to {MAX_HISTORY} at a time - the latest shown.</div>}
+      </>
+    );
+  }
+
   function whenPicker() {
-    // "Over time" picks the last period shown, by its own period.
-    const per = historyPer ?? show;
+    if (historyPer) return rangePicker(historyPer);
+    const per = show;
     if (!per) {
       return (
         <>
@@ -1242,25 +1299,17 @@ function TeamBoardScreen({
       );
     }
     const picked = periodStart(when ? new Date(when).getTime() : openedAt, per);
-    if (per === "day") {
-      return (
-        <>
-          <FormLabel htmlFor="gn-board-when">Day</FormLabel>
-          <FormControl id="gn-board-when" type="date" value={localInput(picked).slice(0, 10)} max={today()}
-            onChange={(e) => e.target.value && setWhen(whenFor(new Date(`${e.target.value}T00:00`).getTime(), "day"))} />
-        </>
-      );
-    }
-    const periods = recentPeriods(per, openedAt);
-    if (!periods.some((p) => p.start === picked)) periods.push({ start: picked, label: periodLabel(picked, per) });
     return (
       <>
         <FormLabel htmlFor="gn-board-when">{SNAP_LABELS[per]}</FormLabel>
-        <FormSelect id="gn-board-when" value={String(picked)} onChange={(e) => setWhen(whenFor(Number(e.target.value), per))}>
-          {periods.map((p, index) => (
-            <option key={p.start} value={p.start}>{index === 0 ? `This ${per} (${p.label})` : p.label}</option>
-          ))}
-        </FormSelect>
+        <PeriodPicker
+          id="gn-board-when"
+          per={per}
+          onPerChange={setShow}
+          from={picked}
+          to={picked}
+          onChange={(_, last) => setWhen(whenFor(last, per))}
+        />
       </>
     );
   }
@@ -1621,12 +1670,12 @@ function TeamBoardScreen({
               {mode !== "targets" && (
                 <div className="col-sm-6 col-lg-3">{whenPicker()}</div>
               )}
-              {mode !== "targets" && (
+              {mode === "checkin" && (
                 <div className="col-sm-6 col-lg-2">
                   <FormLabel htmlFor="gn-board-show">Show by</FormLabel>
                   <FormSelect
                     id="gn-board-show"
-                    value={historyPer ?? show}
+                    value={show}
                     onChange={(e) => setShow(e.target.value as Snap | "")}
                   >
                     {mode === "checkin" && <option value="">Running totals</option>}

@@ -43,12 +43,13 @@ from goalnexa.models import (
     TemplateMetric,
 )
 from goalnexa.ordering import next_position
+from goalnexa.periods import ANY_TIME, SNAP_FIELDS, STAMP_FIELDS
 from goalnexa.progress import refresh_goal, refresh_metric
 
 #: Template-owned fields an instance can't change (`GoalViewSet`/`MetricViewSet`).
-LOCKED_GOAL_FIELDS = ("title", "description", "parent", "org_id", "team_id", "cycle", "snap_to")
+LOCKED_GOAL_FIELDS = ("title", "description", "parent", "org_id", "team_id", "cycle", *SNAP_FIELDS)
 LOCKED_METRIC_FIELDS = (
-    "name", "description", "unit", "aggregation", "check_in_every", "parent", "goal", "target_per", "count_days", "progress_by", "one_per", "snap_to",
+    "name", "description", "unit", "aggregation", "check_in_every", "parent", "goal", "target_per", "count_days", "progress_by", "one_per", *SNAP_FIELDS,
 )
 
 
@@ -140,6 +141,7 @@ def sync_tree(
                 description=tg.description,
                 parent=parent,
                 position=tg.position,
+                snap_to_parent=False,  # an instance's check-in settings are its template metrics'
             )
             if parent is None:
                 goal.position = next_position(goal)
@@ -195,7 +197,7 @@ def _sync_metrics(template, goal_by_tg: dict, is_rollup: bool, values: dict) -> 
             "count_days": tm.count_days,
             "progress_by": tm.progress_by,
             "one_per": "" if is_rollup else tm.one_per,  # a total has one reading a day already
-            "snap_to": "" if is_rollup else tm.snap_to,
+            **({**ANY_TIME} if is_rollup else {name: getattr(tm, name) for name in SNAP_FIELDS}),
             "snap_to_goal": False,  # the template's, not its goal's
         }
         metric = existing.get(tm.id)
@@ -222,12 +224,13 @@ def _sync_metrics(template, goal_by_tg: dict, is_rollup: bool, values: dict) -> 
                 Metric.objects.filter(id=metric.id).update(**changes)
                 for name, value in changes.items():
                     setattr(metric, name, value)
-                if "snap_to" in changes:
+                moved = bool(changes.keys() & set(STAMP_FIELDS))
+                if moved:
                     from goalnexa.periods import resnap
 
                     resnap(metric)
-                if changes.keys() & {"check_in_every", "aggregation", "target_per", "count_days", "progress_by", "one_per", "snap_to"}:
-                    refresh_metric(metric.id, sync_value=bool(changes.keys() & {"aggregation", "one_per", "snap_to"}))
+                if changes.keys() & {"check_in_every", "aggregation", "target_per", "count_days", "progress_by", "one_per", *SNAP_FIELDS}:
+                    refresh_metric(metric.id, sync_value=moved or bool(changes.keys() & {"aggregation", "one_per"}))
         metric_by_tm[tm.id] = metric
 
 

@@ -3,6 +3,11 @@ from rest_framework import serializers
 from core_api.serializers import BaseSerializer
 from goalnexa.models import Goal, SnapTo
 from goalnexa.serializers.layouts import GOAL_LAYOUT
+from goalnexa.serializers.metric import SNAP_MOMENT_HELP, snap_due_field
+
+#: `Goal.snap_to`'s API value for "inherited from the parent goal" (`Goal.snap_to_parent`).
+SNAP_TO_PARENT = "parent"
+GOAL_SNAP_TO_CHOICES = [(SNAP_TO_PARENT, "Inherited (from the parent goal)"), *SnapTo.choices]
 
 
 class GoalSerializer(BaseSerializer):
@@ -32,10 +37,18 @@ class GoalSerializer(BaseSerializer):
     (`goalnexa.progress`), read-only here.
     """
 
-    # Null = any time, like "" (a generic form's emptied select sends null).
+    # "parent" = inherited from the parent goal (`Goal.snap_to_parent`,
+    # resolved by `GoalViewSet`); the stored `snap_to` is the period in
+    # effect, read back as `snap_period`. Null = any time, like "" (a
+    # generic form's emptied select sends null).
     snap_to = serializers.ChoiceField(
-        choices=SnapTo.choices, required=False, allow_blank=True, allow_null=True,
-        help_text="What its metrics' check-ins are for: any moment, or a whole day/week/month/quarter/year - their time is then set to the period's first day (00:00, the organization's time zone). Applies to every metric set to \"same as goal\" (the default); changing it moves their check-ins too.",
+        label="Check-ins are for", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_PARENT,
+        help_text="Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment set below in its period (the organization's time zone). Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins.",
+    )
+    snap_due = snap_due_field()
+    snap_period = serializers.CharField(
+        source="snap_to", read_only=True,
+        help_text="The period check-ins are for, after \"inherited\": empty = any time.",
     )
 
     class Meta:
@@ -59,11 +72,12 @@ class GoalSerializer(BaseSerializer):
             "team_id": {"label": "Team", "help_text": "The team this goal is for, in its organization. Optional."},
             "template_goal": {"read_only": True, "help_text": "The goal template this goal follows - its title and structure are the template's."},
             "is_rollup": {"read_only": True, "help_text": "A team total: calculated from the teams' own goals, read-only."},
+            **SNAP_MOMENT_HELP,
         }
         # members: see above. The feed, comments and cycle scores have their
         # own panels (GoalActivityPanel, the cycle page) - not generic tabs.
         auto_exclude = [
-            "created_at", "updated_at", "members", "activities", "comments", "scores", "snapshots", "rolled_from",
+            "created_at", "updated_at", "snap_to_parent", "members", "activities", "comments", "scores", "snapshots", "rolled_from",
         ]
         related_endpoints = {"org_id": "/api/v1/orgs", "team_id": "/api/v1/teams"}
 
@@ -72,3 +86,9 @@ class GoalSerializer(BaseSerializer):
         if "snap_to" in attrs and attrs["snap_to"] is None:
             attrs["snap_to"] = ""
         return attrs
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if "snap_to" in data and instance.snap_to_parent:
+            data["snap_to"] = SNAP_TO_PARENT
+        return data

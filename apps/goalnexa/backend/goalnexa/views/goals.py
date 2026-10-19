@@ -19,9 +19,10 @@ from goalnexa.activity import changes, record, snapshot
 from core_api.system import check_org_limit
 from goalnexa.models import ActivityVerb, CheckIn, Cycle, CycleStatus, Goal, GoalStatus, GoalVisibility, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
-from goalnexa.periods import follow_goal
+from goalnexa.periods import ANY_TIME, NEW_SETTINGS, SNAP_FIELDS, apply_follow, follow_plan, snap_settings
 from goalnexa.progress import metric_pct, metric_readings, refresh_goal, root_metrics
 from goalnexa.serializers import GoalSerializer
+from goalnexa.serializers.goal import SNAP_TO_PARENT
 from goalnexa.serializers.metric import validate_one_per
 from goalnexa.teams import can_set_targets, team_org
 from goalnexa.templates import LOCKED_GOAL_FIELDS, tree_goals
@@ -98,14 +99,31 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
             raise ValidationError({"cycle": ["That cycle is closed."]})
         return cycle
 
-    def _check_snap_to(self, goal, snap_to):
-        """Every metric set to "same as goal" must allow `snap_to` too."""
-        for metric in Metric.objects.filter(goal_id=goal.id, snap_to_goal=True):
+    @staticmethod
+    def _snap_settings(serializer, parent) -> tuple[dict, bool]:
+        """(the check-in setting to save, whether it's inherited): "parent"
+        (and, on a new goal, nothing sent) follows `parent` - any time for a
+        top-level goal; anything else is the goal's own, the fields sent
+        over what it had. Takes the fields out of `validated_data`."""
+        data, instance = serializer.validated_data, serializer.instance
+        sent = {name: data.pop(name) for name in SNAP_FIELDS if name in data}
+        if "snap_to" in sent:
+            follows = sent["snap_to"] == SNAP_TO_PARENT
+        else:
+            follows = instance.snap_to_parent if instance else True
+        if follows:
+            return (snap_settings(parent) if parent is not None else dict(ANY_TIME)), True
+        return {**(snap_settings(instance) if instance else NEW_SETTINGS), **sent}, False
+
+    @staticmethod
+    def _check_follow(metrics) -> None:
+        """Every inheriting metric must allow its new period."""
+        for metric, value in metrics:
             try:
-                validate_one_per(metric.one_per, metric.target_per, snap_to)
+                validate_one_per(metric.one_per, metric.target_per, value["snap_to"])
             except ValidationError:
                 raise ValidationError({"snap_to": [
-                    f'"{metric.name}" can\'t have check-ins for a whole {snap_to} (its target or one-reading period is shorter). '
+                    f'"{metric.name}" can\'t have check-ins for a whole {value["snap_to"]} (its target or one-reading period is shorter). '
                     "Pick a period for that metric first."
                 ]})
 
@@ -132,7 +150,8 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         parent = self._resolve_parent()
         if parent is not None and parent.is_rollup:
             raise ValidationError({"parent": [TOTAL_READ_ONLY]})
-        goal = serializer.save(owner_id=self.request.user.id, parent=parent, cycle=cycle)
+        snap, follows = self._snap_settings(serializer, parent)
+        goal = serializer.save(owner_id=self.request.user.id, parent=parent, cycle=cycle, snap_to_parent=follows, **snap)
         goal.position = next_position(goal)
         goal.save(update_fields=["position"])
         record(goal.id, ActivityVerb.GOAL_CREATED, self.request.user.id, title=goal.title)
@@ -165,9 +184,14 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
             serializer.validated_data.get("org_id", instance.org_id),
             visibility,
         )
-        snap_to = serializer.validated_data.get("snap_to", instance.snap_to)
-        if snap_to != instance.snap_to:
-            self._check_snap_to(instance, snap_to)
+        if "parent" in self.request.data:
+            parent_id = self.request.data.get("parent")
+            parent = self._resolve_parent(exclude_id=instance.id) if parent_id else None
+        else:
+            parent = instance.parent
+        snap, follows = self._snap_settings(serializer, parent)
+        plan = follow_plan(instance, snap) if snap != snap_settings(instance) else ([], [])
+        self._check_follow(plan[1])
         before = snapshot(instance, FEED_FIELDS)
         old_siblings = sibling_key(instance)
         org_id = serializer.validated_data.get("org_id", instance.org_id)
@@ -182,20 +206,14 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
             cycle = None  # moved to another org - its cycle doesn't come along
         else:
             cycle = instance.cycle
-        if "parent" in self.request.data:
-            parent_id = self.request.data.get("parent")
-            parent = self._resolve_parent(exclude_id=instance.id) if parent_id else None
-        else:
-            parent = instance.parent
-        goal = serializer.save(parent=parent, cycle=cycle)
+        goal = serializer.save(parent=parent, cycle=cycle, snap_to_parent=follows, **snap)
         if goal.template_goal_id and visibility != before.get("visibility"):
             # An instance is seen as a whole: its other goals follow.
             tree_goals(goal.template_goal.template_id, goal.team_id, goal.cycle_id, False).update(visibility=visibility)
         if sibling_key(goal) != old_siblings:  # moved under another parent/org - it goes last there
             goal.position = next_position(goal)
             goal.save(update_fields=["position"])
-        if goal.snap_to != before.get("snap_to"):
-            follow_goal(goal)  # its "same as goal" metrics' check-ins move
+        apply_follow(*plan)  # its inheriting sub-goals and metrics follow; their check-ins move
         # Its target date may have moved - health and projection follow it.
         refresh_goal(goal.id)
         goal.refresh_from_db()  # the response shows the recomputed fields

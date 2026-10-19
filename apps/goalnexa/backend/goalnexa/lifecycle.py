@@ -170,7 +170,7 @@ def _tip_reminders(ctx: StepContext) -> Message | None:
     from goalnexa.models import Metric, ReminderSettings
 
     row = ReminderSettings.objects.filter(user_id=ctx.user_id).first()
-    if Metric.objects.filter(goal__owner_id=ctx.user_id).exclude(check_in_every="").exists() and row and (
+    if Metric.objects.filter(goal__owner_id=ctx.user_id, check_in_due_at__isnull=False).exists() and row and (
         row.url_list() or row.email
     ):
         return None

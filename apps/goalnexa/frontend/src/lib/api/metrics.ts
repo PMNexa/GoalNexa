@@ -32,8 +32,16 @@ export interface Metric {
   progress_by?: "total" | "hit_rate";
   /** One reading per period: only the last check-in of each period counts ("" = every one) - a sum check-in is then the period's total so far. */
   one_per?: TargetPer;
-  /** Check-ins are for a period ("" = any time, "goal" = the same as its goal's `snap_to`): the server sets each check-in's time to its period's first day. */
+  /** Check-ins are for a period ("" = any time, "goal" = inherited - its goal's, or a sub-metric's parent metric's): the server sets each check-in's time to its period's moment (below; the first day, 00:00 by default). */
   snap_to?: TargetPer | "goal";
+  /** The moment in the period (P-67): a week's weekday (1 = Monday), a quarter's month (1-3), a year's month (1-12), the day of the month (past its end = the last day), the time ("HH:MM"). */
+  snap_weekday?: number;
+  snap_quarter_month?: number;
+  snap_month?: number;
+  snap_day?: number;
+  snap_time?: string;
+  /** The period's check-in is due at that moment (`check_in_due_at`). */
+  snap_due?: boolean;
   /** The period check-ins are for, after "goal" ("" = any time) - what to read, not `snap_to`. */
   snap_period?: TargetPer;
   /** Server-kept for a target per period (decimal strings): this period's amount, every period's target added up, where the total should be by now, % of periods hit, hits in a row. */

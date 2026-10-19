@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardBody, FormLabel } from "platform-core";
+import { Card, CardBody, FormLabel, SegmentedControl } from "platform-core";
 import type { Goal } from "../lib/api/goals";
 import type { Metric } from "../lib/api/metrics";
 import type { CheckIn } from "../lib/api/checkIns";
@@ -26,6 +26,8 @@ import {
 } from "../lib/progress";
 import { formatPct } from "./dashboard/chartUtils";
 import { DASHBOARD_CSS } from "./dashboard/dashboardStyles";
+import { BOARD_CHART_CSS } from "./board/BoardCharts";
+import { TableCharts, type TableChartCard } from "./table/TableCharts";
 import CheckInModal from "./dashboard/CheckInModal";
 import CreateRecordModal, {
   type CreateTarget,
@@ -56,6 +58,12 @@ export interface CheckInTableScreenProps {
 
 const CHUNK = 40;
 const COLLAPSED_KEY = "goalnexa:table-collapsed";
+const VIEW_KEY = "goalnexa:table-view";
+type View = "table" | "chart";
+const VIEWS: { value: View; label: string }[] = [
+  { value: "table", label: "Table" },
+  { value: "chart", label: "Chart" },
+];
 /** Org key -> the goal ids picked to show there (none = all). */
 const PICKED_KEY = "goalnexa:table-goals";
 
@@ -124,6 +132,11 @@ interface Row {
   targetTitle?: string;
   /** Column key -> display. */
   cells: Map<string, { main: string; sub?: string; title?: string }>;
+  /** Column key -> number for the chart: progress in %, or a tracked metric's value. */
+  points: Map<string, number>;
+  /** A tracked metric (no target): its chart is in `unit`, not %. */
+  tracked?: boolean;
+  unit?: string;
 }
 
 /** Now, as a `datetime-local` value (local time, minutes). */
@@ -255,6 +268,12 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const [snap, setSnap] = useState<Snap>("day");
+  const [view, setViewState] = useState<View>(() => readStored<View>(VIEW_KEY, "table"));
+  function setView(value: View) {
+    setViewState(value);
+    writeStored(VIEW_KEY, value);
+    scrolledFor.current = null; // back to the table: open on the newest columns again
+  }
   const [weekStart, setWeekStart] = useState(1);
   const [checkInFor, setCheckInFor] = useState<Metric | null>(null);
   // The new check-in column: one time for the whole column, a value per metric.
@@ -434,6 +453,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
       const tracked = isTracked(m);
       const unit = m.unit ? ` ${m.unit}` : "";
       const cells: Row["cells"] = new Map();
+      const points: Row["points"] = new Map();
       const byDay = new Map<string, CheckIn[]>();
       for (const c of checkIns) {
         if (c.metric === m.id) {
@@ -462,6 +482,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
                 : formatPct(metricPct(point.value, m)),
           title: notes || undefined,
         });
+        points.set(k, tracked ? point.value : metricPct(point.value, m));
       }
       return {
         key: `m-${m.id}`,
@@ -484,6 +505,9 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
                 : "Each check-in is the new reading."
             }`,
         cells,
+        points,
+        tracked,
+        unit: m.unit,
       };
     };
 
@@ -509,6 +533,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
         own.map((m) => [m.id, computeValueSeries(m, checkIns)]),
       );
       const cells: Row["cells"] = new Map();
+      const points: Row["points"] = new Map();
       for (const col of columns) {
         const end = bucketEnd(col, snap);
         if (
@@ -527,9 +552,9 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
             m,
           );
         });
-        cells.set(col, {
-          main: formatPct(pcts.reduce((s, v) => s + v, 0) / pcts.length),
-        });
+        const pct = pcts.reduce((s, v) => s + v, 0) / pcts.length;
+        cells.set(col, { main: formatPct(pct) });
+        points.set(col, pct);
       }
       return {
         key: `g-${goal.id}`,
@@ -543,6 +568,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
         label: goal.title,
         goal,
         cells,
+        points,
       };
     };
 
@@ -568,6 +594,48 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
 
     return { columns, rows: goalRows(buildTree(goals), 0, []) };
   }, [data, orgKey, snap, weekStart, picked]);
+
+  // The chart view: per goal, its % and each metric's; a tracked metric on its own.
+  function chartCards(): TableChartCard[] {
+    if (!table) return [];
+    return table.rows.flatMap((row) => {
+      if (row.kind !== "goal") return [];
+      const metrics = table.rows.filter((r) => r.kind === "metric" && r.goalId === row.id);
+      const scored = metrics.filter((m) => !m.tracked);
+      const cards: TableChartCard[] = [];
+      if (scored.length > 0)
+        cards.push({
+          key: row.key,
+          title: (
+            <>
+              {row.label}
+              {row.goal && data && <GoalTag goal={row.goal} team={goalTeamName(row.goal, data.teamNames)} />}
+            </>
+          ),
+          unit: "%",
+          percent: true,
+          lines: [
+            ...(scored.length > 1 ? [{ key: row.key, label: "Goal", slot: 0, points: row.points }] : []),
+            ...scored.map((m, i) => ({ key: m.key, label: m.label, slot: i + 1, points: m.points })),
+          ],
+        });
+      for (const m of metrics.filter((m) => m.tracked))
+        cards.push({
+          key: m.key,
+          title: (
+            <>
+              {row.label}
+              {row.goal && data && <GoalTag goal={row.goal} team={goalTeamName(row.goal, data.teamNames)} />} · {m.label}
+              {m.unit && <span className="text-secondary fw-normal"> ({m.unit})</span>}
+            </>
+          ),
+          unit: m.unit ?? "",
+          percent: false,
+          lines: [{ key: m.key, label: m.label, slot: 1, points: m.points }],
+        });
+      return cards;
+    });
+  }
 
   // The goal picker's list: every goal, in the table's tree order.
   const goalOptions = useMemo(() => {
@@ -682,6 +750,11 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
       <style href="gn-checkin-table" precedence="default">
         {TABLE_CSS}
       </style>
+      {view === "chart" && (
+        <style href="gn-board-charts" precedence="default">
+          {BOARD_CHART_CSS}
+        </style>
+      )}
       <CheckInModal
         accessToken={accessToken}
         metric={checkInFor}
@@ -733,6 +806,9 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
           New goal
         </button>
         <div className="ms-auto">
+          <SegmentedControl label="View" variant="secondary" options={VIEWS} value={view} onChange={setView} />
+        </div>
+        <div>
           <FormLabel htmlFor="table-snap">Snap to</FormLabel>
           <div className="d-flex gap-2">
             <select
@@ -776,6 +852,8 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
             <div className="text-secondary p-3">Loading…</div>
           ) : table.rows.length === 0 ? (
             <div className="text-secondary p-3">No goals yet.</div>
+          ) : view === "chart" ? (
+            <TableCharts cards={chartCards()} columns={table.columns} label={(col) => bucketLabel(col, snap)} />
           ) : (
             <div
               className="gn-table-wrap"

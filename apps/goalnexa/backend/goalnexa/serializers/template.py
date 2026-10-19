@@ -3,7 +3,7 @@ from rest_framework import serializers
 from core_api.serializers import BaseSerializer
 from goalnexa.models import GoalTemplate, TemplateGoal, TemplateMetric
 from goalnexa.serializers.layouts import TEMPLATE_GOAL_LAYOUT, TEMPLATE_METRIC_LAYOUT
-from goalnexa.serializers.metric import validate_one_per
+from goalnexa.serializers.metric import SNAP_MOMENT_HELP, snap_due_field, validate_one_per
 
 
 class GoalTemplateSerializer(BaseSerializer):
@@ -54,6 +54,8 @@ class TemplateMetricSerializer(BaseSerializer):
     (no target = tracked only until the team sets one). `aggregation`
     can't change once a team has checked in."""
 
+    snap_due = snap_due_field()
+
     class Meta:
         model = TemplateMetric
         form_layout = TEMPLATE_METRIC_LAYOUT
@@ -74,7 +76,8 @@ class TemplateMetricSerializer(BaseSerializer):
             "target_per": {"help_text": "The whole goal, or each day/week/month/quarter/year (a quota, for amounts to add). Every team's copy follows it."},
             "count_days": {"help_text": "For a target per day or week: every day, or weekdays only."},
             "one_per": {"help_text": "Which check-ins count: every one, or only the last one each day/week/month/quarter/year (a later one replaces the earlier). Every team's copy follows it."},
-            "snap_to": {"help_text": "What a check-in is for: any moment, or a whole day/week/month/quarter/year (its time is set to the period's first day). Every team's copy follows it."},
+            "snap_to": {"help_text": "What a check-in is for: any moment, or a whole day/week/month/quarter/year (its time is set to the period's moment, below - the first day, 00:00 by default). Every team's copy follows it."},
+            **SNAP_MOMENT_HELP,
             "progress_by": {"help_text": "For a target per period: the total, or how often the target is hit (totals then average the teams or take the lowest)."},
         }
 

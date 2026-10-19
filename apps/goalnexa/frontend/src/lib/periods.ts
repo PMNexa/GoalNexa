@@ -43,7 +43,7 @@ export function nextPeriodStart(start: number, per: Snap): number {
 const LABELS: Record<Snap, Intl.DateTimeFormatOptions> = {
   day: { month: "short", day: "numeric" },
   week: { month: "short", day: "numeric" },
-  month: { month: "short", year: "2-digit" },
+  month: { month: "short", year: "numeric" },
   quarter: { month: "short", year: "numeric" },
   year: { year: "numeric" },
 };

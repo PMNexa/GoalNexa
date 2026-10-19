@@ -30,9 +30,10 @@ their own words.
   `"sum"` metric each check-in is then **the period's total so far** ("10,500
   steps today"), not an amount to add.
 - A metric with `snap_period` (day, week, month, quarter or year - its own
-  `snap_to`, or its goal's when `snap_to` is `"goal"`) takes check-ins
+  `snap_to`, or inherited when `snap_to` is `"goal"`) takes check-ins
   **for a whole period**: the server sets every check-in's `checked_in_at` to
-  that period's first day (00:00, the organization's time zone). To log one
+  that period's moment (the first day, 00:00 unless `snap_weekday`/`snap_day`/
+  `snap_time`/... say otherwise; the organization's time zone). To log one
   for an earlier period ("last month's revenue"), send any time inside it;
   confirm with the period ("for October"), not a time.
 - A metric can go down on purpose (response time 12h → 2h: target below base).
@@ -105,6 +106,20 @@ their own words.
    `{{app_url}}/dashboard?goal=<goal id>`, where its chart is. If the user asks
    for the chart itself, `goals_chart` returns the readings over time: draw it
    if you can.
+
+## Several numbers at once
+
+For several updates in one message ("North closed 12k, South 9k", "today:
+6 demos, 2 deals"), work out each value as above, then log them in ONE
+`check_ins_bulk` call (`items`: `metric`, `value`, optional `note` and
+`checked_in_at`) - all or nothing, so a bad item saves none: fix it and
+resend. For team numbers, the team board has every team's metric ids:
+`goal_templates_list` (`q` = the template's name) → `cycles_list`
+(`filter: {"status": "active"}`) → `goal_templates_board` with `id` and
+`cycle`; `instances["<team id>"].metrics["<template metric id>"].id` is
+that team's metric (`teams` names the team ids, `metrics` the template
+metric ids), and `can_check_in` says whether the user may. Confirm as a
+short list, one line per team and metric.
 
 Don't delete or edit earlier check-ins unless the user asks. A correction is a
 new check-in, or `check_ins_update` on the one they point to.

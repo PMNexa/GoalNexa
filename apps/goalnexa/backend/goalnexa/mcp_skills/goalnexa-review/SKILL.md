@@ -57,8 +57,22 @@ The server keeps these up to date on every goal - read them, don't recompute:
   have a `planned_target`, leadership's number, that its progress is measured
   against.
 
-**Overdue metrics**: a metric with a schedule (`check_in_every`) has
-`check_in_due_at`; it's overdue once that's passed -
+**A team review** (several teams running one goal template - "how are the
+teams doing?", "who hasn't checked in?"): one call has it all.
+`goal_templates_list` (`q` = its name) and the cycle (`cycles_list`), then
+`goal_templates_board` with `id` and `cycle`: `teams` (id, name, parent),
+`metrics` (the template's, by id), `instances` per team id (each metric's
+`base_value`, `target_value`, `current_value`, `progress`, `pace`, and
+`last_update` per goal - `on_day` null means no check-in today) and `totals`
+per department and `"org"` (with `planned_target` and `teams_target`, the
+teams' own targets added up). Add `show` (day/week/month/...) for this
+period's numbers per cell (`shown`: `value`, `quota`), and `periods` (up to
+60) for a trend (`history`, oldest first; `value: null` = no check-in that
+period). Present it as a table: team · each metric's current / target ·
+progress, totals last; name the teams that haven't checked in.
+
+**Overdue metrics**: a metric with a schedule (`check_in_every`, or a
+period's moment with `snap_due`) has `check_in_due_at`; it's overdue once that's passed -
 `metrics_list` with `filter: {"check_in_due_at.lte": "<now, ISO 8601>"}` and
 `include: ["goal"]`. A metric with no schedule is stale when
 `last_checked_in_at` is more than 14 days ago (or null while the goal is in
@@ -86,6 +100,18 @@ everything above.
    `{{app_url}}/dashboard?goal=<goal id>` for one goal. For a trend or a chart
    of one goal, `goals_chart` returns its readings over time: draw it if you
    can.
+
+## Closing a cycle
+
+At a cycle's end ("wrap up Q4"), review its goals as above, then propose
+per goal: `done`, `rollover` (into the next cycle - a copy with its
+metrics; a reading starts from its current value) or `drop`, a `score`
+0-1 (default = its progress) and a one-line `reflection`. Show the list,
+and only after a yes call `cycles_close` with `id`, `decisions`
+(`goal`, `action`, `score`, `reflection`), `next_cycle` when anything rolls
+over (`cycles_list`, a `planning` or `active` one of the same
+organization), and `retro` for the cycle's notes. It can't be undone: the
+cycle becomes read-only. Report the scores it returns.
 
 If an organization's goal has had no check-in from anyone but the user, you may
 suggest once that they invite the teammate who owns the number

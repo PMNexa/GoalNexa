@@ -4,9 +4,31 @@ from core_api.serializers import BaseSerializer
 from goalnexa.models import Metric, SnapTo
 from goalnexa.serializers.layouts import METRIC_LAYOUT
 
-#: `Metric.snap_to`'s API value for "same as its goal" (`Metric.snap_to_goal`).
+#: `Metric.snap_to`'s API value for "inherited" (`Metric.snap_to_goal`): the
+#: goal's setting, or a sub-metric's parent metric's.
 SNAP_TO_GOAL = "goal"
-METRIC_SNAP_TO_CHOICES = [(SNAP_TO_GOAL, "Same as goal"), *SnapTo.choices]
+METRIC_SNAP_TO_CHOICES = [(SNAP_TO_GOAL, "Inherited (from its goal, or its parent metric)"), *SnapTo.choices]
+
+#: `snap_due` as a select (a generic form preselects a choice's default, not a checkbox's).
+SNAP_DUE_CHOICES = [(True, "Yes - flagged and reminded when it passes"), (False, "No")]
+
+
+def snap_due_field():
+    return serializers.ChoiceField(
+        label="Due at that moment", choices=SNAP_DUE_CHOICES, required=False,
+        help_text=SNAP_MOMENT_HELP["snap_due"]["help_text"],
+    )
+
+
+#: Help for the moment fields (`SnapMoment`), shared by goals, metrics and template metrics.
+SNAP_MOMENT_HELP = {
+    "snap_weekday": {"help_text": "For check-ins for a week: the day they're for."},
+    "snap_quarter_month": {"help_text": "For check-ins for a quarter: which of its months."},
+    "snap_month": {"help_text": "For check-ins for a year: the month."},
+    "snap_day": {"help_text": "For check-ins for a month, quarter or year: the day of the month (1-31; past the month's end = its last day)."},
+    "snap_time": {"help_text": "For check-ins for a period: the time of day (the organization's time zone). Each check-in's time is set to this moment in its period."},
+    "snap_due": {"help_text": "The period's check-in is due at that moment: flagged when it passes, and you're reminded. Off = not due then (a metric's own \"check in every\" schedule applies)."},
+}
 
 
 def validate_one_per(one_per: str, target_per: str, snap_to: str = "") -> None:
@@ -55,13 +77,14 @@ class MetricSerializer(BaseSerializer):
     # read back as `snap_period`. Null = any time, like "" (a generic form's
     # emptied select sends null).
     snap_to = serializers.ChoiceField(
-        choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_GOAL,
-        help_text="What a check-in is for: the same as its goal (the default), any moment, or a whole day/week/month/quarter/year - its time is then set to the period's first day (00:00, the organization's time zone), whoever checks in. Changing it moves existing check-ins too.",
+        label="Check-ins are for", choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_GOAL,
+        help_text="Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment set below in its period (the organization's time zone), whoever checks in. Changing it moves existing check-ins.",
     )
     snap_period = serializers.CharField(
         source="snap_to", read_only=True,
-        help_text="The period check-ins are for, after \"same as goal\": empty = any time.",
+        help_text="The period check-ins are for, after \"inherited\": empty = any time.",
     )
+    snap_due = snap_due_field()
     in_my_team = serializers.SerializerMethodField()
     pace = serializers.SerializerMethodField()
 
@@ -78,7 +101,7 @@ class MetricSerializer(BaseSerializer):
             "target_value": {"help_text": "The number you want to reach. It can be lower than the start for something that should go down. Equal to the start = tracked only, with no % progress."},
             "current_value": {"help_text": "The latest reading. It updates by itself with each check-in; you rarely need to set it."},
             "aggregation": {"help_text": "Latest: each check-in is the new reading (a weight, a user count). Sum: each check-in is an amount added to the total (km run today)."},
-            "check_in_every": {"help_text": "How often you plan to check in. You get a reminder when one is due. Empty = no schedule."},
+            "check_in_every": {"help_text": "How often you plan to check in, counted from the last check-in. You get a reminder when one is due. Empty = no schedule. Not used when check-ins are for a period and due at its moment (snap_due)."},
             "parent": {"help_text": "Makes this a sub-metric that breaks down another metric of the same goal. Sub-metrics don't count toward the goal's progress."},
             "position": {"read_only": True, "help_text": "Order among metrics with the same parent, lowest first. Changed by dragging, or POST reorder."},
             "last_checked_in_at": {"read_only": True, "help_text": "When the latest check-in happened."},
@@ -96,6 +119,7 @@ class MetricSerializer(BaseSerializer):
             "hit_rate": {"read_only": True, "help_text": "Share of periods at or over target so far, in %."},
             "streak": {"read_only": True, "help_text": "Periods in a row at or over target, up to now."},
             "period_reminded_for": {"read_only": True},
+            **SNAP_MOMENT_HELP,
         }
 
     def validate(self, attrs):
@@ -110,7 +134,7 @@ class MetricSerializer(BaseSerializer):
             raise serializers.ValidationError({"progress_by": ["How often the target is hit needs a target per period."]})
         if "snap_to" in attrs and attrs["snap_to"] is None:
             attrs["snap_to"] = ""
-        # `snap_to` against these: `MetricViewSet._snap_period`, which knows the goal.
+        # `snap_to` against these: `MetricViewSet._snap_settings`, which knows the goal.
         validate_one_per(attrs.get("one_per", getattr(instance, "one_per", "")), target_per)
         return attrs
 

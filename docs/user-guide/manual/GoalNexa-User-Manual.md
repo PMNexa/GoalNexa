@@ -267,6 +267,9 @@ Under it are its **metrics** (current / target and unit), then its
    ![The new goal form](images/newgoal-modal.png){width=45%}
 
    - **Title** - the outcome, e.g. "Run a 10 km race under 50 minutes".
+   - **Check-ins are for** - Inherited (from the parent goal; any time
+     for a top-level goal), Any time, or a day / week / month / quarter /
+     year, with the moment in it (see "When check-ins happen", 4.5).
    - **Description** - why it matters.
    - **Status** - Not started / In progress / Completed / Archived
      (archived goals leave the dashboard).
@@ -301,8 +304,10 @@ You can also create goals from **Goal tracking > Goals > + New goal**.
 
    ![More metric settings](images/newmetric-modal-2.png){width=45%}
 
-   - **Check in every** - Daily / Weekly / Monthly: you get a reminder
-     when a check-in is due (chapter 6).
+   - **Check in every** - Daily / Weekly / Monthly / Quarterly / Yearly,
+     counted from the last check-in: you get a reminder when a check-in is
+     due (chapter 6). Not used when the check-ins are for a period and due
+     at its moment (4.5).
    - **Target is for**, **Count days**, **Progress by**, **One reading
      per**, **Check-ins are for** - quotas per period (4.5).
 4. Click **Create**.
@@ -343,10 +348,34 @@ day") use a metric whose check-ins are **amounts to add**, then set:
 | **Count days** | Every day, or Weekdays only (for daily/weekly targets) |
 | **Progress by** | *The total against every period's target*, or *How often the target is hit* (hit rate) |
 | **One reading per** | Only the last check-in of each period counts (send "the total so far today") |
-| **Check-ins are for** | A check-in counts for a whole day/week/month - its time is set to the period's start |
+| **Check-ins are for** | A check-in counts for a whole day/week/month - its time is set to the period's moment (below) |
 
 The tree then shows "done / quota /wk", the chart adds **Per period**
 bars, and the metric's page shows the **hit rate** and **streak**.
+
+### When check-ins happen
+
+**Check-ins are for** sits right under a goal's title and a metric's
+name. **Any time** keeps each check-in's own time. A period files every
+check-in under it, dated at a moment you pick (in the organization's
+time zone):
+
+| Period | You pick | Example |
+|---|---|---|
+| A day | Time | Every day at 18:30 |
+| A week | Day of the week, time | Friday 17:00 |
+| A month | Day of the month, time | The 31st (= the month's last day) at 09:00 |
+| A quarter | Month of the quarter, day, time | 2nd month, the 15th |
+| A year | Month, day, time | March 15 |
+
+**Due at that moment** (Yes by default): the period's check-in is due
+then - the metric gets the clock on the dashboard and you're reminded
+(chapter 6). **Check in every** is used only when it's No or for any time.
+
+**Inherited** passes the whole setting down: a sub-goal takes its parent
+goal's, a metric its goal's, a sub-metric its parent metric's - until it
+picks its own. Changing a setting moves the existing check-ins of
+everything that inherits it to their period's new moment.
 
 ## 4.6 Lists, search and filters
 
@@ -418,7 +447,13 @@ history as columns - handy for a weekly update.
 
 Hover a value to read its notes. The **Target** column shows "start ->
 target". Drag a row's name to reorder; **+** has the same menus as on
-the dashboard.
+the dashboard. A team's goal shows its team after the title, a team
+total "Total".
+
+**Table / Chart** (top right) draws the same rows as charts: per goal,
+its progress and each metric's in % over the columns (a metric with no
+target gets its own chart in its unit). Each chart spans its own first
+to last check-in; hover a column for the numbers.
 
 
 # 6. Reminders and the goals digest
@@ -674,8 +709,10 @@ running totals - good for "how did each region do this week".
 
 **Over time** (next to Check in and Targets) lays the same numbers out
 by time: one row per team, its goals and their metrics, one column per
-day - or per week, month... with **Show by** - up to the picked **Day**
-(the last 14 days, 12 weeks, 12 months, 8 quarters or 5 years). A cell
+period. **Periods** picks them: choose Day, Week, Month, Quarter or Year
+at the top, then click the first period and the last (up to 60; it
+opens on the last 14 days, 12 weeks, 12 months, 8 quarters or 5 years).
+In Check in, the same picker chooses the one period **Show by** shows. A cell
 is what was done in that period (or its last reading), "/ 10" its target
 per period; "—" means nobody checked in. Hover a cell for its details
 (the dates, the % of target, how many check-ins and the last one's time).
@@ -688,8 +725,8 @@ stay. The arrow at the left of the top line folds the pickers away.
 the board instead. In Check in, each metric gets a bar per team - how
 far along its own target it is, the tick marking 100% - with the totals
 under a dashed line. In Over time, each metric gets a line per team
-across the periods; hover a period to see every team's and total's
-number. Check-ins are entered in the table.
+across the periods (each chart from its own first to last check-in);
+hover a period to see every team's and total's number. Check-ins are entered in the table.
 
 **Full screen** shows the board alone, for a team meeting; **Exit full
 screen** (or Esc) returns.
@@ -934,12 +971,14 @@ the console.
 | Target value | Where you want to be; lower than base = should go down; equal = tracked only |
 | Current value | Updated by check-ins |
 | Each check-in is | The new value (reading) / An amount to add (sum) |
-| Check in every | No schedule / Daily / Weekly / Monthly - reminders |
+| Check in every | No schedule / Daily / Weekly / Monthly / Quarterly / Yearly - reminders |
 | Target is for | The whole goal / Each day, week, month, quarter, year (quota) |
 | Count days | Every day / Weekdays only |
 | Progress by | Total against every period's target / How often the target is hit |
 | One reading per | Every check-in counts / The last one each period |
-| Check-ins are for | Any time / A day, week, month, quarter, year |
+| Check-ins are for | Inherited / Any time / A day, week, month, quarter, year |
+| Day of the week, Month of the quarter, Month, Day of the month, Time | The moment in the period (4.5, "When check-ins happen") |
+| Due at that moment | Yes: due and reminded then / No |
 | Parent | Makes it a sub-metric (not counted in the goal's progress) |
 
 ## Check-in

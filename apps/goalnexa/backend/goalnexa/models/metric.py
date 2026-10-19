@@ -1,7 +1,7 @@
 from django.db import models
 
 from core_api.utils import TimestampedModel, generate_uuid7
-from goalnexa.models.goal import Goal, SnapTo
+from goalnexa.models.goal import Goal, SnapMoment, SnapTo
 
 
 class MetricAggregation(models.TextChoices):
@@ -16,6 +16,8 @@ class CheckInCadence(models.TextChoices):
     DAILY = "daily", "Daily"
     WEEKLY = "weekly", "Weekly"
     MONTHLY = "monthly", "Monthly"
+    QUARTERLY = "quarterly", "Quarterly"
+    YEARLY = "yearly", "Yearly"
 
 
 class TargetPer(models.TextChoices):
@@ -51,7 +53,7 @@ class OnePer(models.TextChoices):
     YEAR = "year", "The last one each year"
 
 
-class Metric(TimestampedModel):
+class Metric(TimestampedModel, SnapMoment):
     """A tracked, numeric measure of progress toward a `Goal` (1-n, like
     `OrgMembership.org` -> `related_name="memberships"`) - e.g. "revenue"
     target 100000 unit "$", or "workouts" target 20 unit "sessions".
@@ -182,7 +184,8 @@ class Metric(TimestampedModel):
         blank=True,
     )
     # P-64: `snap_to` follows its goal's `Goal.snap_to` (the API shows it as
-    # "goal"). `snap_to` itself always holds the period in effect - kept in
+    # "goal") - a sub-metric's, its parent metric's (P-67), with the moment
+    # fields (`SnapMoment`). `snap_to` itself always holds the period in effect - kept in
     # step by the goal's and metric's views - so whatever reads it (the
     # previous release's code too, during a deploy) needs no lookup.
     # db_default False: that code inserts metrics with an explicit `snap_to`.

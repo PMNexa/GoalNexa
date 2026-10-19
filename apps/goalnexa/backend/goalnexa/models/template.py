@@ -1,6 +1,7 @@
 from django.db import models
 
 from core_api.utils import TimestampedModel, generate_uuid7
+from goalnexa.models.goal import SnapMoment
 from goalnexa.models.metric import CheckInCadence, CountDays, MetricAggregation, OnePer, ProgressBy, SnapTo, TargetPer
 
 
@@ -61,7 +62,7 @@ class TemplateGoal(TimestampedModel):
         verbose_name = "template goal"
 
 
-class TemplateMetric(TimestampedModel):
+class TemplateMetric(TimestampedModel, SnapMoment):
     """A metric of a template goal: what every instance measures (name,
     unit, how check-ins add up, schedule) and how teams roll up
     (`rollup`). `default_base`/`default_target` are what a new instance

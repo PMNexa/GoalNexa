@@ -193,19 +193,81 @@ def counted(metric, check_ins, zone: ZoneInfo | None = None) -> tuple[list, set]
     return [c for c in ordered if c.id in kept_ids], {c.id for c in ordered if c.id not in kept_ids}
 
 
+#: A goal's or metric's check-in setting (`snap_to` + `SnapMoment`), what
+#: following rows copy. All but `snap_due` decide where check-ins land.
+SNAP_FIELDS = ("snap_to", "snap_weekday", "snap_quarter_month", "snap_month", "snap_day", "snap_time", "snap_due")
+STAMP_FIELDS = SNAP_FIELDS[:-1]
+#: What a row following nothing gets: any time, the moment fields' defaults.
+ANY_TIME = {
+    "snap_to": "", "snap_weekday": 1, "snap_quarter_month": 1, "snap_month": 1, "snap_day": 1, "snap_time": "00:00",
+    "snap_due": False,
+}
+
+#: A new row with its own setting: the model's defaults (due at the moment).
+NEW_SETTINGS = {**ANY_TIME, "snap_due": True}
+
+
+def snap_settings(row) -> dict:
+    return {name: getattr(row, name) for name in SNAP_FIELDS}
+
+
+def _on_day(year: int, month: int, day: int) -> date:
+    return date(year, month, min(day, calendar.monthrange(year, month)[1]))
+
+
+def moment_day(start: date, row) -> date:
+    """The day in the period starting `start` (of `row.snap_to`) that
+    `row`'s check-ins are for (`SnapMoment`)."""
+    per = row.snap_to
+    if per == TargetPer.WEEK:
+        return start + timedelta(days=row.snap_weekday - 1)
+    if per == TargetPer.MONTH:
+        return _on_day(start.year, start.month, row.snap_day)
+    if per == TargetPer.QUARTER:
+        return _on_day(start.year, start.month + row.snap_quarter_month - 1, row.snap_day)
+    if per == TargetPer.YEAR:
+        return _on_day(start.year, row.snap_month, row.snap_day)
+    return start
+
+
+def moment(start: date, row, zone: ZoneInfo) -> datetime:
+    """`row`'s moment in the period starting `start`, in `zone`."""
+    day = moment_day(start, row)
+    hour, minute = (int(part) for part in (row.snap_time or "00:00").split(":"))
+    return datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone)
+
+
 def snap_time(metric, when: datetime, zone: ZoneInfo | None = None) -> datetime:
-    """`when` snapped to the first day of its `metric.snap_to` period, 00:00
-    in the goal's zone (unchanged without one)."""
+    """`when` moved to its `metric.snap_to` period's moment (`SnapMoment`:
+    the first day, 00:00 by default) in the goal's zone (unchanged without
+    a period). The moment is inside the period, so the check-in stays in it."""
     if not metric.snap_to:
         return when
     zone = zone or zone_for(metric.goal)
-    start = period_start(local_date(when, zone), metric.snap_to)
-    return datetime(start.year, start.month, start.day, tzinfo=zone)
+    return moment(period_start(local_date(when, zone), metric.snap_to), metric, zone)
+
+
+def due_moment(metric, zone: ZoneInfo | None = None) -> datetime | None:
+    """When a metric whose check-ins are due at their moment (`snap_due`)
+    next needs one: the moment of the period after its latest check-in's,
+    or - with none yet - of the period it was created in (the next one if
+    it was created after that moment). None without that schedule."""
+    if not (metric.snap_to and metric.snap_due):
+        return None
+    zone = zone or zone_for(metric.goal)
+    if metric.last_checked_in_at is not None:
+        start = period_start(local_date(metric.last_checked_in_at, zone), metric.snap_to)
+        return moment(next_start(start, metric.snap_to), metric, zone)
+    if metric.created_at is None:
+        return None
+    start = period_start(local_date(metric.created_at, zone), metric.snap_to)
+    first = moment(start, metric, zone)
+    return first if metric.created_at <= first else moment(next_start(start, metric.snap_to), metric, zone)
 
 
 def resnap(metric) -> int:
-    """Re-stamps every check-in of `metric` to its `snap_to` period (after the
-    setting changed); returns how many moved."""
+    """Re-stamps every check-in of `metric` to its `snap_to` period's moment
+    (after the setting changed); returns how many moved."""
     from goalnexa.models import CheckIn
 
     if not metric.snap_to:
@@ -220,17 +282,73 @@ def resnap(metric) -> int:
     return moved
 
 
-def follow_goal(goal) -> None:
-    """Gives every metric of `goal` set to "same as goal" (`snap_to_goal`)
-    the goal's `snap_to`, moving its check-ins (after the goal's changed)."""
+def metric_follow_plan(goal_id, goal_settings: dict, overrides: dict | None = None) -> list:
+    """[(metric, settings)] for the metrics of a goal whose setting is about
+    to change: a metric set to "inherited" (`snap_to_goal`) takes its parent
+    metric's (P-67), a top-level one its goal's (`goal_settings`).
+    `overrides` = {metric id: its new settings} for metrics changed directly
+    (left out of the result). Only rows that would change are listed."""
     from goalnexa.models import Metric
-    from goalnexa.progress import refresh_metric  # progress imports periods
 
-    for metric in Metric.objects.filter(goal_id=goal.id, snap_to_goal=True).exclude(snap_to=goal.snap_to):
-        Metric.objects.filter(id=metric.id).update(snap_to=goal.snap_to)
-        metric.snap_to = goal.snap_to
-        resnap(metric)
-        refresh_metric(metric.id, sync_value=True)
+    overrides = overrides or {}
+    rows = list(Metric.objects.filter(goal_id=goal_id).select_related("goal"))
+    by_id = {m.id: m for m in rows}
+    effective: dict = {}
+
+    def settings_of(metric, seen=()):
+        if metric.id not in effective:
+            if metric.id in overrides:
+                value = overrides[metric.id]
+            elif metric.snap_to_goal:
+                parent = by_id.get(metric.parent_id)
+                value = settings_of(parent, (*seen, metric.id)) if parent and parent.id not in seen else goal_settings
+            else:
+                value = snap_settings(metric)
+            effective[metric.id] = value
+        return effective[metric.id]
+
+    return [(m, settings_of(m)) for m in rows if m.id not in overrides and settings_of(m) != snap_settings(m)]
+
+
+def follow_plan(goal, settings: dict) -> tuple[list, list]:
+    """What follows when `goal`'s setting becomes `settings`: ([(sub-goal,
+    settings)], [(metric, settings)]) - every sub-goal set to "inherited"
+    (`snap_to_parent`), all the way down, and every inheriting metric of
+    those goals. Only rows that would change; nothing is saved."""
+    from goalnexa.models import Goal
+
+    goals, metrics = [], []
+    queue, seen = [(goal.id, settings)], {goal.id}
+    while queue:
+        goal_id, value = queue.pop()
+        metrics += metric_follow_plan(goal_id, value)
+        for child in Goal.objects.filter(parent_id=goal_id, snap_to_parent=True, is_rollup=False).exclude(id__in=seen):
+            seen.add(child.id)
+            if snap_settings(child) != value:
+                goals.append((child, value))
+            queue.append((child.id, value))
+    return goals, metrics
+
+
+def apply_follow(goals: list, metrics: list) -> None:
+    """Saves a `follow_plan`: moves the metrics' check-ins and refreshes them."""
+    from goalnexa.models import Goal, Metric
+    from goalnexa.progress import refresh_goal, refresh_metric  # progress imports periods
+
+    for goal, value in goals:
+        Goal.objects.filter(id=goal.id).update(**value)
+    touched = set()
+    for metric, value in metrics:
+        moved = any(getattr(metric, name) != value[name] for name in STAMP_FIELDS)
+        Metric.objects.filter(id=metric.id).update(**value)
+        for name, field_value in value.items():
+            setattr(metric, name, field_value)
+        if moved:
+            resnap(metric)
+        refresh_metric(metric.id, sync_value=moved)
+        touched.add(metric.goal_id)
+    for goal_id in touched:
+        refresh_goal(goal_id)
 
 
 def replaced_by(check_in, zone: ZoneInfo | None = None):

@@ -17,6 +17,24 @@ of you beyond the usual upgrade steps.
   Chart (remembered). Check in's chart is a bar per team for each metric,
   as a % of its target (totals last); Over time's, a line per team across
   the periods, hover for every team's and total's numbers.
+- **When check-ins happen**: "Check-ins are for" sits right under a goal's
+  title and a metric's name, and a period gets its moment - a day's time; a
+  week's weekday and time; a month's day and time; a quarter's month, day
+  and time; a year's month, day and time. Check-ins are dated at that
+  moment, and (Due at that moment, on by default for new goals and metrics)
+  it's when the period's check-in is due and reminded. Sub-goals inherit
+  their parent goal's setting, metrics their goal's, sub-metrics their
+  parent metric's. "Check in every" adds Quarterly and Yearly.
+- **Period picker**: the team board picks its periods with one control -
+  Day, Week, Month, Quarter or Year, then a day, week, month... from a
+  calendar or grid; in Over time a range (first and last period, up to
+  60) instead of a fixed count. Month labels show the full year.
+- **Check-in table: charts**: Table / Chart; per goal, its and its
+  metrics' progress over the columns, a tracked metric in its unit.
+- **Skills use the team tools**: check-in (`check_ins_bulk`, team metric
+  ids from the board), review (a team review from `goal_templates_board`,
+  closing a cycle), plan (goal templates for several teams, targets,
+  reorder).
 - **Board charts fit their data**: each Over time chart spans its own
   periods, from its metric's first check-in to its last.
 - **MCP: team tools**: `check_ins_bulk`, `cycles_close`,

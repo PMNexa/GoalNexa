@@ -220,10 +220,10 @@ changed nothing since goals start at "any time"). Any other `snap_to`
 value is the metric's own and clears the flag.
 
 The stored `Metric.snap_to` is always the period IN EFFECT (shown as
-`snap_period`): `MetricViewSet._snap_period` copies the goal's on every
+`snap_period`): `MetricViewSet._snap_settings` copies the goal's on every
 metric write (a moved metric takes its new goal's), and a goal change
 copies it to its following metrics, re-stamps their check-ins and
-recomputes (`periods.follow_goal`). So `CheckIn.save`, the replays and
+recomputes (`periods.follow_plan`/`apply_follow`, P-67). So `CheckIn.save`, the replays and
 the previous release's code (during a deploy) all read one field. A goal
 change is refused while a following metric's `target_per`/`one_per` is
 shorter; a metric following its goal is refused the same way. Template
@@ -231,3 +231,39 @@ and team-total metrics never follow (their template decides), and an
 instance goal's `snap_to` is locked. Closing a cycle copies both
 settings (and the metric's period-target fields) into the rolled-over
 goal.
+
+## The moment in the period, inheritance (P-67)
+
+`SnapMoment` (abstract, on `Goal`, `Metric`, `TemplateMetric`) says WHEN in
+its period a check-in is: `snap_weekday` (a week, 1 = Monday),
+`snap_quarter_month` (a quarter, 1-3), `snap_month` (a year), `snap_day`
+(a month, quarter or year; past the month's end = its last day) and
+`snap_time` ("HH:MM", every 30 minutes) - in the goal's zone.
+`periods.snap_time` stamps a check-in at that moment of its period
+(`periods.moment`), which is always inside the period, so bucketing by
+period (`one_per`, `shown`, the board, the client) is unchanged. The
+defaults are the first day, 00:00 - what P-63 stamped - so existing rows
+didn't move. Changing any of them re-stamps (`STAMP_FIELDS`).
+
+`snap_due` makes the moment the schedule: `check_in_due_at` = the moment
+of the period after the latest check-in's (`periods.due_moment`; with no
+check-in yet, the creation period's moment, or the next one if that has
+passed), so the dashboard's clock and the reminders (`goalnexa.reminders`,
+unchanged) follow it; `check_in_every` (now also quarterly/yearly) is used
+only without it. Default on for new rows, `db_default` off, so rows from
+before kept their own schedule. In the generic form it's a select - a
+form preselects a choice's default, not a checkbox's.
+
+Inheritance: the whole setting (`periods.SNAP_FIELDS`) is copied, stored
+as the values in effect. A sub-goal with `Goal.snap_to_parent` (API
+`snap_to: "parent"`, the default for a new goal; any time for a top-level
+one, `db_default` off) takes its parent goal's; a metric with
+`snap_to_goal` (API `"goal"`) its parent metric's when it has one in the
+same goal, else its goal's. A goal change walks down every inheriting
+sub-goal and their inheriting metrics (`periods.follow_plan`, checked
+against each metric's `target_per`/`one_per` BEFORE saving, then
+`apply_follow`: re-stamp + refresh); a metric change does the same for its
+inheriting sub-metrics (`metric_follow_plan`). Template instance and total
+goals never inherit (`snap_to_parent=False`); their metrics take the
+template metric's whole setting (locked).
+
