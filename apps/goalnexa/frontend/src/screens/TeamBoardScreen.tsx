@@ -40,7 +40,7 @@ import {
   type GoalTemplate,
   type TargetChange,
 } from "../lib/api/teamBoard";
-import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../lib/currentOrg";
+import { getCurrentOrg, PERSONAL_ORG, subscribeCurrentOrg } from "../lib/currentOrg";
 import { readStored, writeStored } from "../lib/storedState";
 import { midPeriod, nextPeriodStart, periodLabel, periodStart, SNAP_LABELS, type Snap } from "../lib/periods";
 
@@ -427,7 +427,6 @@ function buildRows(board: Board, root: string, mode: Mode): { rows: Row[]; notJo
   return { rows, notJoined };
 }
 
-const summaryDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
 /** Down when the pickers are open, right when folded. */
 const ChevronIcon = (open: boolean) => (
@@ -614,9 +613,13 @@ function TeamBoardScreen({
         setOrgId(rows.find((o) => o.id === current)?.id ?? rows[0]?.id ?? null);
       })
       .catch((e) => !cancelled && setError(errorMessage(e)));
+    // The header's "Switch organization" picks it - the board has no org picker of its own.
     const unsubscribe = subscribeCurrentOrg(() => {
       const current = getCurrentOrg();
-      if (current && current !== PERSONAL_ORG) setOrgId(current);
+      if (current && current !== PERSONAL_ORG) {
+        setOrgId(current);
+        setRoot("");
+      }
     });
     return () => {
       cancelled = true;
@@ -692,13 +695,6 @@ function TeamBoardScreen({
     setNotes(new Map());
     setOpenNotes(new Set());
     setTargets(new Map());
-  }
-
-  function pickOrg(id: string) {
-    setOrgId(id);
-    setCurrentOrg(id);
-    setRoot("");
-    resetDrafts();
   }
 
   function pickTemplate(id: string) {
@@ -1241,24 +1237,6 @@ function TeamBoardScreen({
     );
   }
 
-  /** The folded picker card's one line: what the board shows. */
-  function pickerSummary() {
-    const parts: string[] = [];
-    if (orgs && orgs.length > 1) parts.push(orgs.find((o) => o.id === orgId)?.name ?? "");
-    parts.push(templates.find((t) => t.id === templateId)?.title ?? "No template");
-    parts.push(cycleId === NO_CYCLE ? "No cycle" : cycles.find((c) => c.id === cycleId)?.name ?? "");
-    parts.push(root ? board?.teams.find((t) => t.id === root)?.name ?? "" : "All teams");
-    if (mode !== "targets") {
-      const per = historyPer ?? show;
-      parts.push(
-        historyPer
-          ? `${periodLabel(periodsBack(historyTo, historyPer, historyCount - 1), historyPer)} – ${periodLabel(historyTo, historyPer)}`
-          : summaryDate.format(when ? new Date(when) : new Date(openedAt)),
-      );
-      parts.push(per ? `by ${SNAP_LABELS[per].toLowerCase()}` : "Running totals");
-    }
-    return parts.filter(Boolean).join(" · ");
-  }
 
   /** Over time: the first and last period, picked by day/week/... (at most MAX_HISTORY periods). */
   function rangePicker(per: Snap) {
@@ -1594,7 +1572,7 @@ function TeamBoardScreen({
               onClick={() => setPickersFolded(!pickersFolded)}
             >
               {ChevronIcon(!pickersFolded)}
-              <span className="text-truncate">{pickerSummary()}</span>
+              Filters
             </button>
             <div className="ms-auto d-flex gap-2 flex-wrap">
               {mode !== "targets" && (
@@ -1606,16 +1584,6 @@ function TeamBoardScreen({
           {!pickersFolded && (
           <CardBody className="border-top">
             <div id="gn-board-pickers" className="row g-2 align-items-start">
-              {orgs.length > 1 && (
-                <div className="col-sm-6 col-lg-2">
-                  <FormLabel htmlFor="gn-board-org">Organization</FormLabel>
-                  <FormSelect id="gn-board-org" value={orgId ?? ""} onChange={(e) => pickOrg(e.target.value)}>
-                    {orgs.map((org) => (
-                      <option key={org.id} value={org.id}>{org.name}</option>
-                    ))}
-                  </FormSelect>
-                </div>
-              )}
               <div className="col-sm-6 col-lg-3 position-relative">
                 <FormLabel htmlFor="gn-board-template">Goal template</FormLabel>
                 {canCreateTemplate && orgId && (

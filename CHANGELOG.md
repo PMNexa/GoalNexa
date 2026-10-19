@@ -34,7 +34,8 @@ of you beyond the usual upgrade steps.
 - **Team board "Over time"**: a third mode - rows are teams, their goals
   and metrics, columns the last 14 days (or weeks, months... with Show
   by), each cell what was done in that period against its target
-  (`board?show=&periods=N`). The pickers fold to one line (remembered).
+  (`board?show=&periods=N`). The pickers fold away (remembered); the board shows the
+  organization picked in the header, with no picker of its own.
 - **Team board charts**: Check in and Over time switch between Table and
   Chart (remembered). Check in's chart is a bar per team for each metric,
   as a % of its target (totals last); Over time's, a line per team across
