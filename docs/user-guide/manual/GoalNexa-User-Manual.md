@@ -362,7 +362,8 @@ and **Done** closes it; the field then reads e.g. "Each week · Friday,
 17:00 · due then". **Any time** keeps each check-in's own time. A
 period files every check-in under it, dated at the moment you pick (in
 the organization's time zone). On a team's copy of a goal template it's
-greyed out: the template sets it on each of its metrics (Goal templates).
+greyed out: the template sets it (Goal templates), on its goals and
+metrics the same way - inherited unless one picks its own.
 
 What you pick for each period:
 

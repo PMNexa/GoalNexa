@@ -371,7 +371,12 @@ without it). The whole setting (`periods.SNAP_FIELDS`) is inherited:
 sub-goal from parent goal (`Goal.snap_to_parent`, API `"parent"`), metric
 from goal, sub-metric from parent metric; a change walks down and is
 validated before saving. New rows default to inherited + due; old rows'
-`db_default`s keep them as they were. Tests:
+`db_default`s keep them as they were. Template goals and metrics have the
+same setting and inheritance (`TemplateGoal.snap_to_parent`,
+`TemplateMetric.snap_to_goal`); template rows keep their OWN choice and a
+team's copy gets the one in effect (`templates.template_settings`,
+checked against each metric's target by `check_template_settings` before
+the push). Tests:
 `tests/test_period_targets.py`.
 
 **System administration** (platform-core's `platform_system` app behind

@@ -61,8 +61,9 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
     };
   }, [open]);
 
-  // A template's copy (or a team total) takes it from the template's metrics - shown, not edited.
-  const locked = Boolean(values.template_goal || values.template_metric || values.is_rollup);
+  // A team's copy of a template (or a team total) takes it from the template - shown, not edited.
+  // A copied goal has `template_goal` and a `title`; a template's own metric has `template_goal` and a `name`.
+  const locked = Boolean(values.template_metric || (values.template_goal && "title" in values) || values.is_rollup);
   const per = String(valueOf(values, field, "snap_to", ""));
   const hasMoment = PERIODS.includes(per);
   const weekday = valueOf(values, fields.snap_weekday, "snap_weekday", 1);
@@ -225,7 +226,7 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
         <small className="form-hint">
           {values.template_metric
             ? "Set by the goal template - change it on its metric there (Goal templates)."
-            : "Set on each metric of the goal template - change it there (Goal templates)."}
+            : "Set by the goal template - change it on its goal there (Goal templates)."}
         </small>
       ) : (
         field.helpText && <small className="form-hint">{field.helpText}</small>

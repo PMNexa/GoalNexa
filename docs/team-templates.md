@@ -79,6 +79,7 @@ release's code keeps working during a deploy.
 |---|---|---|
 | Goal title, description, parent, position (template sub-goals) | template | locked |
 | Metric name, unit, aggregation, schedule, parent, position | template | locked |
+| When check-ins happen (`snap_to` + moment), on goals and metrics | template (inherited down like goals: `"parent"`/`"goal"`; a copy gets the setting in effect, `templates.template_settings`) | locked |
 | Base, target, check-ins, current value, goal owner, members | team | editable |
 | Goal/metric with no template link (local) | team | fully editable, not rolled up |
 

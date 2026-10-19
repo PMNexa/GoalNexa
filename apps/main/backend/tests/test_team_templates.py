@@ -452,3 +452,40 @@ class TeamTemplateTests(TestCase):
 
     def client_patch(self, client, path, **body):
         return client.patch(f"{API}/{path}", body, format="json")
+
+    # --- check-in setting (template goals like goals) ------------------------
+
+    def test_template_goal_check_in_setting_is_inherited_by_copies(self):
+        # New template goals and metrics inherit; a top-level goal inheriting = any time.
+        tg = self.alice.get(f"{API}/template-goals/{self.revenue_goal['id']}").json()
+        self.assertEqual(tg["snap_to"], "parent")
+        self.assertEqual(self.alice.get(f"{API}/template-metrics/{self.mrr['id']}").json()["snap_to"], "goal")
+        self.apply(self.north)
+        week = {"snap_to": "week", "snap_weekday": 5, "snap_time": "17:00"}
+        response = self.client_patch(self.alice, f"template-goals/{self.revenue_goal['id']}", **week)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["snap_to"], "week")
+        # The copy's goal, its metrics, the sub-goal and its metric all follow.
+        mrr, hires = self.instance_metric(self.north, self.mrr), self.instance_metric(self.north, self.hires)
+        for row in (mrr, hires, mrr.goal, hires.goal):
+            self.assertEqual((row.snap_to, row.snap_weekday, row.snap_time), ("week", 5, "17:00"), row)
+        # A metric's own choice wins.
+        response = self.client_patch(self.alice, f"template-metrics/{self.nps['id']}", snap_to="month", snap_day=15)
+        self.assertEqual(response.status_code, 200, response.content)
+        nps = self.instance_metric(self.north, self.nps)
+        self.assertEqual((nps.snap_to, nps.snap_day), ("month", 15))
+        # Back to inherited.
+        self.assertEqual(self.client_patch(self.alice, f"template-metrics/{self.nps['id']}", snap_to="goal").status_code, 200)
+        self.assertEqual(self.instance_metric(self.north, self.nps).snap_to, "week")
+        # A team's copy can't change it.
+        response = self.client_patch(self.alice, f"goals/{mrr.goal_id}", snap_to="day")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Set by the goal template", str(response.json()))
+
+    def test_inherited_setting_must_fit_a_metrics_target(self):
+        self.client_patch(self.alice, f"template-metrics/{self.hires['id']}", target_per="day")
+        response = self.client_patch(self.alice, f"template-goals/{self.revenue_goal['id']}", snap_to="week")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Hires", str(response.json()["field_errors"]["snap_to"]))
+        tg = self.alice.get(f"{API}/template-goals/{self.revenue_goal['id']}").json()
+        self.assertEqual(tg["snap_to"], "parent")  # nothing saved

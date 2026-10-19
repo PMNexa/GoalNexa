@@ -82,7 +82,10 @@ goals - organization owners and admins only:
    `avg`, `min` or `none`; see `template_metrics_schema`).
 2. After a yes: `goal_templates_create` (`title`, `org_id`), then
    `template_goals_create` (`template`, `title`, `parent` for a sub-goal)
-   and `template_metrics_create` (`template_goal`, ...).
+   and `template_metrics_create` (`template_goal`, ...). When check-ins
+   happen works as above: `snap_to` and its moment on the template goal
+   (sub-goals inherit with `"parent"`, metrics with `"goal"` - the
+   defaults), or on one template metric; every team's copy follows.
 3. Teams: `teams_list` with `filter: {"org": "<id>"}`; create missing
    ones only if asked (`teams_create`). Then `goal_templates_apply` with
    the template `id`, `teams` and the `cycle` - each team gets its own copy

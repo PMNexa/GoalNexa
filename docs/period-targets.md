@@ -234,6 +234,11 @@ goal.
 
 ## The moment in the period, inheritance (P-80)
 
+Templates: a template goal has the same setting as a goal (sub-goals
+inherit with `"parent"`), a template metric inherits its template goal's
+(`"goal"`). Template rows store their own choice; `templates.template_settings`
+resolves what's in effect and every team's copy gets that (locked).
+
 `SnapMoment` (abstract, on `Goal`, `Metric`, `TemplateMetric`) says WHEN in
 its period a check-in is: `snap_weekday` (a week, 1 = Monday),
 `snap_quarter_month` (a quarter, 1-3), `snap_month` (a year), `snap_day`

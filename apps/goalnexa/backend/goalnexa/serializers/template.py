@@ -2,8 +2,20 @@ from rest_framework import serializers
 
 from core_api.serializers import BaseSerializer
 from goalnexa.models import GoalTemplate, TemplateGoal, TemplateMetric
+from goalnexa.serializers.goal import GOAL_SNAP_TO_CHOICES, SNAP_TO_PARENT
 from goalnexa.serializers.layouts import TEMPLATE_GOAL_LAYOUT, TEMPLATE_METRIC_LAYOUT
-from goalnexa.serializers.metric import SNAP_MOMENT_HELP, snap_due_field, validate_one_per
+from goalnexa.serializers.metric import METRIC_SNAP_TO_CHOICES, SNAP_MOMENT_HELP, SNAP_TO_GOAL, snap_due_field, validate_one_per
+
+
+
+def _inherits(attrs: dict, value: str, flag: str) -> dict:
+    """`snap_to` as sent -> the stored choice: `value` ("parent"/"goal")
+    sets the inherit `flag`; anything else is the row's own (null = any time)."""
+    if "snap_to" in attrs:
+        sent = attrs["snap_to"] or ""
+        attrs[flag] = sent == value
+        attrs["snap_to"] = "" if sent == value else sent
+    return attrs
 
 
 class GoalTemplateSerializer(BaseSerializer):
@@ -31,12 +43,21 @@ class GoalTemplateSerializer(BaseSerializer):
 class TemplateGoalSerializer(BaseSerializer):
     """`/api/v1/template-goals` - a goal of a template (its root, or a
     sub-goal with `parent`). Every team's instance has a goal following
-    it; a change is pushed to all of them."""
+    it; a change is pushed to all of them. `snap_to` + the moment: when
+    check-ins happen, like a goal's - its metrics inherit it, and so do
+    sub-goals with "parent" (the default)."""
+
+    snap_to = serializers.ChoiceField(
+        label="Check-ins are for", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True,
+        initial=SNAP_TO_PARENT,
+        help_text="Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period. Its metrics and sub-goals inherit it unless they pick their own; every team's copy follows it.",
+    )
+    snap_due = snap_due_field()
 
     class Meta:
         model = TemplateGoal
         form_layout = TEMPLATE_GOAL_LAYOUT
-        auto_exclude = ["created_at", "updated_at", "instances"]
+        auto_exclude = ["created_at", "updated_at", "instances", "snap_to_parent"]
         display_field = "title"
         extra_kwargs = {
             "title": {"help_text": "The goal, as an outcome. Every team's copy gets this title."},
@@ -44,7 +65,17 @@ class TemplateGoalSerializer(BaseSerializer):
             "template": {"help_text": "The goal template it belongs to."},
             "parent": {"help_text": "Makes it a sub-goal of another goal of the same template."},
             "position": {"help_text": "Order among goals with the same parent, lowest first."},
+            **SNAP_MOMENT_HELP,
         }
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if "snap_to" in data and instance.snap_to_parent:
+            data["snap_to"] = SNAP_TO_PARENT
+        return data
+
+    def validate(self, attrs):
+        return _inherits(super().validate(attrs), SNAP_TO_PARENT, "snap_to_parent")
 
 
 class TemplateMetricSerializer(BaseSerializer):
@@ -54,12 +85,17 @@ class TemplateMetricSerializer(BaseSerializer):
     (no target = tracked only until the team sets one). `aggregation`
     can't change once a team has checked in."""
 
+    snap_to = serializers.ChoiceField(
+        label="Check-ins are for", choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True,
+        initial=SNAP_TO_GOAL,
+        help_text="Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period, whoever checks in. Every team's copy follows it.",
+    )
     snap_due = snap_due_field()
 
     class Meta:
         model = TemplateMetric
         form_layout = TEMPLATE_METRIC_LAYOUT
-        auto_exclude = ["created_at", "updated_at", "instances"]
+        auto_exclude = ["created_at", "updated_at", "instances", "snap_to_goal"]
         display_field = "name"
         extra_kwargs = {
             "name": {"help_text": "The number every team tracks. For example: Revenue, or Deals closed."},
@@ -76,13 +112,19 @@ class TemplateMetricSerializer(BaseSerializer):
             "target_per": {"help_text": "The whole goal, or each day/week/month/quarter/year (a quota, for amounts to add). Every team's copy follows it."},
             "count_days": {"help_text": "For a target per day or week: every day, or weekdays only."},
             "one_per": {"help_text": "Which check-ins count: every one, or only the last one each day/week/month/quarter/year (a later one replaces the earlier). Every team's copy follows it."},
-            "snap_to": {"help_text": "What a check-in is for: any moment, or a whole day/week/month/quarter/year (its time is set to the period's moment, below - the first day, 00:00 by default). Every team's copy follows it."},
             **SNAP_MOMENT_HELP,
             "progress_by": {"help_text": "For a target per period: the total, or how often the target is hit (totals then average the teams or take the lowest)."},
         }
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if "snap_to" in data and instance.snap_to_goal:
+            data["snap_to"] = SNAP_TO_GOAL
+        return data
+
     def validate(self, attrs):
-        attrs = super().validate(attrs)
+        # An inherited setting is checked against the target by the view, once resolved.
+        attrs = _inherits(super().validate(attrs), SNAP_TO_GOAL, "snap_to_goal")
         instance = self.instance
         target_per = attrs.get("target_per", getattr(instance, "target_per", ""))
         aggregation = attrs.get("aggregation", getattr(instance, "aggregation", "latest"))

@@ -443,6 +443,7 @@ SPECTACULAR_SETTINGS = {
         "GoalHealthEnum": "goalnexa.models.goal.GoalHealth",
         "SnapToEnum": "goalnexa.models.goal.SnapTo",
         "MetricSnapToEnum": "goalnexa.serializers.metric.METRIC_SNAP_TO_CHOICES",
+        "GoalSnapToEnum": "goalnexa.serializers.goal.GOAL_SNAP_TO_CHOICES",
         "OrgRoleEnum": "platform_org.models.org_membership.OrgRole",
     },
     "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},

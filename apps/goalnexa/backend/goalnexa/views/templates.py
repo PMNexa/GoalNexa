@@ -59,6 +59,7 @@ from goalnexa.rollups import batched, combine, schedule
 from goalnexa.serializers import GoalTemplateSerializer, TemplateGoalSerializer, TemplateMetricSerializer
 from goalnexa.teams import can_plan, can_set_targets, can_check_in, is_org_manager, team_names, team_parents
 from goalnexa.templates import (
+    check_template_settings,
     has_check_ins,
     ordered,
     push_template,
@@ -559,9 +560,13 @@ class _TemplatePartViewSet(BaseViewSet):
             return queryset.filter(**{f"{self.template_path}owner_id": self.request.user.id})
         return queryset.filter(**{f"{self.template_path}org_id__in": orgs})
 
-    def _push(self, template):
+    def _save(self, serializer, owner, **kwargs):
+        """Save, check every metric's check-in setting in effect (one may
+        inherit this change), then push to the teams' copies - all or nothing."""
         with transaction.atomic():
-            push_template(template)
+            serializer.save(**kwargs)
+            check_template_settings(owner)
+            push_template(owner)
 
 
 class TemplateGoalViewSet(_TemplatePartViewSet):
@@ -599,13 +604,11 @@ class TemplateGoalViewSet(_TemplatePartViewSet):
         if "position" not in self.request.data:
             siblings = TemplateGoal.objects.filter(template=template, parent=parent)
             serializer.validated_data["position"] = (max((s.position for s in siblings), default=-1) + 1)
-        serializer.save(template=template, parent=parent)
-        self._push(template)
+        self._save(serializer, template, template=template, parent=parent)
 
     def perform_update(self, serializer):
         template, parent = self._resolve(serializer.instance)
-        serializer.save(template=template, parent=parent)
-        self._push(template)
+        self._save(serializer, template, template=template, parent=parent)
 
     def perform_destroy(self, instance):
         _check_manager(self.request, instance.template.org_id)
@@ -651,8 +654,7 @@ class TemplateMetricViewSet(_TemplatePartViewSet):
         if "position" not in self.request.data:
             siblings = TemplateMetric.objects.filter(template_goal=tg, parent=parent)
             serializer.validated_data["position"] = (max((s.position for s in siblings), default=-1) + 1)
-        serializer.save(template_goal=tg, parent=parent)
-        self._push(tg.template)
+        self._save(serializer, tg.template, template_goal=tg, parent=parent)
 
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -662,8 +664,7 @@ class TemplateMetricViewSet(_TemplatePartViewSet):
             Metric.objects.filter(template_metric=instance, goal__is_rollup=False).values_list("id", flat=True)
         ):
             raise ValidationError({"aggregation": ["Teams have checked in - changing this would change what their check-ins mean."]})
-        serializer.save(template_goal=tg, parent=parent)
-        self._push(tg.template)
+        self._save(serializer, tg.template, template_goal=tg, parent=parent)
 
     def perform_destroy(self, instance):
         _check_manager(self.request, instance.template_goal.template.org_id)

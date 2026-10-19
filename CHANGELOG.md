@@ -9,6 +9,12 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Goal templates: when check-ins happen, like goals.** A template goal
+  has "Check-ins are for" with its moment; sub-goals inherit it from their
+  parent and metrics from their goal (the default for new ones), or pick
+  their own. Every team's copy follows. Existing template goals, and
+  template metrics set to "Any time", become inherited - nothing changes
+  until a template goal gets a setting; a metric's own period stays.
 - **"Check-ins are for" picker**: one dropdown on goal, metric and
   template metric forms - pick the period, then its moment (weekday,
   month of the quarter, month, day, time) and whether it's due then, in

@@ -60,12 +60,12 @@ METRIC_LAYOUT = [
 ]
 
 TEMPLATE_GOAL_LAYOUT = [
-    {"title": "Goal", "fields": ["title", "description"]},
+    {"title": "Goal", "fields": ["title", *snap_moment(["", "parent"]), "description"]},
     {"title": "Advanced", "collapsed": True, "fields": ["template", "parent", "position"]},
 ]
 
 TEMPLATE_METRIC_LAYOUT = [
-    {"title": "Metric", "fields": ["name", *snap_moment([""]), "unit", "description"]},
+    {"title": "Metric", "fields": ["name", *snap_moment(["", "goal"]), "unit", "description"]},
     CHECK_INS,
     {
         "title": "Target",

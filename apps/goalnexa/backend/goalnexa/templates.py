@@ -43,7 +43,7 @@ from goalnexa.models import (
     TemplateMetric,
 )
 from goalnexa.ordering import next_position
-from goalnexa.periods import ANY_TIME, SNAP_FIELDS, STAMP_FIELDS
+from goalnexa.periods import ANY_TIME, SNAP_FIELDS, STAMP_FIELDS, snap_settings
 from goalnexa.progress import refresh_goal, refresh_metric
 
 #: Template-owned fields an instance can't change (`GoalViewSet`/`MetricViewSet`).
@@ -71,6 +71,66 @@ def ordered(rows) -> list:
     for row in rows:
         visit(row)
     return out
+
+
+def template_settings(template) -> tuple[dict, dict]:
+    """The check-in setting in effect (`SNAP_FIELDS`) for every template
+    goal and template metric of `template`: `({tg_id: settings}, {tm_id:
+    settings})`. Like goals and metrics: an inheriting template goal takes
+    its parent's (a top-level one: any time); an inheriting template metric
+    its parent metric's in the same goal, else its goal's."""
+    tgs = {tg.id: tg for tg in TemplateGoal.objects.filter(template=template)}
+    tms = {tm.id: tm for tm in TemplateMetric.objects.filter(template_goal__template=template)}
+    goal_settings: dict = {}
+    metric_settings: dict = {}
+
+    def of_goal(tg, trail=()):
+        if tg.id not in goal_settings:
+            parent = tgs.get(tg.parent_id)
+            if not tg.snap_to_parent:
+                goal_settings[tg.id] = snap_settings(tg)
+            elif parent is not None and parent.id not in trail:
+                goal_settings[tg.id] = of_goal(parent, (*trail, tg.id))
+            else:
+                goal_settings[tg.id] = dict(ANY_TIME)
+        return goal_settings[tg.id]
+
+    def of_metric(tm, trail=()):
+        if tm.id not in metric_settings:
+            parent = tms.get(tm.parent_id)
+            if not tm.snap_to_goal:
+                metric_settings[tm.id] = snap_settings(tm)
+            elif parent is not None and parent.template_goal_id == tm.template_goal_id and parent.id not in trail:
+                metric_settings[tm.id] = of_metric(parent, (*trail, tm.id))
+            else:
+                metric_settings[tm.id] = of_goal(tgs[tm.template_goal_id])
+        return metric_settings[tm.id]
+
+    for tg in tgs.values():
+        of_goal(tg)
+    for tm in tms.values():
+        of_metric(tm)
+    return goal_settings, metric_settings
+
+
+def check_template_settings(template) -> None:
+    """Every template metric's setting in effect fits its own target and
+    "one reading per" (`validate_one_per`) - run after a template write,
+    inside its transaction, so an inherited change that doesn't fit is
+    refused."""
+    from rest_framework.exceptions import ValidationError
+
+    from goalnexa.serializers.metric import validate_one_per
+
+    _, metric_settings = template_settings(template)
+    for tm in TemplateMetric.objects.filter(template_goal__template=template):
+        try:
+            validate_one_per(tm.one_per, tm.target_per, metric_settings[tm.id]["snap_to"])
+        except ValidationError as error:
+            detail = error.detail.get("snap_to") if isinstance(error.detail, dict) else None
+            if not detail:
+                raise
+            raise ValidationError({"snap_to": [f"{tm.name}: {detail[0]}"]})
 
 
 def tree_goals(template_id, team_id, cycle_id, is_rollup: bool):
@@ -121,9 +181,12 @@ def sync_tree(
     owner_id = owner_id or (root.owner_id if root else template.owner_id)
     visibility = visibility or (root.visibility if root else GoalVisibility.PUBLIC)
     target_date = root.target_date if root else (cycle.ends_on if cycle is not None else None)
+    goal_settings, metric_settings = template_settings(template)
     goal_by_tg: dict = {}
     created = []
     for tg in tgs:
+        # A copy's check-in setting is the template goal's in effect (a total's: any time).
+        settings = dict(ANY_TIME) if is_rollup else goal_settings[tg.id]
         parent = goal_by_tg.get(tg.parent_id) if tg.parent_id else None
         goal = existing.get(tg.id)
         if goal is None:
@@ -141,7 +204,8 @@ def sync_tree(
                 description=tg.description,
                 parent=parent,
                 position=tg.position,
-                snap_to_parent=False,  # an instance's check-in settings are its template metrics'
+                snap_to_parent=False,  # resolved from the template, not its parent goal
+                **settings,
             )
             if parent is None:
                 goal.position = next_position(goal)
@@ -149,7 +213,7 @@ def sync_tree(
             created.append(goal)
         else:
             changes = {}
-            for name, value in (("title", tg.title + title_suffix), ("description", tg.description)):
+            for name, value in (("title", tg.title + title_suffix), ("description", tg.description), *settings.items()):
                 if getattr(goal, name) != value:
                     changes[name] = value
             if goal.parent_id != (parent.id if parent else None):
@@ -161,13 +225,13 @@ def sync_tree(
                     setattr(goal, name, value)
                 Goal.objects.filter(id=goal.id).update(**changes)
         goal_by_tg[tg.id] = goal
-    _sync_metrics(template, goal_by_tg, is_rollup, values or {})
+    _sync_metrics(template, goal_by_tg, is_rollup, values or {}, metric_settings)
     for goal in goal_by_tg.values():
         refresh_goal(goal.id)
     return goal_by_tg
 
 
-def _sync_metrics(template, goal_by_tg: dict, is_rollup: bool, values: dict) -> None:
+def _sync_metrics(template, goal_by_tg: dict, is_rollup: bool, values: dict, metric_settings: dict) -> None:
     tms = ordered(TemplateMetric.objects.filter(template_goal__template=template))
     if is_rollup:
         tms = [tm for tm in tms if tm.rollup != RollupRule.NONE]
@@ -197,8 +261,8 @@ def _sync_metrics(template, goal_by_tg: dict, is_rollup: bool, values: dict) -> 
             "count_days": tm.count_days,
             "progress_by": tm.progress_by,
             "one_per": "" if is_rollup else tm.one_per,  # a total has one reading a day already
-            **({**ANY_TIME} if is_rollup else {name: getattr(tm, name) for name in SNAP_FIELDS}),
-            "snap_to_goal": False,  # the template's, not its goal's
+            **({**ANY_TIME} if is_rollup else metric_settings[tm.id]),
+            "snap_to_goal": False,  # the template's in effect, not its goal's
         }
         metric = existing.get(tm.id)
         if metric is None:

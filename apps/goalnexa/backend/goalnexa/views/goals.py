@@ -30,8 +30,6 @@ from goalnexa.templates import LOCKED_GOAL_FIELDS, tree_goals
 
 TOTAL_READ_ONLY = "This is a team total - it's calculated from the teams' own goals."
 SET_BY_TEMPLATE = "Set by the goal template - change it there."
-#: A template copy's check-in timing is its template metrics' (a template goal has none).
-SET_BY_TEMPLATE_METRICS = "Set on each metric of the goal template - change it there."
 
 
 def locked_changes(request, serializer, instance, fields) -> list[str]:
@@ -176,9 +174,7 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         if instance.template_goal_id:
             locked = locked_changes(self.request, serializer, instance, LOCKED_GOAL_FIELDS)
             if locked:
-                raise ValidationError(
-                    {name: [SET_BY_TEMPLATE_METRICS if name in SNAP_FIELDS else SET_BY_TEMPLATE] for name in locked}
-                )
+                raise ValidationError({name: [SET_BY_TEMPLATE] for name in locked})
         visibility = serializer.validated_data.get("visibility", instance.visibility)
         if visibility != instance.visibility and str(instance.owner_id) != str(self.request.user.id) and not (
             instance.template_goal_id and can_set_targets(self.request, instance)

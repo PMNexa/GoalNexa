@@ -44,9 +44,13 @@ class GoalTemplate(TimestampedModel):
         verbose_name = "goal template"
 
 
-class TemplateGoal(TimestampedModel):
+class TemplateGoal(TimestampedModel, SnapMoment):
     """A goal of a template - its root (`parent` null) or a sub-goal. Each
-    team's instance has one `Goal` per template goal (`Goal.template_goal`)."""
+    team's instance has one `Goal` per template goal (`Goal.template_goal`).
+    Its check-in setting (`snap_to` + the moment) works like a goal's: the
+    default for its metrics, inherited from the parent template goal with
+    `snap_to_parent`. Template rows keep their OWN choice; a team's copy
+    gets the setting in effect (`goalnexa.templates.template_settings`)."""
 
     id = models.UUIDField(primary_key=True, default=generate_uuid7, editable=False)
     template = models.ForeignKey(GoalTemplate, on_delete=models.CASCADE, db_column="template_id", related_name="goals")
@@ -56,6 +60,12 @@ class TemplateGoal(TimestampedModel):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     position = models.PositiveIntegerField(default=0, db_default=0)
+    snap_to = models.CharField(
+        "check-ins are for", max_length=8, choices=SnapTo.choices, default=SnapTo.ANY, db_default=SnapTo.ANY,
+        blank=True,
+    )
+    # New rows inherit; rows from before keep "any time" (db_default False).
+    snap_to_parent = models.BooleanField("same as parent goal", default=True, db_default=False)
 
     class Meta:
         db_table = "template_goal"
@@ -100,6 +110,9 @@ class TemplateMetric(TimestampedModel, SnapMoment):
         "check-ins are for", max_length=8, choices=SnapTo.choices, default=SnapTo.ANY, db_default=SnapTo.ANY,
         blank=True,
     )
+    # Inherited from its template goal (a sub-metric: its parent metric in
+    # the same goal), like `Metric.snap_to_goal`; rows from before keep their own.
+    snap_to_goal = models.BooleanField("same as its goal", default=True, db_default=False)
     default_base = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     default_target = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     position = models.PositiveIntegerField(default=0, db_default=0)
