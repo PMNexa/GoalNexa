@@ -27,7 +27,7 @@ import { byPosition } from "../../lib/ordering";
 export const MAX_GOALS = 8;
 
 /** A check-in's source, in a chart tooltip ("via AI agent"); web check-ins say nothing. */
-const SOURCE_LABELS = { web: "the web app", agent: "AI agent", ingest: "ingest URL" } as const;
+const SOURCE_LABELS = { web: "the web app", mobile: "phone app", agent: "AI agent", ingest: "ingest URL" } as const;
 
 function formatAmount(value: string | number): string {
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });

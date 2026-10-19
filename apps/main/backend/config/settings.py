@@ -388,6 +388,11 @@ PLATFORM_ORG_SIGNUP_PAGE = "/auth/signup"
 PLATFORM_ORG_INVITATION_PAGE = "/platform-org/invitations/{token}"
 # Invite-only signup (a system setting): who counts as invited.
 PLATFORM_AUTH_IS_INVITED = "config.user_directory.has_pending_invitation"
+# Where an SSO sign-in started from a phone app may send the browser back
+# to (platform_auth's views/sso.py): the GoalNexa apps' own scheme.
+PLATFORM_AUTH_APP_REDIRECTS = [
+    r.strip() for r in (os.environ.get("PLATFORM_AUTH_APP_REDIRECTS") or "goalnexa://auth/sso").split(",") if r.strip()
+]
 # Reminders and digests can go to the user's email (goalnexa).
 GOALNEXA_USER_DIRECTORY = "config.user_directory.lookup_users"
 

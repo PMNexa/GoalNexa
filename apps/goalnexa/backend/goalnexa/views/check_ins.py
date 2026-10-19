@@ -12,16 +12,20 @@ write (create/update/delete) recomputes it from the metric's own
 check-ins instead of copying the new value over, along with the metric's
 schedule and its goal's progress/health (`goalnexa.progress`). Each
 write also goes in the goal's activity feed, and a new check-in records
-who logged it and from where (`author_id`, `source`: web, or an AI agent
-when it's an MCP tool call).
+who logged it and from where (`author_id`, `source`: web, an AI agent
+when it's an MCP tool call, or the phone app).
+
+A create may carry the caller's own `client_ref` (the phone app's offline
+queue): the same one again, from the same author, answers 200 with the
+check-in it already made - a retried request never logs twice.
 """
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -37,6 +41,12 @@ from goalnexa.teams import can_check_in
 
 #: Cells one bulk request may save (the team board).
 MAX_BULK = 500
+class ClientRefTaken(APIException):
+    status_code = 409
+    default_code = "client_ref_taken"
+    default_detail = "You already used this client_ref for a check-in on another metric."
+
+
 TOTAL = "This is a team total - it's calculated from the teams' check-ins. Check in on a team's own metric."
 
 
@@ -100,6 +110,29 @@ class CheckInViewSet(BaseViewSet):
             raise ValidationError({"metric": ["This field is required."]})
         return get_object_or_404(Metric.objects.filter(visible_goals(self.request, "goal__")), id=metric_id)
 
+    def _by_client_ref(self, request) -> CheckIn | None:
+        """The caller's earlier check-in with this request's `client_ref`."""
+        ref = request.data.get("client_ref")
+        if not isinstance(ref, str) or not ref:
+            return None
+        existing = CheckIn.objects.filter(author_id=request.user.id, client_ref=ref).first()
+        if existing is not None and str(existing.metric_id) != str(request.data.get("metric")):
+            raise ClientRefTaken()
+        return existing
+
+    def create(self, request, *args, **kwargs):
+        existing = self._by_client_ref(request)
+        if existing is None:
+            try:
+                with transaction.atomic():
+                    return super().create(request, *args, **kwargs)
+            except IntegrityError:
+                # The same client_ref sent twice at once: the other one won.
+                existing = self._by_client_ref(request)
+                if existing is None:
+                    raise
+        return Response(self.get_serializer(existing).data, status=200)
+
     def perform_create(self, serializer):
         source = request_source(self.request)
         metric = self._resolve_metric()
@@ -120,6 +153,7 @@ class CheckInViewSet(BaseViewSet):
         metric = self._resolve_metric() if "metric" in self.request.data else instance.metric
         if metric.id != old_metric_id:
             check_can_check_in(self.request, metric)
+        serializer.validated_data.pop("client_ref", None)  # set once, at create
         check_in = serializer.save(metric=metric)
         refresh_metric_and_goal(check_in.metric_id)
         if old_metric_id != check_in.metric_id:
@@ -159,7 +193,7 @@ class CheckInViewSet(BaseViewSet):
                     raise ValidationError({"items": [f"Item {index + 1}: a metric is required."]})
                 metric = get_object_or_404(Metric.objects.filter(visible_goals(request, "goal__")), id=item["metric"])
                 check_can_check_in(request, metric)
-                serializer = self.get_serializer(data={k: v for k, v in item.items() if k != "metric"})
+                serializer = self.get_serializer(data={k: v for k, v in item.items() if k not in ("metric", "client_ref")})
                 if not serializer.is_valid():
                     raise ValidationError({"items": [f"Item {index + 1}: {serializer.errors}"]})
                 created.append(serializer.save(metric=metric, author_id=request.user.id, source=source))

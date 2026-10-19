@@ -66,13 +66,13 @@ SNAP_TIMES = [(f"{h:02d}:{m:02d}", f"{h:02d}:{m:02d}") for h in range(24) for m 
 
 
 class SnapMoment(models.Model):
-    """When in its period a check-in for a period is (P-67): its time is
+    """When in its period a check-in for a period is (P-80): its time is
     set to this moment, and with `snap_due` it's also when the period's
     check-in is due (flagged and reminded). Which fields apply depends on
     `snap_to`: a day - the time; a week - the weekday; a month - the day of
     the month; a quarter - its month and the day; a year - the month and the
     day. A day past a month's end is its last day. The defaults are the
-    period's first day, 00:00 - where check-ins were stamped before P-67.
+    period's first day, 00:00 - where check-ins were stamped before P-80.
     On a goal or metric following another (`Goal.snap_to_parent`,
     `Metric.snap_to_goal`) these hold the values in effect, like `snap_to`."""
 
@@ -87,7 +87,7 @@ class SnapMoment(models.Model):
         "day of the month", default=1, db_default=1, validators=[MinValueValidator(1), MaxValueValidator(31)]
     )
     snap_time = models.CharField("time", max_length=5, choices=SNAP_TIMES, default="00:00", db_default="00:00")
-    # db_default False: rows from before P-67 keep their own schedule (`check_in_every`).
+    # db_default False: rows from before P-80 keep their own schedule (`check_in_every`).
     snap_due = models.BooleanField("due at that moment", default=True, db_default=False)
 
     class Meta:
@@ -154,7 +154,7 @@ class Goal(TimestampedModel, SnapMoment):
         "check-ins are for", max_length=8, choices=SnapTo.choices, default=SnapTo.ANY, db_default=SnapTo.ANY,
         blank=True,
     )
-    # P-67: a sub-goal's setting follows its parent goal's (the API shows
+    # P-80: a sub-goal's setting follows its parent goal's (the API shows
     # `snap_to` as "parent"; a top-level goal following nothing is any
     # time). Like `Metric.snap_to_goal`, the stored fields hold what's in
     # effect. db_default False: the previous release's code sends `snap_to`.

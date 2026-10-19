@@ -223,7 +223,7 @@ The stored `Metric.snap_to` is always the period IN EFFECT (shown as
 `snap_period`): `MetricViewSet._snap_settings` copies the goal's on every
 metric write (a moved metric takes its new goal's), and a goal change
 copies it to its following metrics, re-stamps their check-ins and
-recomputes (`periods.follow_plan`/`apply_follow`, P-67). So `CheckIn.save`, the replays and
+recomputes (`periods.follow_plan`/`apply_follow`, P-80). So `CheckIn.save`, the replays and
 the previous release's code (during a deploy) all read one field. A goal
 change is refused while a following metric's `target_per`/`one_per` is
 shorter; a metric following its goal is refused the same way. Template
@@ -232,7 +232,7 @@ instance goal's `snap_to` is locked. Closing a cycle copies both
 settings (and the metric's period-target fields) into the rolled-over
 goal.
 
-## The moment in the period, inheritance (P-67)
+## The moment in the period, inheritance (P-80)
 
 `SnapMoment` (abstract, on `Goal`, `Metric`, `TemplateMetric`) says WHEN in
 its period a check-in is: `snap_weekday` (a week, 1 = Monday),

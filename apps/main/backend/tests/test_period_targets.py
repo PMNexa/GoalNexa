@@ -519,7 +519,7 @@ class GoalSnapToTests(TestCase):
 
 @override_settings(AUTH_FIRST_RUN_SETUP=False)
 class SnapMomentTests(TestCase):
-    """P-67: when in its period a check-in is (`SnapMoment`: weekday, month
+    """P-80: when in its period a check-in is (`SnapMoment`: weekday, month
     of the quarter, month, day, time) - its time is set to that moment, and
     with `snap_due` it's when the period's check-in is due. Sub-goals inherit
     their parent goal's setting, metrics their goal's, sub-metrics their

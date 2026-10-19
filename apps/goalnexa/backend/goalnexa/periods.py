@@ -285,7 +285,7 @@ def resnap(metric) -> int:
 def metric_follow_plan(goal_id, goal_settings: dict, overrides: dict | None = None) -> list:
     """[(metric, settings)] for the metrics of a goal whose setting is about
     to change: a metric set to "inherited" (`snap_to_goal`) takes its parent
-    metric's (P-67), a top-level one its goal's (`goal_settings`).
+    metric's (P-80), a top-level one its goal's (`goal_settings`).
     `overrides` = {metric id: its new settings} for metrics changed directly
     (left out of the result). Only rows that would change are listed."""
     from goalnexa.models import Metric

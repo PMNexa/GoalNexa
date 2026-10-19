@@ -48,6 +48,9 @@ services:
       OIDC_LABEL: ${OIDC_LABEL:-}
       OIDC_PROVIDERS: ${OIDC_PROVIDERS:-}
       AUTH_PASSWORD_LOGIN: ${AUTH_PASSWORD_LOGIN:-}
+      PLATFORM_AUTH_APP_REDIRECTS: ${PLATFORM_AUTH_APP_REDIRECTS:-}
+      APPS_MIN_ANDROID_VERSION: ${APPS_MIN_ANDROID_VERSION:-}
+      APPS_MIN_IOS_VERSION: ${APPS_MIN_IOS_VERSION:-}
       # Without this, Python buffers stdout and `docker compose logs`
       # shows NOTHING even while the server is running fine - confirmed
       # directly during development (had to exec in and check /proc to

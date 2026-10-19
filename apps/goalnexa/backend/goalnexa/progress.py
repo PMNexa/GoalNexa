@@ -133,7 +133,7 @@ CADENCE_MONTHS = {CheckInCadence.MONTHLY: 1, CheckInCadence.QUARTERLY: 3, CheckI
 
 
 def next_due(metric: Metric, zone=None) -> datetime | None:
-    """A metric due at its period's moment (`snap_due`, P-67): that moment
+    """A metric due at its period's moment (`snap_due`, P-80): that moment
     of the period after its latest check-in's (`periods.due_moment`). Else
     the last check-in (or the metric's creation) plus its cadence."""
     if metric.snap_to and metric.snap_due:

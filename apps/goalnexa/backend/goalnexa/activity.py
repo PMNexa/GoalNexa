@@ -16,9 +16,17 @@ from goalnexa.models import Activity, CheckInSource
 MCP_REQUEST_KEY = "platform_mcp.request"
 
 
+#: The phone apps send it on every request (`X-GoalNexa-Client: mobile`).
+CLIENT_HEADER = "HTTP_X_GOALNEXA_CLIENT"
+
+
 def request_source(request) -> str:
-    """WEB, or AGENT when the request is an MCP tool call's."""
-    return CheckInSource.AGENT if getattr(request, "META", {}).get(MCP_REQUEST_KEY) else CheckInSource.WEB
+    """AGENT when the request is an MCP tool call's, MOBILE when the phone
+    app says it's the caller, else WEB."""
+    meta = getattr(request, "META", {})
+    if meta.get(MCP_REQUEST_KEY):
+        return CheckInSource.AGENT
+    return CheckInSource.MOBILE if meta.get(CLIENT_HEADER) == "mobile" else CheckInSource.WEB
 
 
 def _plain(value):

@@ -26,7 +26,7 @@ class CheckInSerializer(BaseSerializer):
             "note": {"help_text": "Optional. Anything worth remembering about this check-in."},
             "checked_in_at": {"help_text": "When the reading was taken. Leave blank for now."},
             "author_id": {"read_only": True, "help_text": "Who logged it."},
-            "source": {"read_only": True, "help_text": "Where it came from: the website, an AI assistant, or an automatic script."},
+            "source": {"read_only": True, "help_text": "Where it came from: the website, an AI assistant, the phone app, or an automatic script."},
             "replaced": {"read_only": True, "help_text": "A later check-in in the same period replaced it (the metric keeps one reading per period), so it doesn't count."},
         }
 

@@ -8,6 +8,7 @@ from goalnexa.views.metrics import MetricViewSet
 from goalnexa.views.onboarding import OnboardingChoiceView
 from goalnexa.views.reminders import ReminderSettingsView, ReminderTestView
 from goalnexa.views.shares import DashboardShareDetailView, DashboardShareListView, SharedDashboardView
+from goalnexa.views.today import TodayView
 from goalnexa.views.templates import GoalTemplateViewSet, TemplateGoalViewSet, TemplateMetricViewSet
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     "SharedDashboardView",
     "TemplateGoalViewSet",
     "TemplateMetricViewSet",
+    "TodayView",
 ]

@@ -184,7 +184,7 @@ class Metric(TimestampedModel, SnapMoment):
         blank=True,
     )
     # P-64: `snap_to` follows its goal's `Goal.snap_to` (the API shows it as
-    # "goal") - a sub-metric's, its parent metric's (P-67), with the moment
+    # "goal") - a sub-metric's, its parent metric's (P-80), with the moment
     # fields (`SnapMoment`). `snap_to` itself always holds the period in effect - kept in
     # step by the goal's and metric's views - so whatever reads it (the
     # previous release's code too, during a deploy) needs no lookup.

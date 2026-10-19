@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('goalnexa', '0019_goaltemplate_total_for'),
+        ('goalnexa', '0020_check_in_client_ref'),
     ]
 
     operations = [
