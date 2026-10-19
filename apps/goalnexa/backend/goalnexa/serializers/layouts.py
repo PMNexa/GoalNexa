@@ -9,16 +9,23 @@ COUNT_DAYS = {"name": "count_days", "show_if": {"field": "target_per", "in": ["d
 PROGRESS_BY = {"name": "progress_by", "show_if": {"field": "target_per", "not_in": [""]}}
 
 def snap_moment(off: list[str]) -> list:
-    """`snap_to` and its moment fields (`SnapMoment`), each shown only for
-    the periods it applies to; `off` = the `snap_to` values with none."""
+    """`snap_to` and its moment fields (`SnapMoment`), drawn as one picker
+    (goalnexa-frontend's `CheckInMomentField`, widget "check-in-moment");
+    without it, each field shows only for the periods it applies to.
+    `off` = the `snap_to` values with no moment."""
     return [
-        "snap_to",
-        {"name": "snap_weekday", "show_if": {"field": "snap_to", "in": ["week"]}},
-        {"name": "snap_quarter_month", "show_if": {"field": "snap_to", "in": ["quarter"]}},
-        {"name": "snap_month", "show_if": {"field": "snap_to", "in": ["year"]}},
-        {"name": "snap_day", "show_if": {"field": "snap_to", "in": ["month", "quarter", "year"]}},
-        {"name": "snap_time", "show_if": {"field": "snap_to", "not_in": off}},
-        {"name": "snap_due", "show_if": {"field": "snap_to", "not_in": off}},
+        {
+            "name": "snap_to",
+            "widget": "check-in-moment",
+            "with": [
+                {"name": "snap_weekday", "show_if": {"field": "snap_to", "in": ["week"]}},
+                {"name": "snap_quarter_month", "show_if": {"field": "snap_to", "in": ["quarter"]}},
+                {"name": "snap_month", "show_if": {"field": "snap_to", "in": ["year"]}},
+                {"name": "snap_day", "show_if": {"field": "snap_to", "in": ["month", "quarter", "year"]}},
+                {"name": "snap_time", "show_if": {"field": "snap_to", "not_in": off}},
+                {"name": "snap_due", "show_if": {"field": "snap_to", "not_in": off}},
+            ],
+        },
     ]
 
 

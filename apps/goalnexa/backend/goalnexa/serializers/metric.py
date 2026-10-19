@@ -10,7 +10,7 @@ SNAP_TO_GOAL = "goal"
 METRIC_SNAP_TO_CHOICES = [(SNAP_TO_GOAL, "Inherited (from its goal, or its parent metric)"), *SnapTo.choices]
 
 #: `snap_due` as a select (a generic form preselects a choice's default, not a checkbox's).
-SNAP_DUE_CHOICES = [(True, "Yes - flagged and reminded when it passes"), (False, "No")]
+SNAP_DUE_CHOICES = [(True, "Yes"), (False, "No")]
 
 
 def snap_due_field():
@@ -78,7 +78,7 @@ class MetricSerializer(BaseSerializer):
     # emptied select sends null).
     snap_to = serializers.ChoiceField(
         label="Check-ins are for", choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_GOAL,
-        help_text="Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment set below in its period (the organization's time zone), whoever checks in. Changing it moves existing check-ins.",
+        help_text="Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period (the organization's time zone), whoever checks in. Changing it moves existing check-ins.",
     )
     snap_period = serializers.CharField(
         source="snap_to", read_only=True,
@@ -90,6 +90,8 @@ class MetricSerializer(BaseSerializer):
 
     class Meta:
         model = Metric
+        # Named explicitly: the first CharField would be a check-in setting (`snap_to`).
+        display_field = "name"
         form_layout = METRIC_LAYOUT
         auto_exclude = ["created_at", "updated_at", "reminded_at", "ingest_token_hash", "snap_to_goal"]
         # `help_text` is the plain-language hint forms and table headers show.

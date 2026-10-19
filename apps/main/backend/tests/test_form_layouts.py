@@ -16,10 +16,18 @@ class FormLayoutTests(TestCase):
             editable = {f["name"] for f in schema["fields"]
                         if not f["read_only"] or (f["type"] == "relation" and not f.get("many"))}
             self.assertIn("form_layout", schema, resource)
-            for section in schema["form_layout"]:
-                for entry in section["fields"]:
-                    name = entry if isinstance(entry, str) else entry["name"]
-                    self.assertIn(name, editable, f"{resource}: {name}")
-                    rule = None if isinstance(entry, str) else entry.get("show_if")
-                    if rule:
-                        self.assertIn(rule["field"], editable, f"{resource}: {name} shows by {rule['field']}")
+            entries = [entry for section in schema["form_layout"] for entry in section["fields"]]
+            # A widget's `with` fields are form fields too.
+            entries += [sub for entry in entries if isinstance(entry, dict) for sub in entry.get("with", [])]
+            for entry in entries:
+                name = entry if isinstance(entry, str) else entry["name"]
+                self.assertIn(name, editable, f"{resource}: {name}")
+                rule = None if isinstance(entry, str) else entry.get("show_if")
+                if rule:
+                    self.assertIn(rule["field"], editable, f"{resource}: {name} shows by {rule['field']}")
+
+    def test_rows_are_named_by_their_title(self):
+        alice = signup("Alice")
+        expected = {"goals": "title", "metrics": "name", "template-goals": "title", "template-metrics": "name"}
+        for resource, name in expected.items():
+            self.assertEqual(alice.get(f"{API}/{resource}/schema").json()["display_field"], name, resource)

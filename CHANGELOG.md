@@ -9,6 +9,11 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **"Check-ins are for" picker**: one dropdown on goal, metric and
+  template metric forms - pick the period, then its moment (weekday,
+  month of the quarter, month, day, time) and whether it's due then, in
+  the same menu. Generic forms can draw a group of fields with a
+  registered widget (platform-core `registerFieldWidget`).
 - **Ready for phone apps** (P-67..P-72, `docs/mobile-app.md`): native
   sessions (`"client": "native"` returns the refresh token in the body;
   refresh/logout take it there), single sign-on from an app (one-time
@@ -327,6 +332,13 @@ of you beyond the usual upgrade steps.
 
 ### Fixed
 
+- Goals and metrics are named by their title/name again (page titles,
+  pickers, links) - the check-in moment fields had become the name.
+- A record's details follow its form's order and hide the settings that
+  don't apply (e.g. a weekday for monthly check-ins); long choices wrap;
+  "Pace" reads as text, not `[object Object]`.
+- "Check-ins are for" is read-only on a team's copy of a goal template
+  (set on the template's metrics), instead of failing on save.
 - **Folded sidebar**: a group's flyout no longer closes while the
   pointer moves from the icon onto it.
 - Team board "Show by": a reading metric shows only a check-in made in

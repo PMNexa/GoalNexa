@@ -68,6 +68,8 @@ export { default as TeamBoardScreen } from "./screens/TeamBoardScreen";
 export type { TeamBoardScreenProps } from "./screens/TeamBoardScreen";
 export type { Board, GoalTemplate } from "./lib/api/teamBoard";
 export { default as CheckInTableScreen } from "./screens/CheckInTableScreen";
+/** The "check-in-moment" form widget (`registerFieldWidget`) - "Check-ins are for" and its moment in one picker. */
+export { default as CheckInMomentField } from "./screens/CheckInMomentField";
 // What a public dashboard link shows - mounted outside the app shell.
 export { default as SharedDashboardScreen } from "./screens/SharedDashboardScreen";
 export type { SharedDashboardScreenProps } from "./screens/SharedDashboardScreen";

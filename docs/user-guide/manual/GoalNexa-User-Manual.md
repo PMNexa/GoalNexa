@@ -356,9 +356,15 @@ bars, and the metric's page shows the **hit rate** and **streak**.
 ### When check-ins happen
 
 **Check-ins are for** sits right under a goal's title and a metric's
-name. **Any time** keeps each check-in's own time. A period files every
-check-in under it, dated at a moment you pick (in the organization's
-time zone):
+name. Click it: the menu lists the choices, and picking a period opens
+the rest in the same menu - the moment, then **Due at that moment** -
+and **Done** closes it; the field then reads e.g. "Each week · Friday,
+17:00 · due then". **Any time** keeps each check-in's own time. A
+period files every check-in under it, dated at the moment you pick (in
+the organization's time zone). On a team's copy of a goal template it's
+greyed out: the template sets it on each of its metrics (Goal templates).
+
+What you pick for each period:
 
 | Period | You pick | Example |
 |---|---|---|

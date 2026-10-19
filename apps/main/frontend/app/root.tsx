@@ -8,10 +8,15 @@ import {
   ScrollRestoration,
 } from "react-router";
 import { AuthScreenProvider, initSession } from "platform-auth-frontend";
+import { registerFieldWidget } from "platform-core";
+import { CheckInMomentField } from "goalnexa-frontend";
 import { BrandHome } from "./lib/brand";
 
 import type { Route } from "./+types/root";
 import "./app.css";
+
+// Form widgets the modules provide, used by every generic form (`widget` in a form layout).
+registerFieldWidget("check-in-moment", CheckInMomentField);
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },

@@ -43,7 +43,7 @@ class GoalSerializer(BaseSerializer):
     # generic form's emptied select sends null).
     snap_to = serializers.ChoiceField(
         label="Check-ins are for", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_PARENT,
-        help_text="Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment set below in its period (the organization's time zone). Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins.",
+        help_text="Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period (the organization's time zone). Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins.",
     )
     snap_due = snap_due_field()
     snap_period = serializers.CharField(
@@ -53,6 +53,8 @@ class GoalSerializer(BaseSerializer):
 
     class Meta:
         model = Goal
+        # Named explicitly: the first CharField would be a check-in setting (`snap_to`).
+        display_field = "title"
         form_layout = GOAL_LAYOUT
         # `help_text` is the plain-language hint forms and table headers show.
         extra_kwargs = {
