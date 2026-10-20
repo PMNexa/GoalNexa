@@ -9,13 +9,11 @@ import {
   fetchOrgs,
   fetchTeams,
   goalTeamName,
-  type OrgOption,
 } from "../lib/api/dashboard";
 import { apiRequest } from "../lib/api/client";
 import {
   getCurrentOrg,
   PERSONAL_ORG,
-  setCurrentOrg,
   subscribeCurrentOrg,
 } from "../lib/currentOrg";
 import {
@@ -255,7 +253,6 @@ async function loadAll(accessToken: string, goals: Goal[]) {
  * computes it), shown only on days one of its own metrics was checked in.
  */
 function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
-  const [orgs, setOrgs] = useState<OrgOption[] | null>(null);
   const [orgKey, setOrgKey] = useState<string | null>(null);
   const [data, setData] = useState<{
     org: string;
@@ -368,7 +365,6 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
     fetchOrgs(accessToken)
       .then((items) => {
         if (!live) return;
-        setOrgs(items);
         const stored = getCurrentOrg();
         const valid =
           stored === PERSONAL_ORG || items.some((org) => org.id === stored);
@@ -772,22 +768,6 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
         onClose={() => setCreateTarget(null)}
       />
       <div className="d-flex align-items-end gap-3 mb-3">
-        <div>
-          <FormLabel htmlFor="table-org">Organization</FormLabel>
-          <select
-            id="table-org"
-            className="form-select form-select-sm w-auto"
-            value={orgKey ?? ""}
-            onChange={(event) => setCurrentOrg(event.target.value)}
-          >
-            {(orgs ?? []).map((org) => (
-              <option key={org.id} value={org.id}>
-                {org.name}
-              </option>
-            ))}
-            <option value={PERSONAL_ORG}>Personal (no organization)</option>
-          </select>
-        </div>
         <div>
           <FormLabel>Goals</FormLabel>
           <GoalPicker

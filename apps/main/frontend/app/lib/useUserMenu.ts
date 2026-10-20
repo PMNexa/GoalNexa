@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import type { UserMenuEntry } from "platform-core";
 import { hasPermission } from "platform-auth-frontend";
 import { fetchOrgs, getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg, type OrgOption } from "goalnexa-frontend";
@@ -7,16 +7,21 @@ import { consoleHome } from "./systemNav";
 
 /**
  * The header's user dropdown (above "Log out"): switch organization - the
- * org the dashboard shows (goalnexa's current org), so picking one opens
- * the dashboard on it - then "Manage organizations" (platform-org's list,
+ * org the dashboard, check-in table and team board show (goalnexa's
+ * current org; they have no org picker of their own), so picking one
+ * keeps those pages and opens the dashboard from anywhere else - then "Manage organizations" (platform-org's list,
  * where an org's page manages members and invitations). The org list is
  * refreshed each time the menu opens (`refresh`), so an org created or
  * joined since shows up. Without `orgs.view` the org section is left out.
  * Then "My account", "Email preferences", and for admins "System
  * console" (system-shell.tsx).
  */
+/** Pages that follow the current org live - switching stays on them. */
+const ORG_PAGES = ["/dashboard", "/table", "/board"];
+
 export function useUserMenu(accessToken: string | null, permissions: string[] | null) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [orgs, setOrgs] = useState<OrgOption[] | null>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const canViewOrgs = hasPermission(permissions, "orgs.view");
@@ -38,7 +43,7 @@ export function useUserMenu(accessToken: string | null, permissions: string[] | 
 
   function switchTo(key: string) {
     setCurrentOrg(key);
-    navigate("/dashboard");
+    if (!ORG_PAGES.some((page) => pathname === page || pathname.startsWith(`${page}/`))) navigate("/dashboard");
   }
 
   const items: UserMenuEntry[] = [];

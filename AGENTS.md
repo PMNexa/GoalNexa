@@ -126,7 +126,7 @@ goalnexa-frontend's `screens/dashboard/dashboardStyles.ts`).
 
 **Dashboard** (`/dashboard`, goalnexa-frontend's `DashboardScreen`,
 mounted with `...createDashboardRoutes("dashboard")` inside the
-app-shell layout): pick one org (or personal goals), pick up to 8 of its
+app-shell layout): the header's current org (or personal goals), pick up to 8 of its
 goals, and see progress over time plus current progress (bars, one per
 goal). Progress over time is PER METRIC, as small multiples: one card
 per shown goal (titled with the goal + its %), one straight-segment line per shown
@@ -871,8 +871,9 @@ here), and the session
 read for the header's user menu. The header's user block is a dropdown
 (platform-core's `UserMenu`, fed by AppShell's `userMenu` entries):
 "Switch organization" (goalnexa-frontend's current-org store,
-`setCurrentOrg` - the dashboard's org filter, which follows it live;
-picking one opens `/dashboard`), "Manage organizations", then "Log out"
+`setCurrentOrg` - the dashboard, check-in table and team board follow it
+live and have no org picker of their own; picking one stays on those
+pages and opens `/dashboard` from anywhere else), "Manage organizations", then "Log out"
 - main's `lib/useUserMenu.ts` builds it. "Log out" is
 platform-auth's `logout()`: revokes the refresh token server-side, then
 clears the session. Nothing else ends a session - platform-auth's

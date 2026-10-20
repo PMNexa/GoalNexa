@@ -161,7 +161,9 @@ Click your initials at the top right.
 ![User menu](images/user-menu.png){width=45%}
 
 - **Switch organization** - choose the organization (or *Personal (no
-  organization)*) the dashboard and check-in table show.
+  organization)*) the dashboard, check-in table and team board show.
+  These pages have no organization picker of their own; switching on one
+  of them stays on it.
 - **Manage organizations** - your organizations' pages.
 - **My account** - password, data export, delete account (chapter 13).
 - **Email preferences** - which emails you get.
@@ -184,7 +186,8 @@ charts on the right.
 
 ![Dashboard overview](images/dashboard-annotated.png)
 
-1. **Organization** - whose goals to show.
+1. **Organization** - whose goals to show; switch it in the header's
+   user menu (**Switch organization**).
 2. **Show check-ins by** - *As logged*, or one value per Day / Week /
    Month / Quarter / Year (amounts also appear as bars).
 3. **Goal** - click the title to open its details in a side panel.
@@ -442,8 +445,8 @@ history as columns - handy for a weekly update.
 
 ![Check-in table](images/table.png)
 
-1. Pick the **Organization** and, optionally, tick **Goals** to narrow
-   the rows.
+1. Optionally tick **Goals** to narrow the rows (the organization is
+   the one picked in the header's **Switch organization**).
 2. **Snap to** sets one column per Hour / Day / Week / Month (for weeks,
    pick the first weekday).
 3. In the right-hand column choose the period or date, then type a value
@@ -672,8 +675,8 @@ A change there reaches every team's copy.
 
 ![Team board in Check in mode](images/board.png)
 
-Pick **Organization**, **Goal template**, **Cycle** and **Teams** at the
-top. Rows are the teams in their tree; columns are the template's
+Pick **Goal template**, **Cycle** and **Teams** at the top (the
+organization is the one picked in the header's **Switch organization**). Rows are the teams in their tree; columns are the template's
 metrics.
 
 - **Whole organization** and each department ticked in Targets show

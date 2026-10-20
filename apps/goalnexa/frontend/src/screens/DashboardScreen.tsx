@@ -600,11 +600,6 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
             )}
           </CardHeader>
           <CardBody>
-            <div className="mb-3">
-              <FormLabel htmlFor="dashboard-org">Organization</FormLabel>
-              {orgSelect("dashboard-org")}
-            </div>
-
             {cycles.length > 0 && (
               <div className="mb-3">
                 <FormLabel htmlFor="dashboard-cycle">Cycle</FormLabel>
