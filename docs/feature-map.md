@@ -57,7 +57,7 @@ Last updated: 2026-10-20.
 | Sum vs. latest metrics | Done | Done | Done | Planned | Ported | The check-in label follows it |
 | Targets per period, hit rate, streaks | Done | Done | Built | Planned | Ported | "6/10 km today - 4 to go" |
 | One reading per period | Done | Done | Built | Planned | Ported | Says what it replaced |
-| Check-ins for a period (`snap_to`) | Done | Done | Done | Planned | Ported | Says which period it went to |
+| Check-ins for a period (`snap_to`) | Done | Done | Done | Planned | Ported | Says which period it went to; dated at its moment (P-80, picked in one menu on the web, inherited down the tree) - server-side, so app check-ins get it too |
 | Check-in schedules and due dates | Done | Done | Done | Planned | Ported | Shown on Today; set on a metric |
 | Ingest URL per metric | Done | Done | - | - | Web only | For scripts and services |
 
@@ -82,7 +82,7 @@ Last updated: 2026-10-20.
 | Today: due, this period's quotas, at risk | Done | - | Done | Planned | Ported | `GET today` (P-70); the web has the dashboard instead |
 | Dashboard (charts per goal, filters, tree) | Done | Done | Partial | Planned | Ported | Apps: a chart per metric on the goal page |
 | Charts: projection, target date, now | Done | Done | Done | Planned | Ported | Server series (P-71), drawn on the phone |
-| Switch organization / personal goals | Done | Done | Done | Planned | Ported | |
+| Switch organization / personal goals | Done | Done | Done | Planned | Ported | Website: only in the header; the dashboard, check-in table and team board follow it |
 | Organization and team tags on goals | Done | Partial | Done | Planned | Ported | Web: team and Total tags on the dashboard (`GoalTag`); apps: organization (in "All goals") and team |
 | Cycle filter on the dashboard | Done | Done | - | - | Later | |
 | Team filter on the dashboard | Done | Done | - | - | Later | |
@@ -97,7 +97,7 @@ Last updated: 2026-10-20.
 | Organizations and roles | Done | Done | - | - | Web only | The apps only switch between them |
 | Invite and accept invitations | Done | Done | Partial | Planned | Ported | Apps accept or decline (on Today); inviting stays on the web |
 | Teams and the org chart | Done | Done | - | - | Web only | |
-| Goal templates | Done | Done | - | - | Web only | |
+| Goal templates | Done | Done | - | - | Web only | Template goals and metrics carry the check-in setting, inherited like goals; teams' copies follow it |
 | Team board (targets, apply, who plays) | Done | Done | - | - | Web only | Big grid; "Open on the web" from the app |
 | Team totals (rollups) | Done | Done | Done | Planned | Ported | Read-only, labeled |
 | Cycles: close, scores, roll over | Done | Done | - | - | Web only | |
