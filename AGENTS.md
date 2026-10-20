@@ -1135,7 +1135,11 @@ skipped outside `PMNexa/GoalNexa`, so the hosted fork doesn't re-run it.
 
 **Roadmap and releases**: `docs/roadmap.md` lists every planned item
 with a status; build one only when its status is `Approved`, then mark
-it `Done` there (and add it to `CHANGELOG.md`'s "Unreleased"). Releases
+it `Done` there (and add it to `CHANGELOG.md`'s "Unreleased"). `docs/feature-map.md` is every
+feature per platform (backend, website, Android, iOS - the phone apps and
+the hosted edition's extras included, though their code is in
+`goalnexa-cloud`), `docs/mobile-features.md` the apps' detail: update
+the row in the same PR that changes the feature. Releases
 are tags; `docs/upgrading.md` has the upgrade steps and the release
 checklist. CI's `upgrade` job (`scripts/upgrade_test.sh` +
 `scripts/upgrade_check.py`) installs the release in
