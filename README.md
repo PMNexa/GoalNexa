@@ -1,6 +1,8 @@
 # GoalNexa
 
-**Goals, metrics and check-ins on your own server, with AI assistants built in.**
+**Goals that stay current: your AI assistant and your tools check in for you.**
+
+OKRs and KPIs for teams, goals for you.
 
 GoalNexa is a self-hosted goal tracker for people and teams. Set a goal, break
 it into numbers you can measure, check in as they move, and watch every metric
@@ -55,6 +57,12 @@ own data.
 **Personal and team, in one place.** Keep your half-marathon plan private and
 your team's OKRs in a shared organization, then switch between them with one
 dropdown.
+
+**OKRs and KPIs, in plain words.** An objective is a goal, a key result is a
+metric, a quarter is a cycle you close and score 0-1. A KPI is a metric with a
+target per day, week or month, with its hit rate and streak. Run the same set
+in every team from one goal template, and see each team and the total on the
+team board. ([Mapping in the manual](docs/user-guide/manual/GoalNexa-User-Manual.md#47-using-goalnexa-for-okrs-and-kpis))
 
 **An AI teammate, on your terms.** A built-in [MCP](https://modelcontextprotocol.io)
 server lets any modern AI assistant read and update your goals. Claude connects

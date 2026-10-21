@@ -44,7 +44,9 @@ The split rule: anything a self-hoster could use (security, admin,
 integrations) goes in the public version; Cloud keeps only what exists
 because we operate it for others. The positioning for both: goals,
 metrics and check-ins that stay current - updated by people, scripts and
-AI agents - with an honest view of what's on track.
+AI agents - with an honest view of what's on track. The category line
+under it: "OKRs and KPIs for teams, goals for you" (never MBO); the app
+keeps its own words (goal, metric, check-in) and the docs map them.
 
 ## Feature list (shipped)
 
@@ -251,6 +253,7 @@ order.
 | P-65 | Teams org chart | Organizations > Teams as an org chart (org on top, teams as cards with their lead(s) and members, sub-teams below, collapsible), with the list one click away; org owners/admins create, rename, move and delete teams and add, promote and remove members on the chart | Done | 2026-10-13. platform-org `TeamChartScreen` (`routes/teams.tsx` as the teams' `listFile`); no API change |
 | P-66 | Board: who plays, what adds up | In the team board's Targets mode a tick per team adds it to the template or takes it out (copies with check-ins detached, empty ones deleted), and a tick per department / the org calculates its total (no longer automatic; the org's on by default); Check in mode shows only the teams that run the template, counting the others | Done | 2026-10-14. `GoalTemplate.total_for`; `POST goal-templates/<id>/totals`, `POST goal-templates/<id>/leave`; existing totals migrated as ticked |
 | P-80 | When check-ins happen | "Check-ins are for" gets the moment in its period (a day's time; a week's weekday; a month's day; a quarter's month and day; a year's month and day; a time), check-ins are dated at it and - "due at that moment", on by default for new rows - it's when the period's check-in is due and reminded; sub-goals inherit their parent goal's setting, metrics their goal's, sub-metrics their parent metric's; the field sits right under the title/name; "check in every" adds quarterly and yearly | Done | 2026-10-18. `SnapMoment` on `Goal`/`Metric`/`TemplateMetric`, `Goal.snap_to_parent` (API "parent"); `periods.moment`/`due_moment`/`follow_plan`/`apply_follow`. Existing rows: moment = first day 00:00, not due (unchanged) |
+| P-81 | Confidence on check-ins | A check-in can carry an optional confidence (low / medium / high, or 1-10) that the person sets; shown next to the forecast on the goal's chart and in the digest, and readable by assistants - what strict OKR buyers look for next to the computed health | Proposed | From the OKR/KPI positioning (2026-10-21). The forecast stays the main status; confidence is the person's view beside it |
 
 
 ### Next - Q1 2027 - Phone apps
@@ -312,6 +315,8 @@ through the sync, so P-01..P-03 land there before paid launch.
 | C-05 | Signup funnel tracking | Privacy-friendly, cookieless counts: visit -&gt; signup -&gt; verified -&gt; first goal -&gt; first check-in -&gt; paid; shown to operators                     | Proposed |                                         |
 | C-21 | Public website | Landing page, pricing, terms, privacy, refund policy and contact pages on the hosted site; a "Use GoalNexa with Claude" guide | Done | 2026-10-05. In `goalnexa-cloud` (`app/extensions/`), mounted through the public-route seam. Legal texts await review before paid launch |
 | C-22 | Upgrade emails | The upgrade journey on P-43's engine: at 80% of a plan limit, 1h after a `402 plan_limit`, a Free org with 3+ active members, a welcome after upgrading, a one-question survey after cancelling; an "Offers" email category | Proposed | Depends on P-43, C-02. Design: `docs/lifecycle-email.md` |
+| C-23 | OKR and KPI pages | `/okr` and `/kpi` on the hosted site: the method's words mapped onto goals/metrics/check-ins, the shipped features that answer it, linked from the header, footer and landing page; the landing page names the category ("OKRs and KPIs for teams, goals for you") | Done | 2026-10-21. `extensions/okr.tsx`, `kpi.tsx`, `marketing/TopicPage.tsx`; positioning in `marketing/personas/README.md` "Category" |
+| C-24 | Comparison pages | One page per competitor buyers name (Perdoo, Tability, Weekdone, a Viva Goals alternative): a fair criteria table, when the other tool is the better pick, verifiable claims, no prices in the text (link to pricing) | Proposed | Before paid launch; AI answers cite comparison pages that admit trade-offs |
 
 
 **Gate: paid launch** - billing, email and backups verified (a tested

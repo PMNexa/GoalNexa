@@ -404,6 +404,31 @@ Every list page (Goals, Metrics, Check-ins, Cycles...) works the same:
 
 ![Filter dialog](images/filter-modal.png){width=65%}
 
+## 4.7 Using GoalNexa for OKRs and KPIs
+
+GoalNexa keeps its own words - goal, metric, check-in - and they map
+directly onto the methods teams already use.
+
+| In OKRs | In GoalNexa |
+|---|---|
+| Objective | A goal (sub-goals for the teams or people under it) |
+| Key result | A metric: start → target, in its unit |
+| Progress update | A check-in |
+| Quarter | A cycle (chapter 8) |
+| Scoring 0-1 | Closing a cycle: each goal scored 0-1 |
+| Status | Health, from the forecast: on track, at risk, off track |
+
+| In KPIs | In GoalNexa |
+|---|---|
+| KPI | A metric - tracked only, or with a target |
+| Target per period | A quota per day, week, month, quarter or year (4.5) |
+| Hit rate, streak | Shown on a metric with a quota |
+| Scorecard per team | The team board (chapter 9) |
+| Roll-up | Totals per team and for the organization |
+
+To run the same OKRs or KPIs in several teams, write them once as a goal
+template (9.2): each team gets its own copy with its own targets.
+
 
 # 5. Checking in
 
@@ -1026,6 +1051,8 @@ the console.
 | **Goal template** | One set of goals and metrics run by several teams |
 | **Total** | A team-board row calculated from its teams |
 | **Quota** | A target per day / week / month... |
+| **Objective / Key result** | OKR terms for a goal / one of its metrics (4.7) |
+| **KPI** | A metric followed over time, often with a quota (4.7) |
 | **MCP** | The protocol AI assistants use to connect to GoalNexa |
 
 # Appendix C. Troubleshooting
