@@ -1082,6 +1082,12 @@ files - so the seams it needs live here, doing nothing by default:
   `createExtensionSystemNavItems()` (operator pages, e.g. plans), all
   empty here; the fork replaces that directory. Its five signatures
   are a contract with the fork - change them deliberately.
+- **Search engines**: `root.tsx` renders `<meta name="robots"
+  content="noindex">` on every page unless a matched route exports
+  `handle = { indexable: true }` - so an instance (self-hosted or not)
+  keeps its app, sign-in and shared links out of search; only the fork's
+  public pages opt in (its `marketing/seo.ts`: canonical URL, share
+  cards, structured data, robots.txt and sitemap).
 Anything a self-hoster could use too (tenant isolation, email
 verification, ...) belongs here, not in the fork.
 **Org membership** (platform-org): an org's members have a role IN that

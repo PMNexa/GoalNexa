@@ -6,6 +6,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useMatches,
 } from "react-router";
 import { AuthScreenProvider, initSession } from "platform-auth-frontend";
 import { registerFieldWidget } from "platform-core";
@@ -41,11 +42,16 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  // Search engines index only pages whose route opts in with
+  // `handle = { indexable: true }` (a public page, e.g. a hosted edition's
+  // landing page); the app itself, sign-in and shared links stay out.
+  const indexable = useMatches().some((match) => (match.handle as { indexable?: boolean } | undefined)?.indexable);
   return (
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {!indexable && <meta name="robots" content="noindex" />}
         <Meta />
         <Links />
       </head>
