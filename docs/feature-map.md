@@ -143,7 +143,7 @@ Last updated: 2026-10-20.
 
 | Feature | Backend | Website | Android | iOS | Mobile | Notes |
 |---|---|---|---|---|---|---|
-| Landing, pricing, legal pages | - | Done | - | - | Web only | Links the Play listing; `/okr` and `/kpi` category pages (C-23); robots.txt, sitemap, canonical URLs, share cards, structured data (C-25, built) |
+| Landing, pricing, legal pages | - | Done | - | - | Web only | Links the Play listing; `/okr` and `/kpi` category pages (C-23); robots.txt, sitemap, canonical URLs, share cards, structured data (C-25) |
 | Plans and payment | Done | Done | - | - | Web only | Selling in the apps would need Play / App Store billing |
 | Plan limits (members, goals) | Done | Done | Built | Planned | Ported | The apps show the server's "limit reached" |
 | Push relay service | Planned | - | - | - | Planned | P-73; free, self-hosted servers too |

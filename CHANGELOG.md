@@ -306,6 +306,10 @@ of you beyond the usual upgrade steps.
 
 ### Changed
 
+- **Kept out of search engines**: every page now carries
+  `<meta name="robots" content="noindex">` - the app, sign-in and shared
+  dashboard links of any instance stay out of search. A route opts in with
+  `handle = { indexable: true }` (the hosted edition's public pages do).
 - **One organization switch**: the dashboard, check-in table and team board
   show the organization picked in the header's "Switch organization" and
   no longer have a picker of their own; switching on one of them stays
