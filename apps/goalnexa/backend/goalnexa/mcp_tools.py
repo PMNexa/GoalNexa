@@ -215,7 +215,7 @@ TOOLS = [
         "title": "Get reminder settings",
         "description": (
             "The user's own check-in reminder and digest settings: `enabled`, `urls` (one Apprise URL per "
-            "line), `email`, `digest` (off/daily/weekly), `digest_weekday` (0 = Monday), `digest_hour`, "
+            "line), `email`, `push` (to the phone app; `push_devices` counts phones), `digest` (off/daily/weekly), `digest_weekday` (0 = Monday), `digest_hour`, "
             "`timezone`. `allowed_schemes` lists the services this instance accepts (null = any); "
             "`email_available` says whether it can send email."
         ),
@@ -235,6 +235,7 @@ TOOLS = [
             "enabled": {"type": "boolean", "description": "Send reminders for overdue check-ins."},
             "urls": {"type": "string", "description": "Apprise URLs, one per line."},
             "email": {"type": "boolean", "description": "Also send to the account's email."},
+            "push": {"type": "boolean", "description": "Also send to the GoalNexa phone app (on the phones it's signed in on)."},
             "digest": {"type": "string", "enum": ["off", "daily", "weekly"]},
             "digest_weekday": {"type": "integer", "minimum": 0, "maximum": 6, "description": "0 = Monday."},
             "digest_hour": {"type": "integer", "minimum": 0, "maximum": 23, "description": "In `timezone`."},

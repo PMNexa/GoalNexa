@@ -22,12 +22,19 @@ from goalnexa.models import (
     GoalTemplate,
     Metric,
     OnboardingChoice,
+    PushDevice,
+    PushMessage,
     ReminderSettings,
 )
 
 
 def on_user_removed(sender, user_id, transfer_to=None, **kwargs):
     ReminderSettings.objects.filter(user_id=user_id).delete()
+    # Phones are personal - never handed on.
+    from goalnexa.push import forget_devices
+
+    forget_devices(user_id)
+    PushMessage.objects.filter(user_id=user_id).delete()
     OnboardingChoice.objects.filter(user_id=user_id).delete()
     # A public link speaks for whoever made it - never handed on.
     DashboardShare.objects.filter(owner_id=user_id).delete()
@@ -167,7 +174,13 @@ def export(user_id: str) -> dict:
             for s in DashboardShare.objects.filter(owner_id=user_id)
         ],
         "reminder_settings": {
-            "enabled": reminder.enabled, "urls": reminder.url_list(), "email": reminder.email,
+            "enabled": reminder.enabled, "urls": reminder.url_list(), "email": reminder.email, "push": reminder.push,
             "digest": reminder.digest, "timezone": reminder.timezone,
         } if reminder else None,
+        # No handles: they're credentials at the push relay.
+        "push_devices": [
+            {"platform": d.platform, "device_name": d.device_name, "created_at": d.created_at.isoformat(),
+             "last_seen_at": d.last_seen_at.isoformat()}
+            for d in PushDevice.objects.filter(user_id=user_id)
+        ],
     }

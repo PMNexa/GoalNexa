@@ -6,6 +6,7 @@ from goalnexa.views.goals import GoalViewSet
 from goalnexa.views.ingest import MetricIngestView
 from goalnexa.views.metrics import MetricViewSet
 from goalnexa.views.onboarding import OnboardingChoiceView
+from goalnexa.views.push import PushConfigView, PushDeviceDetailView, PushDeviceListView, PushMessageView
 from goalnexa.views.reminders import ReminderSettingsView, ReminderTestView
 from goalnexa.views.shares import DashboardShareDetailView, DashboardShareListView, SharedDashboardView
 from goalnexa.views.today import TodayView
@@ -25,6 +26,10 @@ __all__ = [
     "MetricIngestView",
     "MetricViewSet",
     "OnboardingChoiceView",
+    "PushConfigView",
+    "PushDeviceDetailView",
+    "PushDeviceListView",
+    "PushMessageView",
     "ReminderSettingsView",
     "ReminderTestView",
     "SharedDashboardView",

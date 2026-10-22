@@ -9,6 +9,7 @@ from goalnexa.models.goal_score import GoalOutcome, GoalScore
 from goalnexa.models.goal_snapshot import GoalSnapshot
 from goalnexa.models.metric import CheckInCadence, CountDays, Metric, MetricAggregation, OnePer, ProgressBy, SnapTo, TargetPer
 from goalnexa.models.onboarding_choice import OnboardingChoice
+from goalnexa.models.push import PushDevice, PushKind, PushMessage, PushPlatform
 from goalnexa.models.reminder_settings import DigestFrequency, ReminderSettings
 from goalnexa.models.template import GoalTemplate, RollupRule, TemplateGoal, TemplateMetric
 
@@ -37,6 +38,10 @@ __all__ = [
     "MetricAggregation",
     "OnboardingChoice",
     "ProgressBy",
+    "PushDevice",
+    "PushKind",
+    "PushMessage",
+    "PushPlatform",
     "ReminderSettings",
     "RollupRule",
     "OnePer",

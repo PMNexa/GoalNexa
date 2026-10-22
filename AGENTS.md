@@ -1050,6 +1050,17 @@ from the server). What the server gives them:
 - `GET goals/<id>/chart`: metrics in manual order with `tracked`,
   `projection` (the same math as the goal's `projected_progress`) and the
   `range` to draw.
+- **Push** (`goalnexa/push.py`, `views/push.py`; protocol in
+  `docs/mobile-app.md` "Push protocol"): the app registers its phone with
+  the push relay (`goalnexa-cloud`'s `goalnexa_push_relay`) and gives us
+  only a handle (`PushDevice`), bound to this server's Ed25519 key -
+  derived from `DJANGO_SECRET_KEY`, no table. `reminders.deliver` pushes
+  when `ReminderSettings.push` is on: a `PushMessage` row holds the text,
+  the relay gets only kind + id (signed), the app fetches
+  `push/messages/<id>`. A device the relay calls `gone` is deleted;
+  "sign out everywhere" and account deletion forget the phones (a
+  `SessionProvider`). `push.relay_url` (env `PUSH_RELAY_URL`, `off` =
+  none) - the scheduler sends, so it needs the same secret key and env.
 - **Old app versions stay in the wild**: `auth/config`'s
   `min_app_version` (settings `apps.min_android_version`/`_ios_version`)
   makes an older app ask to update - raise it only when the server stopped

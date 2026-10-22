@@ -81,15 +81,39 @@ def user_email(user_id) -> str:
     return (import_string(path)([user_id]).get(str(user_id)) or {}).get("email") or ""
 
 
+def has_push(reminder_settings: ReminderSettings) -> bool:
+    from goalnexa import push
+    from goalnexa.models import PushDevice
+
+    return (
+        reminder_settings.push
+        and push.enabled()
+        and PushDevice.objects.filter(user_id=reminder_settings.user_id).exists()
+    )
+
+
 def has_channel(reminder_settings: ReminderSettings) -> bool:
-    return bool(reminder_settings.url_list()) or reminder_settings.email
+    return bool(reminder_settings.url_list()) or reminder_settings.email or has_push(reminder_settings)
 
 
-def deliver(reminder_settings: ReminderSettings, title: str, body: str, kind: str = "reminder") -> bool:
+#: The push kind (`PushKind`) for each delivery kind.
+PUSH_KINDS = {"reminder": "checkin_due", "digest": "digest", "test_reminder": "test"}
+
+
+def deliver(
+    reminder_settings: ReminderSettings, title: str, body: str, kind: str = "reminder", push_kind: str | None = None
+) -> bool:
     """Sends a message on every channel the user set up: their Apprise URLs,
-    and their account email (through the instance's outbox) when `email`
-    is on. True when at least one took it."""
+    their account email (through the instance's outbox) when `email` is
+    on, and their phones when `push` is on. True when at least one took it."""
     ok = False
+    if reminder_settings.push:
+        from goalnexa import push
+
+        try:
+            ok = bool(push.send(reminder_settings.user_id, push_kind or PUSH_KINDS.get(kind, "checkin_due"), title, body))
+        except Exception:
+            logger.exception("Push delivery to user %s failed", reminder_settings.user_id)
     urls = reminder_settings.url_list()
     if urls:
         error = ""
@@ -234,7 +258,7 @@ def send_due_reminders(now=None) -> int:
             body = "\n".join(_nudge_lines(nudges))
             if reminder_settings.app_url:
                 body += f"\n\nCheck in: {reminder_settings.app_url.rstrip('/')}/dashboard"
-        ok = deliver(reminder_settings, title, body)
+        ok = deliver(reminder_settings, title, body, push_kind="checkin_due" if claimed else "quota_short")
         if ok:
             sent += 1
         else:

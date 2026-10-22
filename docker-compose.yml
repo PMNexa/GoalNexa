@@ -51,6 +51,7 @@ services:
       PLATFORM_AUTH_APP_REDIRECTS: ${PLATFORM_AUTH_APP_REDIRECTS:-}
       APPS_MIN_ANDROID_VERSION: ${APPS_MIN_ANDROID_VERSION:-}
       APPS_MIN_IOS_VERSION: ${APPS_MIN_IOS_VERSION:-}
+      PUSH_RELAY_URL: ${PUSH_RELAY_URL:-}
       # Without this, Python buffers stdout and `docker compose logs`
       # shows NOTHING even while the server is running fine - confirmed
       # directly during development (had to exec in and check /proc to
@@ -110,6 +111,8 @@ services:
       EMAIL_SES_CONFIGURATION_SET: ${EMAIL_SES_CONFIGURATION_SET:-}
       EMAIL_SES_TOPIC_ARNS: ${EMAIL_SES_TOPIC_ARNS:-}
       LIFECYCLE_ENABLED: ${LIFECYCLE_ENABLED:-}
+      # The scheduler sends the pushes (reminders, digest).
+      PUSH_RELAY_URL: ${PUSH_RELAY_URL:-}
       PYTHONUNBUFFERED: "1"
     volumes:
       - ./apps:/apps

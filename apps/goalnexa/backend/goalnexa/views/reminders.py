@@ -3,8 +3,10 @@ go (`ReminderSettings`, `goalnexa.reminders`). One row per user, only
 ever their own - a plain view, not a `BaseViewSet` resource: there's no
 list of other people's settings to browse, filter or grant roles on.
 
-- `GET` - `{enabled, urls, digest, digest_weekday, digest_hour, timezone,
-  allowed_schemes}` (defaults before first save).
+- `GET` - `{enabled, urls, email, push, digest, digest_weekday,
+  digest_hour, timezone, allowed_schemes, email_available,
+  push_available, push_devices}` (defaults before first save). `push`
+  sends to the user's phones (`goalnexa.push`); `push_devices` counts them.
 - `PUT` - the same fields: `urls` one Apprise URL per line, each checked
   (`validate_urls`); the digest ones optional (`goalnexa.digest`).
 - `PATCH` - only the fields sent change (what an AI agent uses, through
@@ -20,7 +22,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from goalnexa.models import DigestFrequency, ReminderSettings
+from goalnexa.models import DigestFrequency, PushDevice, ReminderSettings
+from goalnexa.push import enabled as push_enabled
 from core_api.system import email_configured
 from goalnexa.reminders import allowed_schemes, deliver, has_channel, validate_urls
 
@@ -37,6 +40,9 @@ def _payload(reminder_settings: ReminderSettings | None) -> dict:
         "urls": row.urls,
         "email": row.email,
         "email_available": email_configured(),
+        "push": row.push,
+        "push_available": push_enabled(),
+        "push_devices": PushDevice.objects.filter(user_id=row.user_id).count() if row.user_id else 0,
         "digest": row.digest,
         "digest_weekday": row.digest_weekday,
         "digest_hour": row.digest_hour,
@@ -70,16 +76,17 @@ def _digest_fields(data) -> dict:
     return fields
 
 
-def reminder_settings_email(request) -> bool:
+def _saved(request, name: str, default: bool) -> bool:
     row = ReminderSettings.objects.filter(user_id=request.user.id).first()
-    return row.email if row else False
+    return getattr(row, name) if row else default
 
 
 class ReminderSettingsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(_payload(ReminderSettings.objects.filter(user_id=request.user.id).first()))
+        row = ReminderSettings.objects.filter(user_id=request.user.id).first()
+        return Response(_payload(row or ReminderSettings(user_id=request.user.id)))
 
     def put(self, request):
         urls = request.data.get("urls", "")
@@ -94,7 +101,8 @@ class ReminderSettingsView(APIView):
             defaults={
                 "urls": urls,
                 "enabled": bool(request.data.get("enabled", True)),
-                "email": bool(request.data.get("email", reminder_settings_email(request))),
+                "email": bool(request.data.get("email", _saved(request, "email", False))),
+                "push": bool(request.data.get("push", _saved(request, "push", True))),
                 "app_url": _app_url(request),
                 **_digest_fields(request.data),
             },
@@ -111,7 +119,7 @@ class ReminderSettingsView(APIView):
             if errors:
                 raise ValidationError({"urls": errors})
             row.urls = urls
-        for name in ("enabled", "email"):
+        for name in ("enabled", "email", "push"):
             if name in request.data:
                 setattr(row, name, bool(request.data[name]))
         for name, value in _digest_fields(request.data).items():
@@ -127,7 +135,7 @@ class ReminderTestView(APIView):
     def post(self, request):
         reminder_settings = ReminderSettings.objects.filter(user_id=request.user.id).first()
         if reminder_settings is None or not has_channel(reminder_settings):
-            raise ValidationError({"urls": ["Save at least one URL, or turn on email, first."]})
+            raise ValidationError({"urls": ["Save at least one URL, or turn on email or the phone app, first."]})
         ok = deliver(reminder_settings, "GoalNexa test reminder", "Check-in reminders will arrive here.", kind="test_reminder")
         if not ok:
             raise ValidationError({"urls": ["Sending failed - check the URLs (the server log has details)."]})

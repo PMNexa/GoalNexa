@@ -335,3 +335,37 @@ For high availability use 3 manager nodes (always an odd number). When
 workers × nodes approach the database's connection limit (~22 on the
 1 GB plan), enable its connection pool (PgBouncer) and point
 `DATABASE_URL` at it.
+
+
+## 12. Push relay (hosted edition)
+
+The phone apps' notifications go through the push relay
+(`goalnexa_push_relay`, `apps/extensions/push_relay/backend/`), served by
+this deployment at `https://<domain>/api/v1/push-relay` - every GoalNexa
+server's `push.relay_url` points there. Once:
+
+1. Firebase project with Android apps `com.goalnexa.app` and
+   `com.goalnexa.app.debug`, FCM API (V1) on.
+2. A service account in that project with the role **Firebase Cloud
+   Messaging API Admin**, and a JSON key for it.
+3. In `.env.production`: `goalnexa_push_relay` in `GOALNEXA_EXTENSIONS`
+   and the key, on one line (`jq -c . key.json`), as
+   `PUSH_RELAY_FCM_SERVICE_ACCOUNT` in `GOALNEXA_EXTENSION_SETTINGS`:
+
+   ```sh
+   GOALNEXA_EXTENSIONS=goalnexa_billing,goalnexa_push_relay
+   GOALNEXA_EXTENSION_SETTINGS='{..., "PUSH_RELAY_FCM_SERVICE_ACCOUNT": {"type": "service_account", ...}}'
+   ```
+
+4. Re-upload `PROD_ENV` and deploy. System > Status shows "Push relay -
+   FCM: Configured"; limits are under System > Settings > Push relay.
+   Set System > Settings > Data retention > "revoked and dead push
+   handles" to 30 days.
+
+5. The app's build needs the same project's `google-services.json`
+   (both apps in it): `base64 -i google-services.json | gh secret set
+   GOOGLE_SERVICES_JSON_BASE64 -R PMNexa/goalnexa-cloud`. Without it the
+   app builds with push turned off.
+
+Details (protocol, limits, what is stored):
+`apps/extensions/push_relay/backend/README.md`.

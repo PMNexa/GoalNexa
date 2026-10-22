@@ -9,6 +9,14 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Reminders on your phone** (P-73, P-74): check-ins due, targets still
+  short at the end of a period and the digest can go to the GoalNexa
+  Android app as push notifications, through a free relay that works for
+  self-hosted servers too. The relay only sees a kind and an id - the app
+  fetches the text from your server. Turn it on or off on the Reminders
+  page, next to Apprise and email. A server reaches the relay at
+  `PUSH_RELAY_URL` (empty = the GoalNexa relay; `off` = no push).
+
 - **Goal templates: when check-ins happen, like goals.** A template goal
   has "Check-ins are for" with its moment; sub-goals inherit it from their
   parent and metrics from their goal (the default for new ones), or pick

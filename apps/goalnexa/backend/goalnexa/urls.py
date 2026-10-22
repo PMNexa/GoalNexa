@@ -29,6 +29,10 @@ from goalnexa.views import (
     MetricIngestView,
     MetricViewSet,
     OnboardingChoiceView,
+    PushConfigView,
+    PushDeviceDetailView,
+    PushDeviceListView,
+    PushMessageView,
     ReminderSettingsView,
     ReminderTestView,
     SharedDashboardView,
@@ -73,6 +77,11 @@ urlpatterns = [
     path("metrics/<str:pk>/ingest", MetricIngestView.as_view(), name="metric-ingest"),
     # The caller's own reminder settings - not a resource (views/reminders.py).
     path("reminder-settings", ReminderSettingsView.as_view(), name="reminder-settings"),
+    # Push to the phone apps (views/push.py, docs/mobile-app.md "Push protocol").
+    path("push/config", PushConfigView.as_view(), name="push-config"),
+    path("push/messages/<str:pk>", PushMessageView.as_view(), name="push-message"),
+    path("push-devices", PushDeviceListView.as_view(), name="push-devices"),
+    path("push-devices/<str:pk>", PushDeviceDetailView.as_view(), name="push-device"),
     path("onboarding-choice", OnboardingChoiceView.as_view(), name="onboarding-choice"),
     path("reminder-settings/test", ReminderTestView.as_view(), name="reminder-settings-test"),
     # Public dashboard links: the owner's list, and what a link shows (views/shares.py).

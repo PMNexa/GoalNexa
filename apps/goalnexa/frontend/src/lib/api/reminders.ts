@@ -14,6 +14,12 @@ export interface ReminderSettings {
   email: boolean;
   /** Whether this instance can send email at all. */
   email_available: boolean;
+  /** Also push to the GoalNexa phone app, on every phone it's signed in on. */
+  push: boolean;
+  /** Whether this instance has push on (a push relay set). */
+  push_available: boolean;
+  /** Phones registered for push. */
+  push_devices: number;
   /** The goals digest: how often, on which weekday (0 = Monday) and at which local hour, in `timezone` (IANA). */
   digest: DigestFrequency;
   digest_weekday: number;
@@ -27,7 +33,10 @@ export function fetchReminderSettings(accessToken: string): Promise<ReminderSett
   return apiRequest<ReminderSettings>("/api/v1/reminder-settings", accessToken);
 }
 
-export type ReminderSettingsInput = Omit<ReminderSettings, "allowed_schemes" | "email_available">;
+export type ReminderSettingsInput = Omit<
+  ReminderSettings,
+  "allowed_schemes" | "email_available" | "push_available" | "push_devices"
+>;
 
 export function saveReminderSettings(accessToken: string, data: ReminderSettingsInput): Promise<ReminderSettings> {
   return apiRequest<ReminderSettings>("/api/v1/reminder-settings", accessToken, { method: "PUT", data });

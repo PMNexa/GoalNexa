@@ -30,6 +30,8 @@ class ReminderSettings(TimestampedModel):
     urls = models.TextField(blank=True, default="")
     # Also send to the account's email, through the instance's mail server.
     email = models.BooleanField(default=False, db_default=False)
+    # Also send to the user's phones (`PushDevice`, through the push relay).
+    push = models.BooleanField(default=True, db_default=True)
     app_url = models.CharField(max_length=255, blank=True, default="")
     digest = models.CharField(
         max_length=8, choices=DigestFrequency.choices, default=DigestFrequency.WEEKLY, db_default=DigestFrequency.WEEKLY

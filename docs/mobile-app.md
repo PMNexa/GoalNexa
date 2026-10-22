@@ -113,9 +113,64 @@ The relay must not become a free spam cannon for whoever finds it.
 7. Where reminders go becomes a choice in `ReminderSettings`: Apprise,
    push, or both.
 
-The relay runs on the hosted deployment at its own subdomain, so it can
-be moved or scaled on its own. FCM is free; the cost is one small
-service.
+The relay runs on the hosted deployment. It starts as a path on the
+hosted server (`https://goal.pmnexa.com/api/v1/push-relay`, the cloud
+extension `goalnexa_push_relay`); every server reads the relay's address
+from its `push.relay_url` setting and hands it to the app, so moving it
+to its own subdomain later is a settings change. FCM is free; the cost is
+one small service.
+
+### Push protocol
+
+All keys, signatures and handles are base64url without padding.
+
+**The server key.** Each server has an Ed25519 key pair, derived from
+`DJANGO_SECRET_KEY` (no table, the same on every replica; a new secret
+key = a new pair, and apps re-register on their next start). The public
+half is the `server_key`.
+
+**Server API (this repo, signed in):**
+
+- `GET /api/v1/push/config` -> `{enabled, relay_url, server_key}`;
+  `enabled` is false when `push.relay_url` is empty (push off on that
+  server).
+- `POST /api/v1/push-devices` `{handle, platform: "android"|"ios",
+  device_name}` -> 201 `{id, platform, device_name, created_at,
+  last_seen_at}`; the same handle again -> 200 (it moves to the caller
+  if another account had it). Registering creates the caller's
+  `ReminderSettings` if they had none, so reminders start flowing.
+- `GET /api/v1/push-devices` (own only), `DELETE /api/v1/push-devices/<id>`.
+- `GET /api/v1/push/messages/<id>` -> `{id, kind, title, body,
+  created_at}`, own only. `kind`: `checkin_due`, `quota_short`,
+  `digest`, `test`.
+- `ReminderSettings.push` (default on): reminders, nudges and the digest
+  also go to the user's devices. Apprise, email and push are separate
+  switches, so "Apprise, push or both" is any mix of them.
+
+**Relay API (`goalnexa-cloud`):**
+
+- `POST <relay>/register` `{token, platform, server_key}` (the FCM token)
+  -> `{handle}` (`gnp_...`). The handle is bound to that `server_key`;
+  the same token and key again returns the same handle. Rate limited per
+  IP.
+- `POST <relay>/revoke` `{handle}` -> 204, whether or not it existed.
+- `POST <relay>/send`, signed by the server: headers `X-GoalNexa-Key`
+  (the `server_key`), `X-GoalNexa-Timestamp` (Unix seconds, within 5
+  minutes), `X-GoalNexa-Signature` (Ed25519 over `<timestamp>.<raw
+  body>`). Body `{"messages": [{"handle", "kind", "id"}]}`, at most 100.
+  Answer `{"results": [{"handle", "status"}]}`, `status` one of `sent`,
+  `gone` (unknown, revoked, dead at FCM, or bound to another key - the
+  server deletes that device), `limited`, `error`. Limits: 50 a day per
+  handle, 20,000 a day per server key.
+- To FCM: a data-only, high-priority message `{kind, id}`. Nothing else.
+
+**The app:** after sign-in and on each start (when notifications are on)
+it reads `push/config`, registers its FCM token with the relay, and
+`POST`s the handle to `push-devices`; again on a new FCM token. A push
+wakes it; it fetches `push/messages/<id>` with its own session and shows
+the title and body (a generic "Check-ins due" if that fails). Sign-out
+and turning notifications off delete the device on the server and
+revoke the handle at the relay.
 
 ## Releases (P-76)
 
@@ -168,5 +223,26 @@ service.
 - **`min_app_version`** in `GET auth/config`: `{android, ios}` from the
   settings `apps.min_android_version` / `apps.min_ios_version` (env
   `APPS_MIN_ANDROID_VERSION` / `APPS_MIN_IOS_VERSION`), "" = any.
+
+## As built (P-73, P-74 - the server's half)
+
+- `goalnexa/push.py`: the key pair (HMAC-SHA256 of `DJANGO_SECRET_KEY`
+  as the Ed25519 seed), `send(user, kind, title, body)` (one
+  `PushMessage`, then the relay in batches of 100; `gone` deletes the
+  device; each send logged on Status as channel `push`), `revoke`.
+- `reminders.deliver` pushes first when `ReminderSettings.push` is on
+  (default on; a new device creates the settings row). Kinds: a reminder
+  with overdue check-ins is `checkin_due`, one with only quotas short is
+  `quota_short`, then `digest` and `test`. The message text drops the
+  web link at the end (`push_text`): a tap opens the app.
+- `push.relay_url` system setting (Reminders group, env
+  `PUSH_RELAY_URL`; empty or `off` = no push). The default is the hosted
+  relay.
+- Phones are a `SessionProvider` ("Phone notifications"): listed on a
+  user's sessions, forgotten by "sign out everywhere"; account deletion
+  forgets them too. Retention: `retention.push_messages_days` (30),
+  `retention.push_devices_days` (180, by `last_seen_at`). The account
+  export lists phones without their handles.
+- MCP: `reminder_settings_update` takes `push`.
 
 Tests: `apps/main/backend/tests/test_mobile.py`.

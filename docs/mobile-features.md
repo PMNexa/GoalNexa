@@ -18,7 +18,7 @@ yet tried on a device · **Partial** - part of it works (see notes) ·
 **Planned** - on the roadmap · **Later** - wanted, no roadmap item yet ·
 **n/a** - not needed on that side.
 
-Last updated: 2026-10-20.
+Last updated: 2026-10-22.
 
 ## Sign-in and account
 
@@ -89,13 +89,13 @@ Last updated: 2026-10-20.
 
 | Feature | Server | Android | iOS | Item | Notes |
 |---|---|---|---|---|---|
-| Push relay (free, self-hosted servers too, no content) | Planned | n/a | n/a | P-73 | Runs from `goalnexa-cloud`; the server half is here |
-| Register the device with the relay | Planned | Planned | Planned | P-73, P-74 | FCM on Android, APNs on iOS |
-| Check-in due | Planned | Planned | Planned | P-74 | |
-| Period quota short | Planned | Planned | Planned | P-74 | |
-| Digest | Planned | Planned | Planned | P-74 | |
-| Choose push, Apprise or both | Planned | Planned | Planned | P-74 | `ReminderSettings` |
-| Permission asked in context, not at first launch | n/a | Planned | Planned | P-74 | Android 13+, iOS |
+| Push relay (free, self-hosted servers too, no content) | Built | n/a | n/a | P-73 | Runs from `goalnexa-cloud`; the server half is here (`goalnexa/push.py`: signed sends, `push-devices`, `push/messages`) |
+| Register the device with the relay | Built | Built | Planned | P-73, P-74 | FCM on Android, APNs on iOS; per server, again on a new token or server key; deleted and revoked on sign-out or switch-off. Needs `google-services.json` in the build |
+| Check-in due | Built | Built | Planned | P-74 | Text fetched from `push/messages/<id>`; "Check-ins due" if that fails |
+| Period quota short | Built | Built | Planned | P-74 | Same channel as check-ins due |
+| Digest | Built | Built | Planned | P-74 | Own channel; nothing shown if the fetch fails |
+| Choose push, Apprise or both | Built | Built | Planned | P-74 | `ReminderSettings.push`, next to Apprise and email; the website's Reminders page has the switch |
+| Permission asked in context, not at first launch | n/a | Built | Planned | P-74 | Android 13+, iOS. Today's card (Turn on / Not now) and a Settings switch |
 | Comments on your goals, health changes (opt-in) | Planned | Planned | Planned | P-78 | |
 | UnifiedPush (no Google, no relay) | Planned | Planned | n/a | P-78 | Android only |
 

@@ -285,3 +285,151 @@ class ChartPayloadTests(AppDataTestCase):
         self.assertEqual(zebra["projection"]["at"][:10], target.isoformat())
         self.assertEqual(chart["range"]["end"][:10], target.isoformat())
         self.assertLessEqual(chart["range"]["start"], zebra["points"][0]["at"])
+
+
+class FakeRelay:
+    """Stands in for the push relay: records every request, answers `send`
+    with each handle's status from `statuses` (default "sent")."""
+
+    def __init__(self):
+        self.calls = []
+        self.statuses = {}
+
+    def __call__(self, path, body, headers):
+        import json
+
+        self.calls.append((path, json.loads(body), headers, body))
+        response = mock.Mock()
+        response.raise_for_status.return_value = None
+        if path == "send":
+            messages = json.loads(body)["messages"]
+            response.json.return_value = {
+                "results": [{"handle": m["handle"], "status": self.statuses.get(m["handle"], "sent")} for m in messages]
+            }
+        return response
+
+    def sends(self):
+        return [call for call in self.calls if call[0] == "send"]
+
+
+class PushTests(AppDataTestCase):
+    """P-73/P-74, the server's half: phones registered with a relay handle,
+    reminders pushed as a kind + id signed with the server's key, the text
+    fetched by the app (docs/mobile-app.md "Push protocol")."""
+
+    def setUp(self):
+        super().setUp()
+        self.relay = FakeRelay()
+        patcher = mock.patch("goalnexa.push._post", self.relay)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def register(self, client, handle="gnp_bob_phone", expect=201):
+        response = client.post(
+            f"{API}/push-devices", {"handle": handle, "platform": "android", "device_name": "Pixel 8"}, format="json"
+        )
+        self.assertEqual(response.status_code, expect, response.content)
+        return response.json()
+
+    def overdue_metric(self):
+        goal = self.create(self.bob, "goals", title="Run more")
+        metric = self.create(self.bob, "metrics", goal=goal["id"], name="Distance", unit="km", target_value=100, check_in_every="daily")
+        Metric.objects.filter(id=metric["id"]).update(check_in_due_at=timezone.now() - timedelta(hours=1))
+        return metric
+
+    def test_config_gives_the_relay_and_a_stable_server_key(self):
+        config = self.bob.get(f"{API}/push/config").json()
+        self.assertTrue(config["enabled"])
+        self.assertEqual(config["relay_url"], "https://goal.pmnexa.com/api/v1/push-relay")
+        self.assertEqual(len(base64.urlsafe_b64decode(config["server_key"] + "==")), 32)
+        self.assertEqual(self.admin.get(f"{API}/push/config").json()["server_key"], config["server_key"])
+        self.set_setting("push.relay_url", "")
+        self.assertFalse(self.bob.get(f"{API}/push/config").json()["enabled"])
+        self.assertEqual(self.anon.get(f"{API}/push/config").status_code, 401)
+
+    def test_devices_are_the_callers_own(self):
+        from goalnexa.models import PushDevice, ReminderSettings
+
+        device = self.register(self.bob)
+        self.assertEqual(device["device_name"], "Pixel 8")
+        # Registering starts reminders (push on by default).
+        self.assertTrue(ReminderSettings.objects.get(user_id=PushDevice.objects.get().user_id).push)
+        self.assertEqual(self.register(self.bob, expect=200)["id"], device["id"])
+        self.assertEqual(self.admin.get(f"{API}/push-devices").json()["total"], 0)
+        self.assertEqual(self.admin.delete(f"{API}/push-devices/{device['id']}").status_code, 404)
+        self.assertEqual(self.bob.get(f"{API}/push-devices").json()["items"][0]["id"], device["id"])
+        # The phone signed in to another account: the handle follows it.
+        self.register(self.admin, expect=200)
+        self.assertEqual(self.bob.get(f"{API}/push-devices").json()["total"], 0)
+        self.assertEqual(self.admin.delete(f"{API}/push-devices/{device['id']}").status_code, 204)
+        self.assertEqual(self.relay.calls[-1][:2], ("revoke", {"handle": "gnp_bob_phone"}))
+        self.assertEqual(self.bob.post(f"{API}/push-devices", {"handle": ""}, format="json").status_code, 400)
+        self.assertEqual(self.bob.post(f"{API}/push-devices", {"handle": "x", "platform": "nokia"}, format="json").status_code, 400)
+
+    def test_a_due_reminder_is_pushed_as_a_signed_kind_and_id(self):
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+        from goalnexa.reminders import send_due_reminders
+
+        self.register(self.bob)
+        self.overdue_metric()
+        self.assertEqual(send_due_reminders(), 1)
+        [(_, payload, headers, raw)] = self.relay.sends()
+        [message] = payload["messages"]
+        self.assertEqual((message["handle"], message["kind"]), ("gnp_bob_phone", "checkin_due"))
+        self.assertEqual(set(message), {"handle", "kind", "id"})  # nothing else leaves the server
+        key = self.bob.get(f"{API}/push/config").json()["server_key"]
+        self.assertEqual(headers["X-GoalNexa-Key"], key)
+        Ed25519PublicKey.from_public_bytes(base64.urlsafe_b64decode(key + "==")).verify(
+            base64.urlsafe_b64decode(headers["X-GoalNexa-Signature"] + "=="),
+            headers["X-GoalNexa-Timestamp"].encode() + b"." + raw,
+        )
+        # The app fetches what it says - only its own user can.
+        text = self.bob.get(f"{API}/push/messages/{message['id']}").json()
+        self.assertEqual(text["title"], "GoalNexa: 1 check-in due")
+        self.assertIn("Run more → Distance", text["body"])
+        self.assertNotIn("Check in:", text["body"])
+        self.assertEqual(self.admin.get(f"{API}/push/messages/{message['id']}").status_code, 404)
+
+    def test_push_off_or_a_gone_phone(self):
+        from goalnexa.models import PushDevice
+        from goalnexa.reminders import send_due_reminders
+
+        self.register(self.bob)
+        self.bob.patch(f"{API}/reminder-settings", {"push": False}, format="json")
+        settings_payload = self.bob.get(f"{API}/reminder-settings").json()
+        self.assertEqual((settings_payload["push"], settings_payload["push_devices"]), (False, 1))
+        self.overdue_metric()
+        self.assertEqual(send_due_reminders(), 0)  # no other channel either
+        self.assertEqual(self.relay.sends(), [])
+        self.bob.patch(f"{API}/reminder-settings", {"push": True}, format="json")
+        self.relay.statuses["gnp_bob_phone"] = "gone"
+        Metric.objects.update(reminded_at=None)
+        self.assertEqual(send_due_reminders(), 0)
+        self.assertFalse(PushDevice.objects.exists())
+
+    def test_a_test_reminder_reaches_the_phone(self):
+        self.register(self.bob)
+        self.assertEqual(self.bob.post(f"{API}/reminder-settings/test").status_code, 200)
+        self.assertEqual(self.relay.sends()[0][1]["messages"][0]["kind"], "test")
+
+    def test_signing_out_everywhere_or_deleting_the_account_forgets_the_phones(self):
+        from goalnexa.models import PushDevice, PushMessage
+        from platform_auth.models import User
+
+        self.register(self.bob)
+        bob = User.objects.get(email="bob@example.com")
+        sessions = self.admin.get(f"{API}/users/{bob.id}/sessions").json()
+        phones = next(group for group in sessions["other"] if group["kind"] == "push")
+        self.assertEqual(phones["items"][0]["label"], "Pixel 8")
+        self.admin.post(f"{API}/users/{bob.id}/revoke-sessions")
+        self.assertFalse(PushDevice.objects.exists())
+        self.assertEqual(self.relay.calls[-1][0], "revoke")
+
+        bob_client = client_for(self.login("bob@example.com"))
+        self.register(bob_client)
+        bob_client.post(f"{API}/reminder-settings/test")
+        self.assertTrue(PushMessage.objects.exists())
+        self.assertEqual(bob_client.post(f"{API}/auth/me/delete", {"password": PASSWORD}, format="json").status_code, 204)
+        self.assertFalse(PushDevice.objects.exists())
+        self.assertFalse(PushMessage.objects.exists())

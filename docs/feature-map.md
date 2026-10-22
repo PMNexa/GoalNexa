@@ -23,7 +23,7 @@ not yet tried on a device · **Partial** - part of it (see notes) ·
 roadmap item · **Later** - may come, not planned · **Web only** - stays on
 the website, with the reason.
 
-Last updated: 2026-10-20.
+Last updated: 2026-10-22.
 
 ## Accounts and sign-in
 
@@ -110,10 +110,10 @@ Last updated: 2026-10-20.
 | Feature | Backend | Website | Android | iOS | Mobile | Notes |
 |---|---|---|---|---|---|---|
 | Reminders through Apprise (Telegram, email...) | Done | Done | - | - | Web only | Settings page; push replaces it on phones |
-| Push notifications (relay) | Planned | - | Planned | Planned | Planned | P-73, P-74: due, quota short, digest |
+| Push notifications (relay) | Done | Done | Built | Planned | Ported | P-73, P-74: due, quota short, digest; the Reminders page turns it on or off next to Apprise and email |
 | More push: comments, health, UnifiedPush | Planned | - | Planned | Planned | Planned | P-78; UnifiedPush Android only |
-| Digest (daily/weekly) | Done | Done | - | - | Planned | By push in P-74 |
-| End-of-period nudges | Done | Done | - | - | Planned | By push in P-74 |
+| Digest (daily/weekly) | Done | Done | Built | Planned | Ported | Also by push (P-74) |
+| End-of-period nudges | Done | Done | Built | Planned | Ported | Also by push (P-74) |
 | Lifecycle email, email preferences | Done | Done | - | - | Web only | |
 
 ## AI assistants (MCP)
@@ -146,7 +146,7 @@ Last updated: 2026-10-20.
 | Landing, pricing, legal pages | - | Done | - | - | Web only | Links the Play listing; `/okr` and `/kpi` category pages (C-23); robots.txt, sitemap, canonical URLs, share cards, structured data (C-25) |
 | Plans and payment | Done | Done | - | - | Web only | Selling in the apps would need Play / App Store billing |
 | Plan limits (members, goals) | Done | Done | Built | Planned | Ported | The apps show the server's "limit reached" |
-| Push relay service | Planned | - | - | - | Planned | P-73; free, self-hosted servers too |
+| Push relay service | Done | - | - | - | Ported | P-73; free, self-hosted servers too; sends once the Firebase project and its credentials are set up |
 
 ## Platform and release
 

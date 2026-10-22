@@ -30,7 +30,13 @@ function browserTimeZone(): string {
 }
 
 function formFrom(row: ReminderSettings): ReminderSettingsInput {
-  const { allowed_schemes: _schemes, email_available: _available, ...form } = row;
+  const {
+    allowed_schemes: _schemes,
+    email_available: _available,
+    push_available: _pushAvailable,
+    push_devices: _devices,
+    ...form
+  } = row;
   return form;
 }
 
@@ -110,7 +116,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
     settings !== null &&
     form !== null &&
     (Object.keys(form) as (keyof ReminderSettingsInput)[]).some((key) => key !== "timezone" && form[key] !== settings[key]);
-  const zoneChanged = settings !== null && (settings.urls !== "" || settings.email) && settings.timezone !== browserTimeZone();
+  const zoneChanged = settings !== null && (settings.urls !== "" || settings.email || settings.push_devices > 0) && settings.timezone !== browserTimeZone();
 
   return (
     <div className="row g-3">
@@ -146,6 +152,24 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                       onChange={(event) => update("email", event.target.checked)}
                     />
                     <span className="form-check-label">Email them to my account address</span>
+                  </label>
+                )}
+                {settings.push_available && (
+                  <label className="form-check mb-3">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      checked={form.push}
+                      onChange={(event) => update("push", event.target.checked)}
+                    />
+                    <span className="form-check-label">
+                      Send them to the GoalNexa app
+                      <span className="form-check-description">
+                        {settings.push_devices === 0
+                          ? "Sign in to the Android app and turn on notifications there."
+                          : `On ${settings.push_devices} phone${settings.push_devices === 1 ? "" : "s"}.`}
+                      </span>
+                    </span>
                   </label>
                 )}
                 <FormLabel htmlFor="reminder-urls">{settings.email_available ? "Also send to" : "Send to"}</FormLabel>
@@ -234,7 +258,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
               <Button
                 variant="secondary"
                 outline
-                disabled={busy || dirty || (!settings.urls.trim() && !settings.email)}
+                disabled={busy || dirty || (!settings.urls.trim() && !settings.email && !(settings.push && settings.push_devices > 0))}
                 title={dirty ? "Save first" : undefined}
                 onClick={() => void act(() => sendTestReminder(accessToken), "Test message sent.")}
               >
