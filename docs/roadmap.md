@@ -298,8 +298,8 @@ maintainer isn't keeping a dozen connectors alive.
 
 ### Ideas - from comparing other OKR tools
 
-Found while writing comparison pages against Viva Goals, Perdoo, Tability
-and Weekdone (2026-10-24; sources on each page, `goalnexa-cloud`'s
+Found while writing comparison pages against Viva Goals, Perdoo, Tability,
+Weekdone, Quantive (WorkBoard) and Lattice Goals (2026-10-24; sources on each page, `goalnexa-cloud`'s
 `/alternatives/*`). Not scheduled - approve or reject each.
 
 | ID   | Item                  | Requirement | Status   | Notes |
@@ -312,6 +312,7 @@ and Weekdone (2026-10-24; sources on each page, `goalnexa-cloud`'s
 | P-87 | Slack check-ins       | A Slack app: due-check-in reminders with an inline check-in form, `/goalnexa` to check in or see a goal, the digest to a channel | Proposed | All three have Slack; weigh against "integrations stay last" |
 | P-88 | Viewer role           | An org role that sees the org's goals, dashboards and board but can't check in or edit - for leadership and boards | Proposed | Perdoo view-only licences, Tability read-only seats |
 | P-89 | Start from a template | A public link (`/start?template=<slug>`) creates a ready-made goal with its metrics, targets and check-in schedule for the visitor - after signup (or login) if they have none yet, then opens it on the dashboard; templates come from one shared list that onboarding uses too | Proposed | Asked for 2026-10-24. **When built: add the "Use this template" button back to `goalnexa-cloud`'s `/templates/<slug>` pages** (`app/extensions/marketing/TemplatePage.tsx`, where a `P-89` comment marks the spot) - they ship without it for now |
+| P-90 | Duplicate a goal      | "Duplicate" on a goal copies it with its metrics, sub-goals and their metrics (targets, schedules, check-in settings; no check-ins), into the same or another organization or cycle the user can write to | Proposed | Lattice Goals (duplicate a goal with its children); also the quickest way to reuse last quarter's goals outside a cycle close |
 
 ## Roadmap: Cloud version
 
