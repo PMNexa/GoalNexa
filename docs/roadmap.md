@@ -1,6 +1,6 @@
 # GoalNexa: Features &amp; Roadmap
 
-Last updated: 2026-10-12. Saved from the "GoalNexa: Features &amp; Roadmap"
+Last updated: 2026-10-24. Saved from the "GoalNexa: Features &amp; Roadmap"
 doc ([https://claude.ai/artifact/FgFt1UZsxgEmKTo554rxX5](https://claude.ai/artifact/FgFt1UZsxgEmKTo554rxX5), 2026-10-01).
 **This file is the source of truth for item status.**
 
@@ -295,6 +295,23 @@ private (`goalnexa-cloud`); the server side is here. Design:
 
 Integrations stay last and stay open (webhooks, ingest URLs), so one
 maintainer isn't keeping a dozen connectors alive.
+
+### Ideas - from comparing other OKR tools
+
+Found while writing comparison pages against Viva Goals, Perdoo, Tability
+and Weekdone (2026-10-24; sources on each page, `goalnexa-cloud`'s
+`/alternatives/*`). Not scheduled - approve or reject each.
+
+| ID   | Item                  | Requirement | Status   | Notes |
+| ---- | --------------------- | ----------- | -------- | ----- |
+| P-82 | Goal setup hints      | A goal shows hints when its setup weakens the forecast: no metrics, more than 5 root metrics, no target date, no check-in a week after its cycle started; closing a cycle with a score above 0.8 suggests aiming higher next time; the review skill and digest mention them | Proposed | Viva Goals' "Needs attention" indicators |
+| P-83 | Stuck at risk         | A goal at risk or off track for 3 check-ins (or 2 weeks) in a row is called out to its owner and the org's admins in the digest and as a reminder, once per spell | Proposed | Tability warns after 3 at-risk check-ins |
+| P-84 | Metric weights        | A root metric can weigh 1-4 in its goal's progress (default 1); forecast, health and totals use the weighted mean, server and `lib/progress.ts` alike | Proposed | Weekdone, Viva Goals |
+| P-85 | Pulled values         | A metric can read its value on a schedule (hourly/daily) from a URL returning a number or JSON (with a path) or a published Google Sheets cell, as a check-in with source "pull"; hosted: fixed hosts only, like reminder schemes | Proposed | Push ingest exists; Perdoo, Tability, Weekdone pull from Sheets, Jira, HubSpot |
+| P-86 | Review deck export    | Export a cycle's or the dashboard's shown goals as a PDF (and PowerPoint) for the review meeting: one page per goal with its chart, forecast, health and latest notes | Proposed | Perdoo (PDF/PPT), Tability (PDF/Slides) |
+| P-87 | Slack check-ins       | A Slack app: due-check-in reminders with an inline check-in form, `/goalnexa` to check in or see a goal, the digest to a channel | Proposed | All three have Slack; weigh against "integrations stay last" |
+| P-88 | Viewer role           | An org role that sees the org's goals, dashboards and board but can't check in or edit - for leadership and boards | Proposed | Perdoo view-only licences, Tability read-only seats |
+| P-89 | Start from a template | A public link (`/start?template=<slug>`) creates a ready-made goal with its metrics, targets and check-in schedule for the visitor - after signup (or login) if they have none yet, then opens it on the dashboard; templates come from one shared list that onboarding uses too | Proposed | Asked for 2026-10-24. **When built: add the "Use this template" button back to `goalnexa-cloud`'s `/templates/<slug>` pages** (`app/extensions/marketing/TemplatePage.tsx`, where a `P-89` comment marks the spot) - they ship without it for now |
 
 ## Roadmap: Cloud version
 
