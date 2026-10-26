@@ -668,6 +668,18 @@ hook like `useNavigate()` inside the screen would throw. Anything
 routing-dependent (redirect after success, etc.) is passed in as a prop
 instead (see `Login`'s `onSuccess` prop).
 
+**A module package's source must have no import-time side effects**
+(no top-level registration, no `window` writes, no bare `import "./x"`
+for effect): main's `vite.config.ts` tells Rollup they have none
+(`treeshake.moduleSideEffects`), so a module whose exports nobody uses is
+dropped. Without that, every `"."` barrel kept all its screens and the
+landing page preloaded 69 chunks - the whole app. Effects on a module's
+own state (an axios interceptor on its exported client) are fine: they're
+kept whenever one of its exports is used. Something that must run on its
+own belongs in a function main calls (`initSession`,
+`registerFieldWidget`). Check after a change: the route manifest's
+`root` imports stay around a dozen chunks.
+
 **The React-singleton trap (this WILL bite you again):** a local `file:`
 package ships its own `node_modules` with its own React copy. Vite's
 `resolve.dedupe` only fixes the CLIENT bundle graph — React Router

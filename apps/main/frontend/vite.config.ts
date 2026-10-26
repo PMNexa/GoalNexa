@@ -3,6 +3,22 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [reactRouter()],
+  build: {
+    rollupOptions: {
+      treeshake: {
+        // The module packages' `"."` entries re-export every screen, and
+        // their package.json files don't declare `sideEffects` - so
+        // Rollup kept every module a barrel names, and root.tsx's few
+        // imports (initSession, registerFieldWidget, ...) made every page
+        // preload the whole app: 69 chunks on the landing page, the System
+        // console's screens included. Their source has no import-time side
+        // effects (AGENTS.md: nothing computed at module load), so a module
+        // whose exports nobody uses can go. CSS imports stay.
+        moduleSideEffects: (id) =>
+          !/\/apps\/(platform-[a-z]+|goalnexa)\/frontend\/src\//.test(id) || id.endsWith(".css"),
+      },
+    },
+  },
   server: {
     // Vite's dev server only answers localhost/IP Host headers - nginx
     // forwards the browser's own Host, so a Tailscale name

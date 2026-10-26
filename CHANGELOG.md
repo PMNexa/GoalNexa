@@ -9,6 +9,7 @@ of you beyond the usual upgrade steps.
 
 ### Changed
 
+- Pages load less JavaScript: each page now preloads only the code it uses (the sign-in page about 20 files instead of 70), so the first visit is faster.
 - Team board: "Show by" and the period picker are one control - the picker's tabs are Totals (running totals), Day, Week, Month, Quarter and Year, then click the period.
 
 ### Added
