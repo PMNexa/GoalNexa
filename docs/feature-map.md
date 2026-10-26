@@ -147,6 +147,8 @@ Last updated: 2026-10-22.
 | Plans and payment | Done | Done | - | - | Web only | Selling in the apps would need Play / App Store billing |
 | Plan limits (members, goals) | Done | Done | Built | Planned | Ported | The apps show the server's "limit reached" |
 | Push relay service | Done | - | - | - | Ported | P-73; free, self-hosted servers too; sends once the Firebase project and its credentials are set up |
+| Domains | Done | Done | - | - | Web only | `goal.pmnexa.com` is the address (links, canonical URLs, sitemap); `goalnexa.binhnguyen.org` keeps serving for existing connectors, listings, older app builds and webhooks - never retired or redirected |
+| Mail sender on pmnexa.com | On hold | - | - | - | - | Mail still comes from `@goalnexa.binhnguyen.org` while its links point at `goal.pmnexa.com`; moving the sender (Amazon SES domain + DKIM) is paused for now |
 
 ## Platform and release
 
