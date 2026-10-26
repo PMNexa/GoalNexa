@@ -14,32 +14,23 @@ import { CheckInMomentField } from "goalnexa-frontend";
 import { BrandHome } from "./lib/brand";
 
 import type { Route } from "./+types/root";
+// Tabler - screen packages (e.g. platform-auth-frontend's LoginScreen)
+// are built against its class names (card, form-control, btn, alert,
+// ...); a package's own index.html (which had its own Tabler <link>
+// for standalone dev) isn't used when imported as a package, so this
+// app - the one that actually owns the page shell - has to load it.
+// Served from our own /assets (hashed, cached for a year) rather than a
+// CDN: one origin less before the first paint, and no third party
+// between a self-hosted instance and its users. A `links` entry, as when
+// it came from the CDN, so it keeps its place after app.css in the head.
+import tablerCss from "@tabler/core/dist/css/tabler.min.css?url";
+import tablerJs from "@tabler/core/dist/js/tabler.min.js?url";
 import "./app.css";
 
 // Form widgets the modules provide, used by every generic form (`widget` in a form layout).
 registerFieldWidget("check-in-moment", CheckInMomentField);
 
-export const links: Route.LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
-  },
-  // Tabler - screen packages (e.g. platform-auth-frontend's LoginScreen)
-  // are built against its class names (card, form-control, btn, alert,
-  // ...); a package's own index.html (which had its own Tabler <link>
-  // for standalone dev) isn't used when imported as a package, so this
-  // app - the one that actually owns the page shell - has to load it.
-  {
-    rel: "stylesheet",
-    href: "https://cdn.jsdelivr.net/npm/@tabler/core@1.5.1/dist/css/tabler.min.css",
-  },
-];
+export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: tablerCss }];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   // Search engines index only pages whose route opts in with
@@ -64,7 +55,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             navbar-toggler button, which is inert without it. Same "host
             loads the design system" convention as the Tabler CSS link
             above. */}
-        <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.5.1/dist/js/tabler.min.js" defer />
+        <script src={tablerJs} defer />
       </body>
     </html>
   );
