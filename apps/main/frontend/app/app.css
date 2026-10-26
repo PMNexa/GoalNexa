@@ -1,6 +1,9 @@
+/* No web font: Tabler's system font stack (its `body` rule, loaded after
+   this file) is what every page shows. An Inter link used to download a
+   font nothing rendered in. */
 html,
 body {
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif,
+  font-family: ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
