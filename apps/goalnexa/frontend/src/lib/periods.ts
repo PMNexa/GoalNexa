@@ -1,5 +1,5 @@
-import type { CheckIn } from "./api/checkIns";
-import type { Metric, TargetPer } from "./api/metrics";
+import type { CheckIn } from "../api/checkIns";
+import type { Metric, TargetPer } from "../api/metrics";
 import type { ProgressPoint, ValuePoint } from "./progress";
 
 /**

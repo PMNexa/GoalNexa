@@ -737,8 +737,11 @@ metrics.
    note.
 3. Click **Save N check-ins** (**Discard** drops the changes).
 
-**Show by** (Week, Month...) shows each period's numbers instead of the
-running totals - good for "how did each region do this week".
+**Show by** shows each period's numbers instead of the running totals -
+good for "how did each region do this week". It opens a picker: choose
+Day, Week, Month, Quarter or Year at the top, then click the period;
+**Totals** goes back to running totals (with **Checked in at** beside it
+for when new check-ins are dated).
 
 ![Show by week](images/board-showby.png)
 
@@ -747,7 +750,7 @@ by time: one row per team, its goals and their metrics, one column per
 period. **Periods** picks them: choose Day, Week, Month, Quarter or Year
 at the top, then click the first period and the last (up to 60; it
 opens on the last 14 days, 12 weeks, 12 months, 8 quarters or 5 years).
-In Check in, the same picker chooses the one period **Show by** shows. A cell
+It's the same picker as **Show by**, picking a range instead of one period. A cell
 is what was done in that period (or its last reading), "/ 10" its target
 per period; "—" means nobody checked in. Hover a cell for its details
 (the dates, the % of target, how many check-ins and the last one's time).

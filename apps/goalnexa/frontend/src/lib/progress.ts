@@ -1,6 +1,6 @@
-import type { Goal, GoalHealth } from "./api/goals";
-import type { Metric } from "./api/metrics";
-import type { CheckIn, CheckInSource } from "./api/checkIns";
+import type { Goal, GoalHealth } from "../api/goals";
+import type { Metric } from "../api/metrics";
+import type { CheckIn, CheckInSource } from "../api/checkIns";
 import { periodStart } from "./periods";
 
 /**

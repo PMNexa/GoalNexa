@@ -125,8 +125,8 @@ data = no badge.
 |---|---|---|
 | F-S6-1 | Pick | **Organization**, **Goal template** (**+ New**), **Cycle**, **Teams** (all or one subtree). |
 | F-S6-2 | Mode | **Check in** or **Targets**. |
-| F-S6-3 | Check in | Each team's cell: current / target, %, pace "≈ N/week to go"; type an amount or value, **✎** adds a note; **Checked in at** sets the time; **Save N check-ins**; **Discard**. |
-| F-S6-4 | Show by | Running totals, Day, Week, Month, Quarter, Year: the numbers in that period. With a period picked, **Checked in at** becomes that period's picker (a date for Day; This week / Week of … for the others): the board shows that period, and saved check-ins go to it. |
+| F-S6-3 | Check in | Each team's cell: current / target, %, pace "≈ N/week to go"; type an amount or value, **✎** adds a note; **Checked in at** sets the time (running totals only); **Save N check-ins**; **Discard**. |
+| F-S6-4 | Show by | One picker: its tabs are Totals (running totals, with **Checked in at** beside it), Day, Week, Month, Quarter, Year; with a period kind, click the period. The board shows that period's numbers, and saved check-ins go to it. |
 | F-S6-5 | Totals | Rows *Whole organization* and each department: calculated from the teams, read-only; planned target and gap. |
 | F-S6-6 | Last update | Per goal: when each team last checked in; for totals, "x/y teams". |
 | F-S6-7 | Targets | **Start** and **Target** per team and metric, **Planned** target on totals; **Save targets**. |

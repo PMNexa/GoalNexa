@@ -23,59 +23,59 @@
  * `createGoalsRoutes()` instead of a bare `createCrudRoutes`. A metric's
  * page likewise adds its automatic check-ins (`createMetricsRoutes()`).
  */
-export type { Goal, GoalHealth, GoalStatus, GoalVisibility } from "./lib/api/goals";
+export type { Goal, GoalHealth, GoalStatus, GoalVisibility } from "./api/goals";
 
-export type { CheckInCadence, Metric, MetricAggregation } from "./lib/api/metrics";
+export type { CheckInCadence, Metric, MetricAggregation } from "./api/metrics";
 
-export type { CheckIn, CheckInSource } from "./lib/api/checkIns";
+export type { CheckIn, CheckInSource } from "./api/checkIns";
 
 // Goals: the generic CRUD pages, with the sharing and activity panels on a goal's page.
-export { createGoalsRoutes } from "./goalsRoutes";
-export { default as GoalSharingPanel } from "./screens/GoalSharingPanel";
-export { default as GoalActivityPanel } from "./screens/GoalActivityPanel";
-export type { GoalActivityPanelProps } from "./screens/GoalActivityPanel";
-export type { GoalSharingPanelProps } from "./screens/GoalSharingPanel";
+export { createGoalsRoutes } from "./features/goals/routes";
+export { default as GoalSharingPanel } from "./features/goals/GoalSharingPanel";
+export { default as GoalActivityPanel } from "./features/goals/GoalActivityPanel";
+export type { GoalActivityPanelProps } from "./features/goals/GoalActivityPanel";
+export type { GoalSharingPanelProps } from "./features/goals/GoalSharingPanel";
 
 // Metrics: the generic CRUD pages, with automatic check-ins (ingest
 // token) on a metric's page.
-export { createMetricsRoutes } from "./metricsRoutes";
-export { default as MetricIngestPanel } from "./screens/MetricIngestPanel";
-export type { MetricIngestPanelProps } from "./screens/MetricIngestPanel";
+export { createMetricsRoutes } from "./features/metrics/routes";
+export { default as MetricIngestPanel } from "./features/metrics/MetricIngestPanel";
+export type { MetricIngestPanelProps } from "./features/metrics/MetricIngestPanel";
 
 // Cycles: the generic CRUD pages, with closing (scores, rollover) and the
 // scorecard on a cycle's page.
-export { createCyclesRoutes } from "./cyclesRoutes";
-export { default as CyclePanel } from "./screens/CyclePanel";
-export type { CyclePanelProps } from "./screens/CyclePanel";
-export type { Cycle, CycleStatus, GoalOutcome, GoalScore } from "./lib/api/cycles";
+export { createCyclesRoutes } from "./features/cycles/routes";
+export { default as CyclePanel } from "./features/cycles/CyclePanel";
+export type { CyclePanelProps } from "./features/cycles/CyclePanel";
+export type { Cycle, CycleStatus, GoalOutcome, GoalScore } from "./api/cycles";
 
 // Check-in reminders: where they go, and what's due -
 // `createRemindersRoutes(basePath)` is what a host mounts.
-export { default as RemindersScreen } from "./screens/RemindersScreen";
-export type { RemindersScreenProps } from "./screens/RemindersScreen";
-export { createRemindersRoutes } from "./remindersRoutes";
+export { default as RemindersScreen } from "./features/reminders/RemindersScreen";
+export type { RemindersScreenProps } from "./features/reminders/RemindersScreen";
+export { createRemindersRoutes } from "./features/reminders/routes";
 
 // Dashboard: org + goals filters, progress-over-time / current-progress
 // charts. `createDashboardRoutes(basePath)` is what a host mounts.
-export { default as DashboardScreen } from "./screens/DashboardScreen";
-export type { DashboardScreenProps } from "./screens/DashboardScreen";
-export { createDashboardRoutes, createSharedDashboardRoutes } from "./dashboardRoutes";
-export { createCheckInTableRoutes } from "./checkInTableRoutes";
+export { default as DashboardScreen } from "./features/dashboard/DashboardScreen";
+export type { DashboardScreenProps } from "./features/dashboard/DashboardScreen";
+export { createDashboardRoutes, createSharedDashboardRoutes } from "./features/dashboard/routes";
+export { createCheckInTableRoutes } from "./features/check-in-table/routes";
 // Teams running one goal system: the team board (check-ins, targets and
 // totals per team) and the goal templates' pages.
-export { createTeamBoardRoutes, createTemplatesRoutes } from "./teamBoardRoutes";
-export { default as TeamBoardScreen } from "./screens/TeamBoardScreen";
-export type { TeamBoardScreenProps } from "./screens/TeamBoardScreen";
-export type { Board, GoalTemplate } from "./lib/api/teamBoard";
-export { default as CheckInTableScreen } from "./screens/CheckInTableScreen";
+export { createTeamBoardRoutes, createTemplatesRoutes } from "./features/team-board/routes";
+export { default as TeamBoardScreen } from "./features/team-board/TeamBoardScreen";
+export type { TeamBoardScreenProps } from "./features/team-board/TeamBoardScreen";
+export type { Board, GoalTemplate } from "./api/teamBoard";
+export { default as CheckInTableScreen } from "./features/check-in-table/CheckInTableScreen";
 /** The "check-in-moment" form widget (`registerFieldWidget`) - "Check-ins are for" and its moment in one picker. */
-export { default as CheckInMomentField } from "./screens/CheckInMomentField";
+export { default as CheckInMomentField } from "./features/metrics/CheckInMomentField";
 // What a public dashboard link shows - mounted outside the app shell.
-export { default as SharedDashboardScreen } from "./screens/SharedDashboardScreen";
-export type { SharedDashboardScreenProps } from "./screens/SharedDashboardScreen";
+export { default as SharedDashboardScreen } from "./features/dashboard/SharedDashboardScreen";
+export type { SharedDashboardScreenProps } from "./features/dashboard/SharedDashboardScreen";
 
 // The org being worked in - the dashboard's org filter, which a host's
 // header can switch too (`setCurrentOrg`); `fetchOrgs` lists the choices.
 export { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "./lib/currentOrg";
-export { fetchOrgs } from "./lib/api/dashboard";
-export type { OrgOption } from "./lib/api/dashboard";
+export { fetchOrgs } from "./api/dashboard";
+export type { OrgOption } from "./api/dashboard";

@@ -122,7 +122,29 @@ module's `"."` entry fails typegen/dev/build with "Route config in
 routes.ts is invalid ... Cannot read properties of undefined (reading
 'get')". Ship component styles as a TS string rendered through React
 19's `<style href="..." precedence="default">` instead (see
-goalnexa-frontend's `screens/dashboard/dashboardStyles.ts`).
+goalnexa-frontend's `components/dashboardStyles.ts`).
+
+**goalnexa-frontend's layout** (`apps/goalnexa/frontend/src`): `index.ts`
+(the only public entry - nothing outside imports deeper), `api/` (REST
+calls, axios via `api/client.ts`), `lib/` (pure logic: progress, periods,
+ordering, current org), `components/` (UI shared by several features,
+`components/charts/` for charts - one folder per component: `X/X.tsx`,
+`X.stories.tsx`, `X.mocks.ts` and an `index.ts`, so it's imported as
+`components/X`), and `features/<name>/` per screen area
+(dashboard, onboarding, check-in-table, team-board, goals, metrics,
+cycles, reminders): its screens and panels, its route builder
+`routes.ts`, and its react-router route modules in `pages/`
+(`routeFilePath(import.meta.url, "pages/x.tsx")`). A feature may import
+`components/`, `lib/`, `api/` and another feature's exported component
+(the dashboard drawer uses goals' panels); code two features share moves
+to `components/`. **Storybook** (`npm run storybook`, port 6006;
+`npm run build-storybook`, also in CI): every component has an
+`X.stories.tsx` next to it; API calls are answered by MSW
+(`src/storybook/handlers.ts` over `fixtures.ts`; a story overrides an
+endpoint with `parameters.msw.handlers`, its extra data in an
+`X.mocks.ts`), and `src/storybook/decorators.tsx`'s `withDashboard`
+gives a dashboard piece its CSS and `.gn-dashboard` root. Add a story
+with every new component, and a story for a new state of an old one.
 
 **Dashboard** (`/dashboard`, goalnexa-frontend's `DashboardScreen`,
 mounted with `...createDashboardRoutes("dashboard")` inside the
@@ -181,17 +203,17 @@ long as it's selected. Each selected goal lists its metrics in the filter
 panel. Unticking a metric leaves it out of that goal's progress (it's an
 opt-out, so the default matches the rest of the app), and "Check in"
 opens a check-in form in platform-core's `Modal`
-(`screens/dashboard/CheckInModal.tsx`); saving refreshes the charts
+(`components/CheckInModal/CheckInModal.tsx`); saving refreshes the charts
 without resetting the filters. Creating happens in the tree too: "New
 goal" in the Goals header, and each row's "+" is a menu
-(`screens/dashboard/RowMenu.tsx`) - a goal's: Add metric / Add sub-goal,
+(`components/RowMenu/RowMenu.tsx`) - a goal's: Add metric / Add sub-goal,
 a metric's: Check in / Add sub-metric. The form is the resource's
 schema-driven `CrudFormModal` with the org/goal/parent preset from the
 row, never asked (`CreateRecordModal.tsx`); a new goal or metric shows
 its goal if a color slot is free. The menu is `position: fixed` inline
 (the tree is a scroll box, and Bootstrap's `.dropdown-menu` would win
 over a class). The goal picker is
-`screens/dashboard/GoalFilterList.tsx`, a tree with no checkboxes; archived goals are left out. A
+`components/GoalFilterList/GoalFilterList.tsx`, a tree with no checkboxes; archived goals are left out. A
 goal node is color key, title (up to 2 lines), % pill and eye, with a
 thin progress bar in the goal's color. A goal's branches are its metrics
 (while it's shown), then its sub-goals (always - each is shown on its
@@ -208,7 +230,7 @@ is remembered in localStorage (`goalnexa:dashboard-org`). There is no
 table view - charts only. The color tokens live on the `.gn-dashboard` root, not just on
 `.gn-viz`, because the filter card's color keys sit outside the charts.
 A user with no organization and no goals gets the onboarding wizard instead
-(`screens/onboarding/OnboardingWizard.tsx`); so does a picked organization
+(`features/onboarding/OnboardingWizard.tsx`); so does a picked organization
 with no goals (`existingOrg`: no org step; its heading's select switches
 org). "No goals" means none that the tree would show - archived ones
 don't count (an org whose only goal was archived showed an empty
@@ -217,7 +239,7 @@ stands in for. It first asks how they'll
 use GoalNexa, and each answer has its own steps. **Website**: org name →
 goals (optional target date) → metrics per goal (start → target, must
 differ) → review, then it creates everything over the REST API
-(`lib/api/onboarding.ts`) and opens the dashboard on the new org.
+(`api/onboarding.ts`) and opens the dashboard on the new org.
 **AI agent**: connect (platform-mcp-frontend's `McpConnectGuide` wizard -
 pick the client, its own steps and snippet, "Create a token" fills it
 in, and it shows "Connected" once the client reaches the server) →
@@ -322,7 +344,7 @@ quarter/year tabs over a calendar or grid, also the single-period picker
 in Check in - sent as `at` = the last and `periods` = the count, capped at
 60; a team's cell is edited in place: one check-in, the difference
 for an amount - `savePeriod`) (rows team -> goal -> metric, columns periods); Check in and Over time
-also draw as charts (Table/Chart, `screens/board/BoardCharts.tsx`: bars as
+also draw as charts (Table/Chart, `components/charts/BoardCharts/BoardCharts.tsx`: bars as
 % of each team's target, lines per team; totals listed apart) - goalnexa-frontend's
 `TeamBoardScreen` (`createTeamBoardRoutes("board")`; templates' pages:
 `createTemplatesRoutes()`). `Goal.visibility = "team"` (`access._team_visible`).
@@ -547,10 +569,10 @@ group only - in the dashboard tree (not on a shared link) and the
 check-in table, whose name cell is the handle so the row's inputs still
 select text (`lib/ordering.ts`'s `useSiblingDrag`); re-parenting stays in
 the edit form. Lists sort `position`, then title/name.
-The check-in table's "Goals" picker (`screens/GoalPicker.tsx`) narrows
+The check-in table's "Goals" picker (`components/GoalPicker/GoalPicker.tsx`) narrows
 it to the ticked goals plus their sub-goals (none ticked = all; per org
 in localStorage, `goalnexa:table-goals`); its columns come from the
-shown goals' check-ins only. Table / Chart (`screens/table/TableCharts.tsx`,
+shown goals' check-ins only. Table / Chart (`features/check-in-table/TableCharts.tsx`,
 `goalnexa:table-view`): per goal its % and its metrics', a tracked metric
 in its unit, each chart over its own first-to-last columns.
 
@@ -589,7 +611,7 @@ only its SHA-256 and last 4 chars kept), rate limited per metric
 (`GOALNEXA_INGEST_RATE`). The view has `authentication_classes = []`:
 the host's JWT authentication would reject a `gnm_` token. UI:
 `MetricIngestPanel` on a metric's page (`createMetricsRoutes()`, which
-swaps in `routes/metric-detail.tsx`) and in the dashboard drawer. The generic CRUD form renders date/datetime schema fields as
+swaps in `features/metrics/pages/metric-detail.tsx`) and in the dashboard drawer. The generic CRUD form renders date/datetime schema fields as
 native pickers (platform-core `CrudFormFields`: the form keeps API
 values, converted to and from the picker's local time). The schema also
 carries `nullable` and `help_text`: an emptied non-nullable field is
@@ -1124,7 +1146,7 @@ members of the goal's org, only an org goal). Only the owner changes
 visibility or adds/removes members; a member can leave. Metrics and
 check-ins follow their goal. The UI is goalnexa-frontend's
 `GoalSharingPanel`, under a goal's page (`createGoalsRoutes()`, which
-swaps in `routes/goal-detail.tsx` as the goals' `detailFile`) and in the
+swaps in `features/goals/pages/goal-detail.tsx` as the goals' `detailFile`) and in the
 dashboard's goal drawer; `members` is `auto_exclude`d from
 `GoalSerializer` so the generic detail screen doesn't grow a raw-user-id
 tab. Names come from `/api/v1/org-members`. Main supplies platform-org's user directory

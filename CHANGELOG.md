@@ -7,6 +7,10 @@ of you beyond the usual upgrade steps.
 
 ## Unreleased
 
+### Changed
+
+- Team board: "Show by" and the period picker are one control - the picker's tabs are Totals (running totals), Day, Week, Month, Quarter and Year, then click the period.
+
 ### Added
 
 - **Reminders on your phone** (P-73, P-74): check-ins due, targets still

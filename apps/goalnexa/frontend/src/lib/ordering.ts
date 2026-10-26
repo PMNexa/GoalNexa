@@ -1,5 +1,5 @@
 import { useState, type DragEvent } from "react";
-import { apiRequest } from "./api/client";
+import { apiRequest } from "../api/client";
 
 /**
  * Manual order among siblings (`position`, server-kept - see the backend's
