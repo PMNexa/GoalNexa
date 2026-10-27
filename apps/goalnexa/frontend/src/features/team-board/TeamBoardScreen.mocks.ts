@@ -216,6 +216,30 @@ export function memberBoard(): Board {
   return board;
 }
 
+/**
+ * North's lead has given two of its three people targets of their own:
+ * their rows sit under North's, and North's total adds them in.
+ */
+export function boardWithMembers(): Board {
+  const board = makeBoard();
+  const person = (n: number, name: string, role: "lead" | "member" = "member") => ({
+    user_id: `0c000000-0000-7000-8000-00000000000${n}`,
+    name,
+    role,
+  });
+  const [dana, grace, henry] = [person(1, "Dana Lee", "lead"), person(2, "Grace Kim"), person(3, "Henry Ford")];
+  board.teams = board.teams.map((t) => (t.id === NORTH.id ? { ...t, can_assign: true, people: [dana, grace, henry] } : t));
+  board.members = {
+    [NORTH.id]: {
+      [dana.user_id]: instance(NORTH.id, { root: "0f000000-0000-7000-8000-000000000021" }),
+      [grace.user_id]: instance(NORTH.id, { root: "0f000000-0000-7000-8000-000000000022" }),
+    },
+  };
+  board.names = { [dana.user_id]: dana.name, [grace.user_id]: grace.name };
+  board.totals[NORTH.id] = total([NORTH.id, NORTH.id, NORTH.id], null, 2);
+  return board;
+}
+
 const day = (t: number) => {
   const d = new Date(t);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

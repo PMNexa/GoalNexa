@@ -11,6 +11,10 @@ Who may do what with a team's goals:
 - a team's lead: its instance's targets, and planned targets for every
   team BELOW it (their own comes from above);
 - a team's members (and the instance's owner and goal members): check in.
+
+A member's own copy (`Goal.assignee_id`, assigned on the team board by
+the team's lead) is owned by that member, but its targets are still the
+lead's: the member checks in on it, the rest of the team doesn't.
 """
 
 from __future__ import annotations
@@ -134,26 +138,73 @@ def visible_team_ids(user_id, request=None) -> set:
     return found
 
 
-def can_set_targets(request, goal) -> bool:
-    """An instance's base/target values: the org's owners/admins, the
-    goal's owner, a lead of its team or of a team above it."""
-    if str(goal.owner_id) == str(request.user.id) or is_org_manager(request, goal.org_id):
+def leads_team(request, org_id, team_id) -> bool:
+    """The org's owners/admins, or a lead of `team_id` or of a team above it."""
+    if is_org_manager(request, org_id):
         return True
-    if goal.team_id is None:
+    if team_id is None:
         return False
     leads = my_lead_team_ids(request.user.id, request)
-    parents = team_parents(goal.org_id)
-    return bool(leads & ({goal.team_id} | set(ancestors(parents, goal.team_id))))
+    parents = team_parents(org_id)
+    return bool(leads & ({team_id} | set(ancestors(parents, team_id))))
+
+
+def can_set_targets(request, goal) -> bool:
+    """An instance's base/target values: the org's owners/admins, the
+    goal's owner (not on a member's copy - the lead sets those), a lead of
+    its team or of a team above it."""
+    if str(goal.owner_id) == str(request.user.id) and not goal.assignee_id:
+        return True
+    return leads_team(request, goal.org_id, goal.team_id)
+
+
+def can_assign(request, org_id, team_id) -> bool:
+    """Giving a team's members copies of their own: who sets its targets."""
+    return leads_team(request, org_id, team_id)
 
 
 def can_check_in(request, goal) -> bool:
     """Checking in on an instance: anyone who may set its targets, its
-    goal members, and the members of its team."""
+    goal members, and the members of its team - on a member's copy, that
+    member instead of the team."""
     if can_set_targets(request, goal):
         return True
     if goal.members.filter(user_id=request.user.id).exists():
         return True
+    if goal.assignee_id:
+        return str(goal.assignee_id) == str(request.user.id)
     return goal.team_id is not None and goal.team_id in my_team_ids(request.user.id, request)
+
+
+def team_people(team_ids) -> dict:
+    """`{team_id: [(user_id, role), ...]}` - the members of each team, leads first."""
+    model = endpoint_model(TEAM_MEMBERS_ENDPOINT)
+    if model is None:
+        return {}
+    out: dict = {}
+    for team_id, user_id, role in (
+        model.objects.filter(team_id__in=list(team_ids)).order_by("created_at").values_list("team_id", "user_id", "role")
+    ):
+        out.setdefault(team_id, []).append((user_id, role))
+    for rows in out.values():
+        rows.sort(key=lambda row: row[1] != LEAD)
+    return out
+
+
+def user_names(user_ids) -> dict:
+    """`{user_id: name}` from the host's user directory
+    (`GOALNEXA_USER_DIRECTORY`); the email when there's no name, {} without one."""
+    from django.conf import settings
+    from django.utils.module_loading import import_string
+
+    path = getattr(settings, "GOALNEXA_USER_DIRECTORY", None)
+    ids = [str(u) for u in user_ids]
+    if not path or not ids:
+        return {}
+    return {
+        user_id: (row.get("name") or row.get("email") or "")
+        for user_id, row in import_string(path)(ids).items()
+    }
 
 
 def can_plan(request, rollup_goal) -> bool:

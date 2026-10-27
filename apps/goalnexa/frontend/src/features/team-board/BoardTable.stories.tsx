@@ -5,7 +5,7 @@ import { buildColumns, buildRows } from "./boardRows";
 import type { Mode } from "./boardHelpers";
 import { BOARD_CSS } from "./boardStyles";
 import { localInput } from "./boardHelpers";
-import { makeBoard, memberBoard, salesTemplate, withShown } from "./TeamBoardScreen.mocks";
+import { boardWithMembers, makeBoard, memberBoard, salesTemplate, withShown } from "./TeamBoardScreen.mocks";
 import { useBoardDrafts, type BoardDrafts } from "./useBoardDrafts";
 import BoardTable from "./BoardTable";
 
@@ -85,3 +85,9 @@ export const TargetsReadOnly: Story = { args: { ...layout(memberBoard(), "target
 
 /** A member checking in: only North's cells have inputs; no edit links in the headers. */
 export const Member: Story = { args: { ...layout(memberBoard(), "checkin") } };
+
+/** A team's members with targets of their own: their rows under North's, North's total (its own copy plus theirs) under each of its cells. */
+export const TeamMembers: Story = { args: { ...layout(boardWithMembers(), "checkin") } };
+
+/** Targets for North's lead: every North member listed, ticked when they have their own copy - untick to take it away. */
+export const TeamMembersTargets: Story = { args: { ...layout(boardWithMembers(), "targets"), picking: true } };

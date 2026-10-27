@@ -62,6 +62,11 @@ their own words.
      the metric (same name, different `goal.team_id`). Take the one with
      `in_my_team: true` - the user's own team's. More than one (they're in
      several teams): ask which team.
+   - A team's lead may give members their own share of the team's goals: a
+     copy marked `for_me: true` is the user's own - take it before the
+     team's (`in_my_team`) when the number is theirs ("I closed 3 deals");
+     when it's clearly the team's ("the team is at 40"), take the team's
+     (`for_me: false`, `goal.assignee_id` empty).
    - One clear match: use it.
    - Several: ask which one, listing `goal → metric (current / target unit)`.
    - None: say so and offer to create the metric (`metrics_create` with `goal`,

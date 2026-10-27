@@ -51,6 +51,10 @@ class GoalSerializer(BaseSerializer):
         help_text="The period check-ins are for, after \"inherited\": empty = any time.",
     )
 
+    assignee_name = serializers.SerializerMethodField(
+        help_text="The name of the team member this copy is for (`assignee_id`); empty on any other goal.",
+    )
+
     class Meta:
         model = Goal
         # Named explicitly: the first CharField would be a check-in setting (`snap_to`).
@@ -74,6 +78,7 @@ class GoalSerializer(BaseSerializer):
             "team_id": {"label": "Team", "help_text": "The team this goal is for, in its organization. Optional."},
             "template_goal": {"read_only": True, "help_text": "The goal template this goal follows - its title and structure are the template's."},
             "is_rollup": {"read_only": True, "help_text": "A team total: calculated from the teams' own goals, read-only."},
+            "assignee_id": {"read_only": True, "help_text": "A team member's own share of their team's goal: that member's user id (set on the team board). Empty on the team's own goal."},
             **SNAP_MOMENT_HELP,
         }
         # members: see above. The feed, comments and cycle scores have their
@@ -88,6 +93,17 @@ class GoalSerializer(BaseSerializer):
         if "snap_to" in attrs and attrs["snap_to"] is None:
             attrs["snap_to"] = ""
         return attrs
+
+    def get_assignee_name(self, obj) -> str:
+        if not obj.assignee_id:
+            return ""
+        from goalnexa.teams import user_names
+
+        names = self.context.setdefault("_assignee_names", {})
+        key = str(obj.assignee_id)
+        if key not in names:
+            names[key] = user_names([key]).get(key, "")
+        return names[key]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

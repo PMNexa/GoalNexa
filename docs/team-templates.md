@@ -264,6 +264,49 @@ Each of `Team`, `TeamMembership`, `GoalTemplate`, `TemplateGoal`,
 - Bulk endpoint limits (cells per request) and partial-failure shape: all
   or nothing is the default.
 
+## Members (P-91)
+
+A team's goals can go one level further down: its lead gives some (or all)
+of its members **their own copy** of the team's instance. Asked for
+("go down to member of the team when assigning the goal/metrics").
+
+| Question | Decision |
+|---|---|
+| Model | A **member copy**: an ordinary instance tree with `Goal.assignee_id` = the member, `team_id` = their team. Progress, health, reminders, the digest and the dashboard work unchanged. Rejected: per-member targets inside the team's copy (check-ins split by author) - per-person progress, health and reminders would all need new code, and it only fits sum metrics. |
+| The team's number | **The team's copy plus its members'.** The team keeps its own editable copy; a team with member copies always gets a total (ticked or not), shown under each of its cells. Ancestors' totals count member copies like any instance in the subtree. |
+| Who gives a copy, sets its targets | The team's lead, a lead above it, the org's owners/admins (`teams.can_assign`, `can_set_targets`). |
+| Who owns it | The member (`owner_id`), so reminders and the digest go to them - but owning it doesn't let them set its targets. |
+| Who checks in | The member, and whoever sets its targets; not the rest of the team (their check-ins go on the team's copy). |
+| Scope | The whole template - a metric a member doesn't own stays tracked only (no target) and out of their %. |
+
+- A tree is identified by (template, team, **assignee**, cycle, is_rollup):
+  `templates.tree_goals(..., assignee_id)` (None = the team's own copy),
+  `team_trees` (the team's and its members'). A copy needs the team's own
+  copy in that cycle, and only the team's members can get one.
+- `POST goal-templates/<id>/assign` / `unassign` `{"team", "users",
+  "cycle"}` (`templates.assign_members`/`unassign_members`): a new copy
+  takes the team's visibility and target date and the template's default
+  targets; taking one out detaches it with check-ins, deletes it empty.
+  Taking the team out of the template (`leave`) takes its members' copies
+  out too.
+- Template pushes, rollover (`roll_over_instance` keeps the assignee) and
+  limits (`max_goals`) treat a member copy like a team's.
+- Deleting a team archives and detaches its member copies (they were
+  that team's), even when the team's own copy moves up.
+- A member who leaves the team keeps their copy; the board still shows it
+  under the team (by name, from `names`).
+- Board: `teams[].people` (each team's members, leads first) and
+  `teams[].can_assign`, `members` (team id -> user id -> a copy, the
+  instance shape), `names`. Targets mode lists every member of a team that
+  has its copy, with an "Own" tick for whoever may assign; Check in mode
+  lists the members with a copy. Over time and the charts get a block per
+  member copy.
+- Agents: metrics' `for_me` (the caller's own copy - picked first) next
+  to `in_my_team` (a member copy counts only for its member). Goals carry
+  `assignee_id`/`assignee_name`; the dashboard tags a member copy "North ·
+  Grace" (`goalTeamName`).
+- Tests: `TeamMemberCopyTests` in `apps/main/backend/tests/test_team_templates.py`.
+
 ## As built
 
 - **Code**: platform-org `Team`/`TeamMembership` (`views/teams.py`);

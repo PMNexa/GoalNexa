@@ -23,7 +23,7 @@ not yet tried on a device · **Partial** - part of it (see notes) ·
 roadmap item · **Later** - may come, not planned · **Web only** - stays on
 the website, with the reason.
 
-Last updated: 2026-10-22.
+Last updated: 2026-10-26.
 
 ## Accounts and sign-in
 
@@ -99,6 +99,7 @@ Last updated: 2026-10-22.
 | Teams and the org chart | Done | Done | - | - | Web only | |
 | Goal templates | Done | Done | - | - | Web only | Template goals and metrics carry the check-in setting, inherited like goals; teams' copies follow it |
 | Team board (targets, apply, who plays) | Done | Done | - | - | Web only | Big grid; "Open on the web" from the app |
+| Team board: members' own targets | Done | Done | - | - | Web only | P-91. A member's own copy reaches the apps as an ordinary goal (not tried on a device); assigning stays on the web |
 | Team totals (rollups) | Done | Done | Done | Planned | Ported | Read-only, labeled |
 | Cycles: close, scores, roll over | Done | Done | - | - | Web only | |
 | Activity feed | Done | Done | Done | Planned | Ported | |
@@ -160,3 +161,108 @@ Last updated: 2026-10-22.
 | CI | Done | Done | Done | Planned | - | `android-ci.yml`; iOS needs a macOS runner |
 | Store release | - | - | Done | Planned | Ported | P-76: an `android-v<x.y.z>` tag uploads to Play's internal track; P-79 (iOS) |
 | Backup and restore, import/export | Planned | Planned | - | - | Web only | P-07..P-09 |
+
+## Ideas: use cases and journeys not served yet
+
+Brainstormed 2026-10-26 from the product discovery (`docs/product-discovery/02-customer-jobs.md`)
+and the people GoalNexa already serves. They continue the numbering of
+`docs/user-guide/01-use-cases.md` (UC-01..UC-19) and `02-user-journeys.md`
+(J1..J6); once one is built, it moves there. Nothing here is a commitment:
+to plan an idea, add it to `docs/roadmap.md` as `Proposed` - the requirement
+is written there, never here - and its row below takes the item's ID.
+
+### New use cases
+
+| ID | Use case | Actor | What's missing today |
+|---|---|---|---|
+| UC-20 | Let a coach or accountability partner follow my personal goals | Individual, coach | Goal members exist only on org goals; a personal goal can't be shown to one person |
+| UC-21 | Run household goals (savings, chores, kids' reading) | Family | Kids need accounts without email; check-in must be one tap |
+| UC-22 | Report progress to a client every month | Freelancer, agency | Share links are pulled, not sent; no scheduled report |
+| UC-23 | Send the monthly investor or board update | Founder | Same, plus a written summary of what moved |
+| UC-24 | Give every person (rep, student) the same goals | Sales manager, teacher | Templates apply per team; a team per person is a workaround |
+| UC-25 | Run a group challenge ("30 days, 10k steps") | Community, team | No join link, start/end or leaderboard |
+| UC-26 | Go through a report's goals in a 1:1 | Manager | No per-person view, no notes kept between 1:1s |
+| UC-27 | Fill metrics from a watch or fitness app | Individual | Only the ingest URL; no Health Connect, Apple Health or Strava |
+| UC-28 | Take a break without failing (holiday, illness) | Individual | Reminders, health and streaks keep running |
+| UC-29 | Learn from a cycle: what worked, what didn't | Team lead | Closing scores goals but keeps no lessons |
+| UC-30 | Show what my goals contribute to | Team member, lead | A goal can't point at another tree's goal (personal -> team -> org) |
+| UC-31 | Track the work that moves a number | Team member | Goals have metrics, not the actions behind them |
+| UC-32 | Move from Viva Goals, Weekdone, Perdoo or Tability | Org admin | Import is CSV/Notion only (P-09) |
+| UC-33 | Check in without opening anything | Individual, team member | Reminders can't be answered; no voice check-in |
+| UC-34 | Look back on the year | Individual | No recap across goals and cycles |
+| UC-35 | See goal numbers in the tools I already watch | Self-hoster, team lead | No calendar feed, Grafana/Prometheus or Home Assistant |
+
+### New journeys
+
+**J7. Coach and client** (UC-20) - client plans "Lose 6 kg by March" ->
+invites the coach to that personal goal -> checks in weekly, sometimes with
+a photo -> coach reads the chart and comments -> both see the streak.
+Needs: personal-goal followers, check-in attachments, reactions.
+
+**J8. Founder's monthly update** (UC-23) - pulls MRR, users and runway
+(P-85) -> picks the goals once -> on the 1st an email goes to investors
+with the charts and a short "what moved, what's at risk" -> replies land in
+the founder's inbox. Needs: scheduled stakeholder updates.
+
+**J9. Falling off and coming back** (UC-28, customer job 2) - misses a
+week -> GoalNexa doesn't pile up reminders; the next one offers "pause" or
+"lower the target" -> resumes; the streak survives on grace days -> the
+digest says "back on track". Needs: pause, grace days, comeback nudge.
+
+**J10. Leaving Viva Goals** (UC-32) - admin exports from the old tool ->
+imports, maps owners to invited members, previews -> cycles, goals,
+metrics and history arrive -> the team checks in the next Monday as
+before. Needs: competitor importers.
+
+**J11. Group challenge** (UC-25) - organizer creates "October steps" from
+a template, start and end dates -> shares a join link -> people join with
+one click and check in from the app or assistant -> leaderboard and
+reactions keep it going -> closing names the winners. Needs: challenges,
+leaderboard, reactions.
+
+**J12. Manager's 1:1s** (UC-26) - before a 1:1, opens the person's page:
+their goals, what's due or at risk, comments since last time -> adds
+private notes and agreed next steps -> next 1:1 starts from them.
+Needs: 1:1 view, initiatives.
+
+**J13. Quantified self** (UC-27, UC-35) - connects Health Connect in the
+Android app -> steps, sleep and workouts check in on their own ->
+Home Assistant shows today's quota on the wall tablet -> the calendar
+shows target dates. Needs: health sync, Home Assistant, calendar feed.
+
+**J14. Year in review** (UC-29, UC-34) - in December, opens the recap:
+goals achieved, longest streaks, best month, lessons written at each cycle
+close -> drafts next year's goals from it with the assistant.
+Needs: reflections at close, year recap.
+
+### Feature ideas
+
+| Feature | Backend | Website | Android | iOS | Mobile | Notes |
+|---|---|---|---|---|---|---|
+| Followers on personal goals (coach, partner) | Later | Later | Later | Later | Later | UC-20, J7; read + comment, no org needed |
+| Pause a goal or metric | Later | Later | Later | Later | Later | UC-28, J9; freezes schedule, reminders, health, streak |
+| Grace days for streaks | Later | Later | Later | Later | Later | J9; N missed periods a month don't break a streak |
+| Comeback nudge | Later | - | - | - | Later | J9; after a missed spell, one message offering pause / lower target instead of more reminders |
+| Milestones on a metric | Later | Later | Later | Later | Later | Dated in-between targets; the expected line follows them, not a straight line (seasonal work) |
+| Formula metrics | Later | Later | Later | Later | Later | Value computed from other metrics (conversion = signups / visits) |
+| Initiatives under a goal | Later | Later | Later | Later | Later | UC-31, J12; actions with owner, due date, done - don't count toward % |
+| Alignment links and map | Later | Later | Later | Later | Later | UC-30; "contributes to" across personal, team and org trees |
+| Reflections at cycle close | Later | Later | - | - | Web only | UC-29, J14; what worked / what didn't, shown when planning the next cycle |
+| Answer a reminder with a number | Later | - | - | - | Web only | UC-33; reply to the email or Telegram message, it becomes a check-in |
+| Attachments on check-ins | Later | Later | Later | Later | Later | J7; a photo or file as evidence |
+| Reactions on check-ins | Later | Later | Later | Later | Later | J7, J11; one-tap encouragement in the feed |
+| Voice check-in, watch tile | - | - | Later | Later | Later | UC-33; Google Assistant App Actions, Wear OS / watchOS |
+| Health Connect, Apple Health, Strava sync | Later | - | Later | Later | Later | UC-27, J13; the app (or a Strava connection) checks in, source "sync" |
+| Scheduled stakeholder updates | Later | Later | - | - | Web only | UC-22, UC-23, J8; chosen goals emailed monthly to outside addresses, with charts and a summary; builds on share links |
+| One-to-one view | Later | Later | - | - | Later | UC-26, J12; a person's goals, due and at risk, private notes between 1:1s |
+| Templates per person | Later | Later | - | - | Web only | UC-24; apply a template to each member, totals per team |
+| Challenges and leaderboard | Later | Later | Later | Later | Later | UC-25, J11; join link, start/end, ranking on a shared metric |
+| Accounts without email (kids) | Later | Later | Later | Later | Later | UC-21; created by a parent, PIN sign-in |
+| Year in review | Later | Later | Later | Later | Later | UC-34, J14; recap across goals, streaks and cycles |
+| Check-in heatmap | - | Later | Later | Later | Later | GitHub-style calendar of check-ins per metric |
+| Importers: Viva Goals, Weekdone, Perdoo, Tability | Later | Later | - | - | Web only | UC-32, J10; on top of P-09's preview and mapping |
+| Calendar feed (iCal) | Later | Later | - | - | Web only | UC-35, J13; due check-ins and target dates |
+| Prometheus / Grafana exporter | Later | - | - | - | Web only | UC-35; goal progress and metric values as series |
+| Home Assistant integration | Later | - | - | - | Web only | UC-35, J13; a sensor per goal/metric, a service to check in; next to P-11 |
+| n8n / Zapier / Make apps | Later | - | - | - | Web only | Triggers on health change and check-ins, an action to check in; on P-12's webhooks |
+| Draft OKRs from a strategy document | Later | - | - | - | Web only | Planning skill: paste a strategy or last cycle's scores, get a draft tree to confirm |

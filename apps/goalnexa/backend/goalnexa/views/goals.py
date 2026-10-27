@@ -210,7 +210,9 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         goal = serializer.save(parent=parent, cycle=cycle, snap_to_parent=follows, **snap)
         if goal.template_goal_id and visibility != before.get("visibility"):
             # An instance is seen as a whole: its other goals follow.
-            tree_goals(goal.template_goal.template_id, goal.team_id, goal.cycle_id, False).update(visibility=visibility)
+            tree_goals(goal.template_goal.template_id, goal.team_id, goal.cycle_id, False, goal.assignee_id).update(
+                visibility=visibility
+            )
         if sibling_key(goal) != old_siblings:  # moved under another parent/org - it goes last there
             goal.position = next_position(goal)
             goal.save(update_fields=["position"])
@@ -237,7 +239,7 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         from goalnexa.rollups import schedule
 
         template_id, cycle_id = tg.template_id, instance.cycle_id
-        tree_goals(template_id, instance.team_id, cycle_id, False).delete()
+        tree_goals(template_id, instance.team_id, cycle_id, False, instance.assignee_id).delete()
         schedule(template_id, cycle_id)
 
     @action(detail=True, methods=["get"])

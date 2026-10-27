@@ -207,6 +207,11 @@ class Goal(TimestampedModel, SnapMoment):
         related_name="instances",
     )
     is_rollup = models.BooleanField(default=False, db_default=False)
+    # A team member's share of their team's instance (docs/team-templates.md
+    # "Members"): a bare user id, set on every goal of that member's copy -
+    # owned by the member, its targets set by the team's lead. Null on the
+    # team's own copy, on totals and on every other goal.
+    assignee_id = models.UUIDField(null=True, blank=True)
 
     class Meta:
         db_table = "goal"

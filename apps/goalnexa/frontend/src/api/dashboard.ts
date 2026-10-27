@@ -67,12 +67,16 @@ export function teamSubtree(teams: TeamOption[], teamId: string): Set<string> {
 
 /**
  * A goal's team, to tell apart the copies a template makes per team (they
- * share one title): the team's name for a team's goal, null for any other
- * goal and for a total (its title already names its team).
+ * share one title): the team's name for a team's goal - plus the member's
+ * for a member's own copy -, null for any other goal and for a total (its
+ * title already names its team).
  */
 export function goalTeamName(goal: Goal, teamNames: Map<string, string> | undefined): string | null {
   if (goal.is_rollup || !goal.team_id) return null;
-  return teamNames?.get(goal.team_id) ?? null;
+  const team = teamNames?.get(goal.team_id) ?? null;
+  if (!goal.assignee_id) return team;
+  const person = goal.assignee_name || "member";
+  return team ? `${team} · ${person}` : person;
 }
 
 /** A goal's title plus its team, where one line has to say both (the bar chart). */

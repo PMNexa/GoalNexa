@@ -37,7 +37,9 @@ import { apiRequest } from "../../api/client";
 import { errorMessage } from "../../api/goalMembers";
 import {
   applyTemplate,
+  assignMembers,
   leaveTemplate,
+  unassignMembers,
   setTemplateTotals,
   fetchBoard,
   fetchTemplates,
@@ -75,8 +77,10 @@ export interface TeamBoardScreenProps {
  * saved together (`POST check-ins/bulk`). Targets mode: each team's base
  * and target, the planned (top-down) target on totals with the gap to
  * what the teams committed, and - for the org's owners/admins - applying
- * the template to teams that don't have it yet. Totals rows are read-only
- * (the server adds the teams up).
+ * the template to teams that don't have it yet - and, for a team's lead,
+ * giving its members targets of their own (a row per member under the
+ * team's, added into the team's total). Totals rows are read-only (the
+ * server adds the teams up).
  */
 function TeamBoardScreen({
   accessToken,
@@ -229,8 +233,8 @@ function TeamBoardScreen({
   }, [accessToken, templateId, cycleId, templates, version, show, boardAt, historyPer, historyCount]);
 
   const columns = useMemo(() => buildColumns(board), [board]);
-  // Targets mode, managers: each row's "Own" and "Total" ticks, as two columns.
-  const picking = mode === "targets" && !!board?.can_manage;
+  // Targets mode, managers and team leads: each row's "Own" and "Total" ticks, as two columns.
+  const picking = mode === "targets" && (!!board?.can_manage || !!board?.teams.some((t) => t.can_assign));
   const { rows, notJoined } = useMemo(
     () => (board ? buildRows(board, root, mode) : { rows: [], notJoined: 0 }),
     [board, root, mode],
@@ -304,15 +308,21 @@ function TeamBoardScreen({
     }
   }
 
-  /** Ticked in Targets mode: the team gets its copy of the template in this cycle. */
+  /** Ticked in Targets mode: the team gets its copy of the template in this cycle (a member's row: their own copy). */
   async function join(row: Row) {
     if (!board || !row.team) return;
     setBusy(true);
     setError(null);
     setNotice(null);
+    const cycle = cycleId === NO_CYCLE ? null : cycleId;
     try {
-      await applyTemplate(accessToken, board.template.id, [row.team.id], cycleId === NO_CYCLE ? null : cycleId);
-      setNotice(`Added ${row.team.name} to the template. Set its targets in its row.`);
+      if (row.person) {
+        await assignMembers(accessToken, board.template.id, row.team.id, [row.person.user_id], cycle);
+        setNotice(`${row.label} has targets of their own now. Set them in their row.`);
+      } else {
+        await applyTemplate(accessToken, board.template.id, [row.team.id], cycle);
+        setNotice(`Added ${row.team.name} to the template. Set its targets in its row.`);
+      }
       setVersion((v) => v + 1);
     } catch (e) {
       setError(errorMessage(e));
@@ -321,19 +331,23 @@ function TeamBoardScreen({
     }
   }
 
-  /** Unticked, then confirmed: the team leaves the template in this cycle. */
+  /** Unticked, then confirmed: the team (or member) leaves the template in this cycle. */
   async function confirmLeave() {
     if (!board || !leaving?.team) return;
     const team = leaving.team;
+    const name = leaving.label;
+    const cycle = cycleId === NO_CYCLE ? null : cycleId;
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      const result = await leaveTemplate(accessToken, board.template.id, [team.id], cycleId === NO_CYCLE ? null : cycleId);
+      const result = leaving.person
+        ? await unassignMembers(accessToken, board.template.id, team.id, [leaving.person.user_id], cycle)
+        : await leaveTemplate(accessToken, board.template.id, [team.id], cycle);
       setNotice(
         result.detached.length
-          ? `Took ${team.name} out of the template - its goals and check-ins stay, as ${team.name}'s own.`
-          : `Took ${team.name} out of the template.`,
+          ? `Took ${name} out of the template - ${leaving.person ? "their" : "its"} goals and check-ins stay, as ${name}'s own.`
+          : `Took ${name} out of the template.`,
       );
       setLeaving(null);
       setVersion((v) => v + 1);

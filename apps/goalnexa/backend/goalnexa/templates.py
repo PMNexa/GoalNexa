@@ -6,8 +6,10 @@ owns its NUMBERS (base, target, check-ins).
 An instance is an ordinary goal tree: one `Goal` per template goal
 (`Goal.template_goal`, `team_id`, `cycle`) and one `Metric` per template
 metric (`Metric.template_metric`). A tree is identified by (template,
-team, cycle, is_rollup) - a team has at most one instance of a template
-per cycle; rollup trees (`goalnexa.rollups`) use the same code.
+team, assignee, cycle, is_rollup) - a team has at most one instance of a
+template per cycle, and each of its members at most one copy of their own
+(`Goal.assignee_id`, docs/team-templates.md "Members"); rollup trees
+(`goalnexa.rollups`) use the same code.
 
 - `apply_template` creates the instances for some teams.
 - `push_template` brings every tree back in line after the template
@@ -17,7 +19,9 @@ per cycle; rollup trees (`goalnexa.rollups`) use the same code.
   check-ins is DETACHED (becomes the team's own, history kept); an empty
   one is deleted; rollup rows are always deleted.
 - `leave_template` takes teams out (unticked on the board): a copy with
-  check-ins is detached, an empty one deleted.
+  check-ins is detached, an empty one deleted - its members' copies too.
+- `assign_members` / `unassign_members`: a team member's own copy, under
+  their team's (ticked on the board by the team's lead).
 - `roll_over_instance` (closing a cycle): the team's instance in the next
   cycle, every target blank (= base) so the team commits again.
 """
@@ -47,7 +51,7 @@ from goalnexa.periods import ANY_TIME, SNAP_FIELDS, STAMP_FIELDS, snap_settings
 from goalnexa.progress import refresh_goal, refresh_metric
 
 #: Template-owned fields an instance can't change (`GoalViewSet`/`MetricViewSet`).
-LOCKED_GOAL_FIELDS = ("title", "description", "parent", "org_id", "team_id", "cycle", *SNAP_FIELDS)
+LOCKED_GOAL_FIELDS = ("title", "description", "parent", "org_id", "team_id", "assignee_id", "cycle", *SNAP_FIELDS)
 LOCKED_METRIC_FIELDS = (
     "name", "description", "unit", "aggregation", "check_in_every", "parent", "goal", "target_per", "count_days", "progress_by", "one_per", *SNAP_FIELDS,
 )
@@ -133,16 +137,24 @@ def check_template_settings(template) -> None:
             raise ValidationError({"snap_to": [f"{tm.name}: {detail[0]}"]})
 
 
-def tree_goals(template_id, team_id, cycle_id, is_rollup: bool):
+def tree_goals(template_id, team_id, cycle_id, is_rollup: bool, assignee_id=None):
+    """One tree: a team's own copy (`assignee_id` None), one of its
+    members' (`assignee_id` = theirs), or a total."""
     return Goal.objects.filter(
-        template_goal__template_id=template_id, team_id=team_id, cycle_id=cycle_id, is_rollup=is_rollup
+        template_goal__template_id=template_id, team_id=team_id, cycle_id=cycle_id, is_rollup=is_rollup,
+        assignee_id=assignee_id,
     )
+
+
+def team_trees(template_id, team_id, cycle_id):
+    """A team's own copy and every one of its members' copies."""
+    return Goal.objects.filter(template_goal__template_id=template_id, team_id=team_id, cycle_id=cycle_id, is_rollup=False)
 
 
 def tree_keys(template_id) -> set:
     return set(
         Goal.objects.filter(template_goal__template_id=template_id)
-        .values_list("team_id", "cycle_id", "is_rollup")
+        .values_list("team_id", "cycle_id", "is_rollup", "assignee_id")
         .distinct()
     )
 
@@ -167,15 +179,17 @@ def sync_tree(
     visibility: str | None = None,
     values: dict | None = None,
     title_suffix: str = "",
+    assignee_id=None,
 ) -> dict:
     """Creates or updates one tree to match `template`; returns
     `{template_goal_id: Goal}`. New rows take `owner_id`/`visibility`
     (else the tree root's), and metric numbers from `values`
     (`{template_metric_id: (base, target)}`), else the template's
     defaults (a blank target = the base: tracked only). `title_suffix`
-    follows every title (a total's " · North total")."""
+    follows every title (a total's " · North total"). `assignee_id`: a
+    team member's own copy."""
     cycle_id = cycle.id if cycle is not None else None
-    existing = {g.template_goal_id: g for g in tree_goals(template.id, team_id, cycle_id, is_rollup)}
+    existing = {g.template_goal_id: g for g in tree_goals(template.id, team_id, cycle_id, is_rollup, assignee_id)}
     tgs = ordered(TemplateGoal.objects.filter(template=template))
     root = next((existing[tg.id] for tg in tgs if tg.parent_id is None and tg.id in existing), None)
     owner_id = owner_id or (root.owner_id if root else template.owner_id)
@@ -193,6 +207,7 @@ def sync_tree(
             goal = Goal.objects.create(
                 template_goal=tg,
                 team_id=team_id,
+                assignee_id=assignee_id,
                 cycle_id=cycle_id,
                 is_rollup=is_rollup,
                 org_id=template.org_id,
@@ -305,10 +320,10 @@ def push_template(template: GoalTemplate) -> None:
 
     with batched():
         cycles = {c.id: c for c in Cycle.objects.filter(id__in={k[1] for k in tree_keys(template.id) if k[1]})}
-        for team_id, cycle_id, is_rollup in tree_keys(template.id):
+        for team_id, cycle_id, is_rollup, assignee_id in tree_keys(template.id):
             if is_rollup:
                 continue  # the recompute below rebuilds rollups
-            sync_tree(template, team_id, cycles.get(cycle_id), False)
+            sync_tree(template, team_id, cycles.get(cycle_id), False, assignee_id=assignee_id)
         for cycle_id in {k[1] for k in tree_keys(template.id)}:
             schedule(template.id, cycle_id)
 
@@ -393,24 +408,78 @@ def leave_template(template: GoalTemplate, team_ids, cycle) -> dict:
     """Take teams out of the template in `cycle` (unticked on the team
     board). A team's copy with check-ins is DETACHED - kept as the team's
     own goals, history and all; an empty one is deleted. Returns
-    {"deleted": [team ids], "detached": [team ids]}."""
+    {"deleted": [team ids], "detached": [team ids]}. Its members' copies
+    go the same way, each on its own."""
     from goalnexa.rollups import batched, schedule
 
     out = {"deleted": [], "detached": []}
+    cycle_id = cycle.id if cycle else None
     with batched():
         for team_id in team_ids:
-            goals = list(tree_goals(template.id, team_id, cycle.id if cycle else None, False))
-            if not goals:
+            for assignee_id in set(team_trees(template.id, team_id, cycle_id).values_list("assignee_id", flat=True)):
+                kept = _take_out(tree_goals(template.id, team_id, cycle_id, False, assignee_id))
+                if assignee_id is None and kept is not None:
+                    out["detached" if kept else "deleted"].append(str(team_id))
+        schedule(template.id, cycle_id)
+    return out
+
+
+def _take_out(trees) -> bool | None:
+    """One copy out of its template: with check-ins, DETACHED (kept as
+    ordinary goals, history and all) - True; empty, deleted - False; None
+    when there's no copy."""
+    goals = list(trees)
+    if not goals:
+        return None
+    if has_check_ins(Metric.objects.filter(goal__in=goals).values_list("id", flat=True)):
+        Metric.objects.filter(goal__in=goals).update(template_metric=None)
+        Goal.objects.filter(id__in=[g.id for g in goals]).update(template_goal=None)
+        return True
+    Goal.objects.filter(id__in=[g.id for g in goals]).delete()
+    return False
+
+
+def assign_members(template: GoalTemplate, team_id, user_ids, cycle) -> list[Goal]:
+    """A copy of the team's instance for each of `user_ids` (skipping those
+    who have one): owned by the member, with the team's visibility and
+    target date and the template's default targets. The team must have its
+    own copy in `cycle`. Returns the new root goals."""
+    from goalnexa.rollups import batched, schedule
+
+    cycle_id = cycle.id if cycle else None
+    team_root = tree_goals(template.id, team_id, cycle_id, False).filter(template_goal__parent__isnull=True).first()
+    roots = []
+    with batched():
+        for user_id in user_ids:
+            if tree_goals(template.id, team_id, cycle_id, False, user_id).exists():
                 continue
-            metric_ids = Metric.objects.filter(goal__in=goals).values_list("id", flat=True)
-            if has_check_ins(metric_ids):
-                Metric.objects.filter(goal__in=goals).update(template_metric=None)
-                Goal.objects.filter(id__in=[g.id for g in goals]).update(template_goal=None)
-                out["detached"].append(str(team_id))
-            else:
-                Goal.objects.filter(id__in=[g.id for g in goals]).delete()
-                out["deleted"].append(str(team_id))
-        schedule(template.id, cycle.id if cycle else None)
+            goal_by_tg = sync_tree(
+                template, team_id, cycle, False, owner_id=user_id, assignee_id=user_id,
+                visibility=team_root.visibility if team_root else None,
+            )
+            for goal in goal_by_tg.values():
+                if goal.parent_id is None:
+                    if team_root is not None and goal.target_date != team_root.target_date:
+                        Goal.objects.filter(id=goal.id).update(target_date=team_root.target_date)
+                    roots.append(goal)
+        schedule(template.id, cycle_id)
+    return roots
+
+
+def unassign_members(template: GoalTemplate, team_id, user_ids, cycle) -> dict:
+    """Members' copies out of the template: like `leave_template`, a copy
+    with check-ins is detached, an empty one deleted. Returns {"deleted":
+    [user ids], "detached": [user ids]}."""
+    from goalnexa.rollups import batched, schedule
+
+    out = {"deleted": [], "detached": []}
+    cycle_id = cycle.id if cycle else None
+    with batched():
+        for user_id in user_ids:
+            kept = _take_out(tree_goals(template.id, team_id, cycle_id, False, user_id))
+            if kept is not None:
+                out["detached" if kept else "deleted"].append(str(user_id))
+        schedule(template.id, cycle_id)
     return out
 
 
@@ -431,14 +500,15 @@ def roll_over_instance(goal: Goal, next_cycle) -> Goal | None:
     if tg is None:
         return None
     template = tg.template
-    old = tree_goals(template.id, goal.team_id, goal.cycle_id, False)
+    old = tree_goals(template.id, goal.team_id, goal.cycle_id, False, goal.assignee_id)
     values = {}
     for metric in Metric.objects.filter(goal__in=old, template_metric__isnull=False):
         base = metric.base_value if metric.aggregation == MetricAggregation.SUM else metric.current_value
         values[metric.template_metric_id] = (base, base)
     root = next((g for g in old if g.template_goal and g.template_goal.parent_id is None), goal)
     goal_by_tg = sync_tree(
-        template, goal.team_id, next_cycle, False, owner_id=root.owner_id, visibility=root.visibility, values=values
+        template, goal.team_id, next_cycle, False, owner_id=root.owner_id, visibility=root.visibility, values=values,
+        assignee_id=goal.assignee_id,
     )
     for new in goal_by_tg.values():
         if new.parent_id is None:

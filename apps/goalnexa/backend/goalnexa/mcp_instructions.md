@@ -17,6 +17,7 @@ names, notes) stay in the user's own words and language.
    and `include: ["goal"]`. Skip team totals (`is_total: true`) - they're
    calculated and refuse check-ins. When several teams run the same goal
    template, each has its own copy of the metric: take the one with
+   `for_me: true` (the user's own share of their team's goal), else
    `in_my_team: true`; if several are (the user is in more than one team),
    ask which team. Otherwise several matches: ask which. None: offer to create it.
 2. Work out the value from the metric's `aggregation`: `sum` = the amount
