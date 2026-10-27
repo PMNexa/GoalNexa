@@ -8,9 +8,13 @@
   check-ins (they stay, as the team's own) and deletes the rest.
 - `POST goal-templates/<id>/apply` `{"teams": [...], "cycle": <id>|null}`:
   an instance for each team (owners/admins).
+- `POST goal-templates/<id>/assign` / `unassign` `{"team", "users": [...],
+  "cycle"}`: a team member's own copy, under the team's (its lead, the
+  org's owners/admins).
 - `GET goal-templates/<id>/board?cycle=<id>`: everything the team board
-  shows - the template, the org's team tree, each team's instance numbers
-  and the totals, with what the caller may change.
+  shows - the template, the org's team tree and its people, each team's
+  instance numbers and its members' copies, and the totals, with what the
+  caller may change.
 - `POST goal-templates/<id>/targets` `{"items": [{"metric", "base_value"?,
   "target_value"?, "planned_target"?}]}`: targets from the board, all or
   nothing - an instance's base/target (its team's lead, its owner, the
@@ -57,7 +61,19 @@ from goalnexa.progress import metric_pct, refresh_goal, refresh_metric
 from goalnexa.models.template import ORG_TOTAL, default_total_for
 from goalnexa.rollups import batched, combine, schedule
 from goalnexa.serializers import GoalTemplateSerializer, TemplateGoalSerializer, TemplateMetricSerializer
-from goalnexa.teams import can_plan, can_set_targets, can_check_in, is_org_manager, team_names, team_parents
+from goalnexa.teams import (
+    ancestors,
+    can_assign,
+    can_check_in,
+    can_plan,
+    can_set_targets,
+    is_org_manager,
+    my_lead_team_ids,
+    team_names,
+    team_parents,
+    team_people,
+    user_names,
+)
 from goalnexa.templates import (
     check_template_settings,
     has_check_ins,
@@ -67,8 +83,11 @@ from goalnexa.templates import (
     remove_template_goal,
     remove_template_metric,
     apply_template,
+    assign_members,
     leave_template,
     recompute_totals,
+    tree_goals,
+    unassign_members,
 )
 from goalnexa.teams import subtree
 
@@ -230,6 +249,74 @@ class GoalTemplateViewSet(BaseViewSet):
             result = leave_template(template, [known[str(t)] for t in team_ids], cycle)
         return Response(result)
 
+    def _members_request(self, request, template):
+        """The team, its picked members and the cycle of an assign/unassign
+        call - after checking the caller may change that team's people."""
+        team_id = str(request.data.get("team") or "")
+        team = next((t for t in team_parents(template.org_id) if str(t) == team_id), None)
+        if team is None:
+            raise ValidationError({"team": ["A team of the template's organization."]})
+        if not can_assign(request, template.org_id, team):
+            raise PermissionDenied("Only the team's lead or the organization's owners and admins can do this.")
+        user_ids = request.data.get("users")
+        if not isinstance(user_ids, list) or not user_ids:
+            raise ValidationError({"users": ["Pick at least one member."]})
+        cycle = self._cycle(template, request.data.get("cycle"), open_only=True)
+        return team, [str(u) for u in user_ids], cycle
+
+    @extend_schema(
+        description="Give members of a team their own copy of the team's goals in a cycle - their own targets "
+        "(set by the team's lead) and check-ins, added into the team's total together with the team's own copy. "
+        "The team must use the template in that cycle; members who have a copy are skipped. The team's lead "
+        "(or a lead above it) and the organization's owners and admins.",
+        request=inline_serializer("AssignMembers", {
+            "team": serializers.UUIDField(help_text="The team, in the template's organization."),
+            "users": serializers.ListField(child=serializers.UUIDField(), help_text="User ids of the team's members."),
+            "cycle": serializers.UUIDField(required=False, allow_null=True, help_text="The cycle, or null for none."),
+        }),
+        responses={201: inline_serializer("AssignedMembers", {"goals": serializers.ListField(child=serializers.UUIDField())})},
+    )
+    @action(detail=True, methods=["post"])
+    def assign(self, request, pk=None):
+        template = self.get_object()
+        team, user_ids, cycle = self._members_request(request, template)
+        people = {str(user_id) for user_id, _ in team_people([team]).get(team, [])}
+        if any(u not in people for u in user_ids):
+            raise ValidationError({"users": ["Only members of the team."]})
+        cycle_id = cycle.id if cycle else None
+        if not tree_goals(template.id, team, cycle_id, False).exists():
+            raise ValidationError({"team": ["The team doesn't use this template in that cycle - add it first."]})
+        per_tree = TemplateGoal.objects.filter(template=template).count()
+        current = Goal.objects.filter(org_id=template.org_id, is_rollup=False).exclude(status=GoalStatus.ARCHIVED).count()
+        check_org_limit(template.org_id, "max_goals", current + per_tree * len(user_ids) - 1, "goals")
+        with transaction.atomic():
+            roots = assign_members(template, team, user_ids, cycle)
+        for root in roots:
+            record(root.id, ActivityVerb.GOAL_CREATED, request.user.id, title=root.title, template=template.title)
+        return Response({"goals": [str(r.id) for r in roots]}, status=201)
+
+    @extend_schema(
+        description="Take members' own copies out of the template in a cycle (the team's lead, or the "
+        "organization's owners and admins): a copy with check-ins is detached - kept as that member's goals - "
+        "and an empty one is deleted. The team's own copy stays.",
+        request=inline_serializer("UnassignMembers", {
+            "team": serializers.UUIDField(help_text="The team, in the template's organization."),
+            "users": serializers.ListField(child=serializers.UUIDField(), help_text="User ids."),
+            "cycle": serializers.UUIDField(required=False, allow_null=True, help_text="The cycle, or null for none."),
+        }),
+        responses={200: inline_serializer("UnassignedMembers", {
+            "deleted": serializers.ListField(child=serializers.UUIDField()),
+            "detached": serializers.ListField(child=serializers.UUIDField()),
+        })},
+    )
+    @action(detail=True, methods=["post"])
+    def unassign(self, request, pk=None):
+        template = self.get_object()
+        team, user_ids, cycle = self._members_request(request, template)
+        with transaction.atomic():
+            result = unassign_members(template, team, user_ids, cycle)
+        return Response(result)
+
     @extend_schema(
         description="Which totals the template calculates (organization owners and admins): \"org\" for the "
         "whole organization and/or teams that have sub-teams. Replaces the list; every cycle's totals follow.",
@@ -262,9 +349,10 @@ class GoalTemplateViewSet(BaseViewSet):
 
     @extend_schema(
         description="Everything the team board shows for one cycle: the template's goals and metrics, the "
-        "organization's team tree, each team's instance (its metrics' base, target and current values, and "
-        "whether you may check in or set its targets) and the totals per team and for the organization "
-        "(with planned targets, the teams' own sum and whether you may plan).",
+        "organization's team tree with each team's people, each team's instance (its metrics' base, target and "
+        "current values, and whether you may check in or set its targets), its members' own copies (`members`, "
+        "the same shape) and the totals per team and for the organization (with planned targets, the teams' own "
+        "sum and whether you may plan).",
         parameters=[
             OpenApiParameter("cycle", OpenApiTypes.STR, description="A cycle id; empty or none = goals in no cycle."),
             OpenApiParameter("show", OpenApiTypes.STR, enum=["day", "week", "month", "quarter", "year"],
@@ -369,6 +457,7 @@ class GoalTemplateViewSet(BaseViewSet):
             return row
 
         instances: dict = {}
+        member_copies: dict = {}
         totals: dict = {}
         instance_numbers: dict = {}
         shown_by_metric: dict = {}
@@ -409,7 +498,8 @@ class GoalTemplateViewSet(BaseViewSet):
                             ]
                     entry["metrics"][str(metric.template_metric_id)] = row
                 continue
-            entry = instances.setdefault(key, {"goals": {}, "metrics": {}, "visible": False})
+            owner = member_copies.setdefault(key, {}) if goal.assignee_id else instances
+            entry = owner.setdefault(str(goal.assignee_id) if goal.assignee_id else key, {"goals": {}, "metrics": {}, "visible": False})
             entry["goals"][str(goal.template_goal_id)] = str(goal.id)
             if goal.template_goal_id in root_tgs:
                 entry["root"] = str(goal.id)
@@ -444,9 +534,16 @@ class GoalTemplateViewSet(BaseViewSet):
                              "updated": sum(1 for team, done in rows if team in members and done)}
                 for tg_id, rows in updated_by_tg.items()
             }
-        for key, entry in instances.items():
-            if not entry.get("visible"):
-                instances[key] = {"visible": False, "goals": {}, "metrics": {}}
+        for copies in (instances, *member_copies.values()):
+            for key, entry in copies.items():
+                if not entry.get("visible"):
+                    copies[key] = {"visible": False, "goals": {}, "metrics": {}}
+        # Each team's people (who can be given a copy), and who may give them one.
+        people = team_people(parents.keys())
+        assignees = {g.assignee_id for g in goals if g.assignee_id}
+        names_by_user = user_names({u for rows in people.values() for u, _ in rows} | assignees)
+        manager = is_org_manager(request, template.org_id)
+        leads = set() if manager else my_lead_team_ids(request.user.id, request)
         return Response({
             "template": {"id": str(template.id), "title": template.title, "org_id": str(template.org_id)},
             "total_for": template.total_for if template.total_for is not None else default_total_for(),
@@ -476,10 +573,19 @@ class GoalTemplateViewSet(BaseViewSet):
                 for tm in tms
             ],
             "teams": [
-                {"id": str(t), "parent": str(p) if p else None, "name": names.get(str(t), "")}
+                {
+                    "id": str(t), "parent": str(p) if p else None, "name": names.get(str(t), ""),
+                    "can_assign": manager or bool(leads & ({t} | set(ancestors(parents, t)))),
+                    "people": [
+                        {"user_id": str(u), "role": role, "name": names_by_user.get(str(u), "")}
+                        for u, role in people.get(t, [])
+                    ],
+                }
                 for t, p in parents.items()
             ],
             "instances": instances,
+            "members": member_copies,
+            "names": {str(u): names_by_user.get(str(u), "") for u in assignees},
             "totals": totals,
         })
 

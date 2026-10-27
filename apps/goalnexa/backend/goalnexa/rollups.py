@@ -3,8 +3,11 @@ cycle, each node ticked in `GoalTemplate.total_for` - the org itself
 (`team_id` null, ticked by default) and teams with sub-teams - that has
 an instance somewhere under it gets a read-only rollup goal tree
 mirroring the template. A team without sub-teams gets none: its total
-would only repeat its own instance. A node's numbers come from EVERY instance in its subtree
-(its own included), never from the rollups below it: an average of
+would only repeat its own instance - unless its members have copies of
+their own (`Goal.assignee_id`): every team with member copies gets a total,
+ticked or not, since that's the team's number (its copy plus its members').
+A node's numbers come from EVERY instance in its subtree
+(its own and its members' included), never from the rollups below it: an average of
 averages would weigh a 2-team department like a 10-team one.
 
 Per template metric (`TemplateMetric.rollup`), over the instances that
@@ -181,6 +184,7 @@ def recompute(template_id, cycle_id) -> None:
     )
     parents = team_parents(template.org_id)
     teams = {g.team_id for g in instances}
+    with_members = {g.team_id for g in instances if g.assignee_id and g.team_id in parents}
     has_children = set(parents.values())
     wanted = {str(t) for t in (template.total_for if template.total_for is not None else default_total_for())}
     nodes: set = set()
@@ -189,6 +193,7 @@ def recompute(template_id, cycle_id) -> None:
     for team_id in parents:
         if str(team_id) in wanted and team_id in has_children and teams & subtree(parents, team_id):
             nodes.add(team_id)
+    nodes |= with_members
     rollups = Goal.objects.filter(template_goal__template_id=template_id, cycle_id=cycle_id, is_rollup=True)
     stale = rollups.exclude(team_id__in=[n for n in nodes if n is not None])
     if None in nodes:

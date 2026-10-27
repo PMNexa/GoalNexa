@@ -68,7 +68,9 @@ class MetricSerializer(BaseSerializer):
     template; `planned_target` is a team total's top-down target (set on
     the team board). `is_total` says the metric is a team total
     (read-only); `in_my_team` that it's in the caller's team's instance -
-    what an assistant picks when several teams share a metric's name.
+    what an assistant picks when several teams share a metric's name;
+    `for_me` that it's in the caller's OWN copy (a member's share of their
+    team's goal, `Goal.assignee_id`) - picked before the team's.
     """
 
     is_total = serializers.SerializerMethodField()
@@ -86,6 +88,7 @@ class MetricSerializer(BaseSerializer):
     )
     snap_due = snap_due_field()
     in_my_team = serializers.SerializerMethodField()
+    for_me = serializers.SerializerMethodField()
     pace = serializers.SerializerMethodField()
 
     class Meta:
@@ -160,11 +163,19 @@ class MetricSerializer(BaseSerializer):
     def get_is_total(self, obj) -> bool:
         return bool(obj.goal.is_rollup) if obj.goal_id else False
 
+    def get_for_me(self, obj) -> bool:
+        """Whether this metric is in the caller's own copy of their team's goal."""
+        request = self.context.get("request")
+        return bool(request is not None and obj.goal_id and obj.goal.assignee_id and str(obj.goal.assignee_id) == str(request.user.id))
+
     def get_in_my_team(self, obj) -> bool:
-        """Whether this metric's goal is the instance of one of the caller's teams."""
+        """Whether this metric's goal is the instance of one of the caller's
+        teams (a member's copy: only for that member)."""
         request = self.context.get("request")
         if request is None or not obj.goal_id or obj.goal.team_id is None or obj.goal.is_rollup:
             return False
+        if obj.goal.assignee_id:
+            return str(obj.goal.assignee_id) == str(request.user.id)
         mine = self.context.get("_my_team_ids")
         if mine is None:
             from goalnexa.teams import my_team_ids

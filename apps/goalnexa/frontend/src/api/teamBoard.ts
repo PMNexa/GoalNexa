@@ -41,10 +41,21 @@ export interface BoardMetric {
   snap_to: TargetPer;
 }
 
+/** A team's member, who can be given a copy of their own (`Board.members`). */
+export interface BoardPerson {
+  user_id: string;
+  role: "lead" | "member";
+  name: string;
+}
+
 export interface BoardTeam {
   id: string;
   parent: string | null;
   name: string;
+  /** Whether the caller may give its members copies of their own (its lead, a lead above, the org's owners/admins). */
+  can_assign?: boolean;
+  /** Its members, leads first. */
+  people?: BoardPerson[];
 }
 
 export interface CellNumbers {
@@ -123,6 +134,10 @@ export interface Board {
   teams: BoardTeam[];
   /** Team id -> its instance. */
   instances: Record<string, BoardInstance>;
+  /** Team id -> user id -> that member's own copy (added into the team's total). */
+  members?: Record<string, Record<string, BoardInstance>>;
+  /** User id -> name, for every member copy (someone who has left the team too). */
+  names?: Record<string, string>;
   /** Team id, or "org" for the whole organization -> its total. */
   totals: Record<string, BoardTotal>;
   /** Which totals are calculated (ticked): "org" and/or team ids. */
@@ -192,6 +207,34 @@ export function leaveTemplate(
   return apiRequest(`/api/v1/goal-templates/${templateId}/leave`, accessToken, {
     method: "POST",
     data: { teams, cycle: cycleId },
+  });
+}
+
+/** Give team members copies of their own, under the team's (its lead, or the org's owners/admins). */
+export function assignMembers(
+  accessToken: string,
+  templateId: string,
+  team: string,
+  users: string[],
+  cycleId: string | null,
+): Promise<{ goals: string[] }> {
+  return apiRequest(`/api/v1/goal-templates/${templateId}/assign`, accessToken, {
+    method: "POST",
+    data: { team, users, cycle: cycleId },
+  });
+}
+
+/** Take members' copies out: one with check-ins is kept as the member's own goals, an empty one deleted. */
+export function unassignMembers(
+  accessToken: string,
+  templateId: string,
+  team: string,
+  users: string[],
+  cycleId: string | null,
+): Promise<{ deleted: string[]; detached: string[] }> {
+  return apiRequest(`/api/v1/goal-templates/${templateId}/unassign`, accessToken, {
+    method: "POST",
+    data: { team, users, cycle: cycleId },
   });
 }
 

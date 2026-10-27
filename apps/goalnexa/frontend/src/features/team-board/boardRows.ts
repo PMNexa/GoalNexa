@@ -4,7 +4,7 @@
  * time and the charts draw - pure, from a `Board`.
  */
 import type { ChartPoint } from "../../components/charts/BoardCharts";
-import type { Board, BoardInstance, BoardMetric, BoardTeam, BoardTotal, CellNumbers, ShownNumbers } from "../../api/teamBoard";
+import type { Board, BoardInstance, BoardMetric, BoardPerson, BoardTeam, BoardTotal, CellNumbers, ShownNumbers } from "../../api/teamBoard";
 import { periodLabel, type Snap } from "../../lib/periods";
 import { PER_LABELS, fmt, shownPct, tipDay, tipTime, type Mode } from "./boardHelpers";
 
@@ -23,6 +23,12 @@ export interface Row {
   ticked?: boolean;
   /** A team with sub-teams that has its own copy: one row with its own numbers, and its total (if ticked) under each cell. */
   parent?: boolean;
+  /** A team's own row that shows its total under each cell (ticked with sub-teams, or with members' copies). */
+  withTotal?: boolean;
+  /** A member's row, under their team's (`instance` = their own copy; none yet: `missing`). */
+  person?: BoardPerson;
+  /** A team's row: how many of its members have a copy of their own. */
+  memberCount?: number;
 }
 
 /** A team's (or total's) cells, for Over time and the charts. */
@@ -70,6 +76,11 @@ export function goalOrder(board: Board): { id: string; title: string; depth: num
  * numbers, with its total (if ticked) as a line under each cell. Check in mode shows only what's in play - teams with a copy, the
  * totals that are calculated, and the name of a team with sub-teams that
  * holds them - and counts the teams left out (`notJoined`).
+ *
+ * Under a team's row come its members' rows: the members with a copy of
+ * their own - and in Targets mode, for whoever may give them one, every
+ * member of a team that has its copy, ticked or not. A team with members'
+ * copies shows its total (its copy plus theirs) under each cell.
  */
 export function buildRows(board: Board, root: string, mode: Mode): { rows: Row[]; notJoined: number } {
   const children = new Map<string | null, BoardTeam[]>();
@@ -82,18 +93,52 @@ export function buildRows(board: Board, root: string, mode: Mode): { rows: Row[]
   const targets = mode === "targets";
   const totalFor = new Set(board.total_for ?? ["org"]);
   let notJoined = 0;
+  const memberRows = (team: BoardTeam, depth: number, hasCopy: boolean): Row[] => {
+    const copies = board.members?.[team.id] ?? {};
+    const people = new Map<string, BoardPerson>();
+    if (targets && hasCopy && team.can_assign) for (const person of team.people ?? []) people.set(person.user_id, person);
+    for (const userId of Object.keys(copies)) {
+      if (!people.has(userId)) {
+        const known = team.people?.find((p) => p.user_id === userId);
+        people.set(userId, known ?? { user_id: userId, role: "member", name: board.names?.[userId] || "Former member" });
+      }
+    }
+    return [...people.values()].map((person) => ({
+      key: `member-${team.id}-${person.user_id}`,
+      kind: "instance",
+      label: person.name || board.names?.[person.user_id] || "Member",
+      depth,
+      team,
+      person,
+      instance: copies[person.user_id],
+      missing: !copies[person.user_id],
+    }));
+  };
   const visit = (team: BoardTeam, depth: number): Row[] => {
     const kids = children.get(team.id) ?? [];
     const instance = board.instances[team.id];
+    const total = board.totals[team.id];
+    const members = memberRows(team, depth + 1, !!instance);
+    const memberCount = Object.keys(board.members?.[team.id] ?? {}).length;
     if (kids.length === 0) {
-      if (instance || targets) return [{ key: `team-${team.id}`, kind: "instance", label: team.name, depth, team, instance, missing: !instance }];
+      if (instance || targets || members.length > 0) {
+        return [
+          { key: `team-${team.id}`, kind: "instance", label: team.name, depth, team, instance, missing: !instance, total, withTotal: memberCount > 0, memberCount },
+          ...members,
+        ];
+      }
       notJoined += 1;
       return [];
     }
     const below = kids.flatMap((kid) => visit(kid, depth + 1));
-    const total = board.totals[team.id];
     const ticked = totalFor.has(team.id);
-    if (instance) return [{ key: `team-${team.id}`, kind: "instance", label: team.name, depth, team, instance, total, ticked, parent: true }, ...below];
+    if (instance) {
+      return [
+        { key: `team-${team.id}`, kind: "instance", label: team.name, depth, team, instance, total, ticked, parent: true, withTotal: ticked || memberCount > 0, memberCount },
+        ...members,
+        ...below,
+      ];
+    }
     if (!targets && below.length === 0) return [];
     const head: Row =
       targets || total
@@ -137,7 +182,7 @@ export function boardBlocks(rows: Row[]): BoardBlock[] {
     if (row.kind === "group") continue;
     const own = row.kind === "instance" && row.instance?.visible ? row.instance.metrics : null;
     if (own) blocks.push({ key: row.key, label: row.label, depth: row.depth, metrics: own, canCheckIn: !!row.instance?.can_check_in });
-    const total = (row.kind !== "instance" || (row.parent && row.ticked)) && row.total ? row.total.metrics : null;
+    const total = (row.kind !== "instance" || row.withTotal) && row.total ? row.total.metrics : null;
     if (total) {
       blocks.push({ key: `${row.key}-total`, label: row.label, sub: "Total", depth: row.depth, metrics: total });
     }

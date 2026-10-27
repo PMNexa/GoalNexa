@@ -2,7 +2,7 @@ import { Button, Modal } from "platform-core";
 import type { EditTarget } from "./boardHelpers";
 import type { Row } from "./boardRows";
 
-/** A team row unticked in Targets mode: "Take out" confirms it leaves the template in this cycle. */
+/** A team (or member) row unticked in Targets mode: "Take out" confirms it leaves the template in this cycle. */
 export function LeaveTemplateModal({
   leaving,
   busy,
@@ -15,12 +15,14 @@ export function LeaveTemplateModal({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const name = leaving?.label ?? "";
+  const member = !!leaving?.person;
   return (
     <Modal
       open={leaving !== null}
       onClose={() => !busy && onCancel()}
       size="sm"
-      title={leaving?.team ? `Take ${leaving.team.name} out of the template?` : ""}
+      title={leaving ? (member ? `Take ${name}'s own targets away?` : `Take ${name} out of the template?`) : ""}
       footer={
         <>
           <Button variant="secondary" outline onClick={onCancel} disabled={busy}>
@@ -32,12 +34,14 @@ export function LeaveTemplateModal({
         </>
       }
     >
-      {leaving?.team && (
+      {leaving && (
         <p className="mb-0">
           {Object.values(leaving.instance?.metrics ?? {}).some((m) => m.last_checked_in_at)
-            ? `${leaving.team.name} has check-ins: its goals and their history stay, as ${leaving.team.name}'s own goals, no longer part of the template.`
-            : `${leaving.team.name}'s copy of the template and its targets are deleted.`}{" "}
-          The totals above it stop counting it. Tick it again to start a fresh copy.
+            ? `${name} has check-ins: ${member ? "their" : "its"} goals and their history stay, as ${name}'s own goals, no longer part of the template.`
+            : `${name}'s copy of the template and its targets are deleted.`}{" "}
+          {member
+            ? "The team's total stops counting it. Tick it again to start a fresh copy."
+            : `${leaving.memberCount ? "Its members' own copies go the same way. " : ""}The totals above it stop counting it. Tick it again to start a fresh copy.`}
         </p>
       )}
     </Modal>

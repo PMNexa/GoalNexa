@@ -18,7 +18,7 @@ from tests.test_tenant_isolation import API, ids, signup
 
 
 @override_settings(AUTH_FIRST_RUN_SETUP=False)
-class TeamTemplateTests(TestCase):
+class TeamSetup(TestCase):
     def setUp(self):
         self.alice = signup("Alice")
         self.dave = signup("Dave")
@@ -71,7 +71,7 @@ class TeamTemplateTests(TestCase):
 
     def instance_metric(self, team, template_metric):
         return Metric.objects.get(template_metric_id=template_metric["id"], goal__team_id=team["id"], goal__is_rollup=False,
-                                  goal__cycle_id=self.cycle["id"])
+                                  goal__cycle_id=self.cycle["id"], goal__assignee_id__isnull=True)
 
     def total(self, template_metric, team=None):
         return Metric.objects.get(template_metric_id=template_metric["id"], goal__is_rollup=True,
@@ -87,6 +87,11 @@ class TeamTemplateTests(TestCase):
                              items=[{"metric": str(metric.id), "target_value": target, **extra}])
         self.assertEqual(response.status_code, status, response.content)
 
+    def client_patch(self, client, path, **body):
+        return client.patch(f"{API}/{path}", body, format="json")
+
+
+class TeamTemplateTests(TeamSetup):
     # --- teams -------------------------------------------------------------
 
     def test_only_org_managers_change_teams(self):
@@ -448,11 +453,6 @@ class TeamTemplateTests(TestCase):
         self.assertEqual([r["id"] for r in mine], [str(self.instance_metric(self.south, self.mrr).id)])
         self.assertEqual(sum(r["is_total"] for r in rows), 2)
 
-    # --- plumbing --------------------------------------------------------------
-
-    def client_patch(self, client, path, **body):
-        return client.patch(f"{API}/{path}", body, format="json")
-
     # --- check-in setting (template goals like goals) ------------------------
 
     def test_template_goal_check_in_setting_is_inherited_by_copies(self):
@@ -489,3 +489,140 @@ class TeamTemplateTests(TestCase):
         self.assertIn("Hires", str(response.json()["field_errors"]["snap_to"]))
         tg = self.alice.get(f"{API}/template-goals/{self.revenue_goal['id']}").json()
         self.assertEqual(tg["snap_to"], "parent")  # nothing saved
+
+
+class TeamMemberCopyTests(TeamSetup):
+    """A team member's own copy of their team's goals (P-91,
+    docs/team-templates.md "Members"): Grace joins North (Dave leads it)."""
+
+    def setUp(self):
+        super().setUp()
+        self.grace = signup("Grace")
+        self.join(self.grace)
+        self.ok(self.alice, "team-members", team=self.north["id"], user_id=self.grace.user_id)
+        self.apply(self.north, self.south)
+
+    def assign(self, client, team, *users, expect=201):
+        return self.ok(client, f"goal-templates/{self.template['id']}/assign", expect=expect, team=team["id"],
+                       users=[u.user_id for u in users], cycle=self.cycle["id"])
+
+    def member_metric(self, user, template_metric):
+        return Metric.objects.get(template_metric_id=template_metric["id"], goal__assignee_id=user.user_id,
+                                  goal__cycle_id=self.cycle["id"])
+
+    def test_the_lead_gives_a_member_a_copy(self):
+        self.assign(self.dave, self.north, self.grace)
+        goals = Goal.objects.filter(assignee_id=self.grace.user_id)
+        self.assertEqual({g.title for g in goals}, {"Grow revenue", "Hiring"})
+        self.assertEqual({str(g.owner_id) for g in goals}, {self.grace.user_id})
+        self.assertEqual({str(g.team_id) for g in goals}, {self.north["id"]})
+        hiring = goals.get(title="Hiring")
+        self.assertEqual(hiring.parent_id, goals.get(title="Grow revenue").id)
+        self.assertEqual(self.member_metric(self.grace, self.mrr).target_value, Decimal(100))  # the template's default
+        # Again: nothing new.
+        self.assertEqual(self.assign(self.dave, self.north, self.grace)["goals"], [])
+        self.assertEqual(Goal.objects.filter(assignee_id=self.grace.user_id).count(), 2)
+
+    def test_only_a_lead_or_manager_assigns_and_only_team_members(self):
+        self.assign(self.grace, self.north, self.grace, expect=403)
+        self.assign(self.erin, self.north, self.grace, expect=403)  # South's member
+        self.assign(self.bob, self.north, self.grace, expect=404)  # a stranger
+        self.assign(self.dave, self.north, self.erin, expect=400)  # not in North
+        self.assign(self.alice, self.north, self.grace)
+
+    def test_the_team_needs_its_own_copy_first(self):
+        self.ok(self.alice, f"goal-templates/{self.template['id']}/leave", expect=200, teams=[self.north["id"]],
+                cycle=self.cycle["id"])
+        self.assign(self.dave, self.north, self.grace, expect=400)
+
+    def test_the_team_total_is_its_copy_plus_its_members(self):
+        self.assign(self.dave, self.north, self.grace)
+        self.check_in(self.dave, self.instance_metric(self.north, self.mrr), 30)
+        self.check_in(self.grace, self.member_metric(self.grace, self.mrr), 20)
+        north = self.total(self.mrr, self.north)  # a team without sub-teams: totalled once it has members
+        self.assertEqual((north.current_value, north.target_value), (Decimal(50), Decimal(200)))
+        self.assertEqual(self.total(self.mrr, self.sales).current_value, Decimal(50))
+        self.assertEqual(self.total(self.mrr).target_value, Decimal(300))  # North, Grace, South
+        # Unassigned (no check-ins left? she has one): her copy is detached, North's total goes.
+        result = self.ok(self.dave, f"goal-templates/{self.template['id']}/unassign", expect=200, team=self.north["id"],
+                         users=[self.grace.user_id], cycle=self.cycle["id"])
+        self.assertEqual(result, {"deleted": [], "detached": [self.grace.user_id]})
+        self.assertFalse(Goal.objects.filter(team_id=self.north["id"], is_rollup=True).exists())
+        self.assertEqual(self.total(self.mrr, self.sales).current_value, Decimal(30))
+        self.assertEqual(Goal.objects.filter(assignee_id=self.grace.user_id, template_goal__isnull=True).count(), 2)
+
+    def test_unassigning_an_empty_copy_deletes_it(self):
+        self.assign(self.dave, self.north, self.grace)
+        result = self.ok(self.dave, f"goal-templates/{self.template['id']}/unassign", expect=200, team=self.north["id"],
+                         users=[self.grace.user_id], cycle=self.cycle["id"])
+        self.assertEqual(result, {"deleted": [self.grace.user_id], "detached": []})
+        self.assertFalse(Goal.objects.filter(assignee_id=self.grace.user_id).exists())
+
+    def test_who_checks_in_and_sets_targets_on_a_members_copy(self):
+        self.assign(self.dave, self.north, self.grace)
+        mine = self.member_metric(self.grace, self.mrr)
+        self.check_in(self.grace, mine, 5)
+        self.check_in(self.dave, mine, 6)  # her lead
+        self.check_in(self.erin, mine, 7, status=403)  # another team
+        # Her copy is hers, but its targets are the lead's.
+        self.set_target(self.grace, mine, 150, status=403)
+        self.set_target(self.dave, mine, 150)
+        # A member's copy is not the team's: another North member can't check in on it.
+        henry = signup("Henry")
+        self.join(henry)
+        self.ok(self.alice, "team-members", team=self.north["id"], user_id=henry.user_id)
+        self.check_in(henry, mine, 8, status=403)
+        self.check_in(henry, self.instance_metric(self.north, self.mrr), 8)
+
+    def test_board_shows_people_and_member_copies(self):
+        self.assign(self.dave, self.north, self.grace)
+        board = self.dave.get(f"{API}/goal-templates/{self.template['id']}/board", {"cycle": self.cycle["id"]}).json()
+        north = next(t for t in board["teams"] if t["id"] == self.north["id"])
+        self.assertTrue(north["can_assign"])
+        self.assertEqual([(p["name"], p["role"]) for p in north["people"]], [("Dave", "lead"), ("Grace", "member")])
+        self.assertFalse(next(t for t in board["teams"] if t["id"] == self.south["id"])["can_assign"])
+        copy = board["members"][self.north["id"]][self.grace.user_id]
+        self.assertEqual((copy["can_check_in"], copy["can_set_targets"]), (True, True))
+        self.assertEqual(copy["metrics"][self.mrr["id"]]["target_value"], 100.0)
+        self.assertEqual(board["names"], {self.grace.user_id: "Grace"})
+        self.assertIn(self.north["id"], board["totals"])
+        grace_view = self.grace.get(f"{API}/goal-templates/{self.template['id']}/board", {"cycle": self.cycle["id"]}).json()
+        self.assertEqual(grace_view["members"][self.north["id"]][self.grace.user_id]["can_set_targets"], False)
+        self.assertEqual(grace_view["instances"][self.north["id"]]["can_set_targets"], False)
+
+    def test_metrics_say_which_copy_is_mine(self):
+        self.assign(self.dave, self.north, self.grace)
+        rows = self.grace.get(f"{API}/metrics", {"filter{name.icontains}": "MRR", "page_size": 100}).json()["items"]
+        self.assertEqual([r["id"] for r in rows if r["for_me"]], [str(self.member_metric(self.grace, self.mrr).id)])
+        self.assertEqual(len([r for r in rows if r["in_my_team"]]), 2)  # North's and hers
+        dave_rows = self.dave.get(f"{API}/metrics", {"filter{name.icontains}": "MRR", "page_size": 100}).json()["items"]
+        self.assertEqual([r for r in dave_rows if r["for_me"]], [])
+        self.assertEqual(len([r for r in dave_rows if r["in_my_team"]]), 1)  # North's, not Grace's
+
+    def test_template_changes_reach_member_copies(self):
+        self.assign(self.dave, self.north, self.grace)
+        self.client_patch(self.alice, f"template-metrics/{self.mrr['id']}", name="Revenue")
+        self.assertEqual(self.member_metric(self.grace, self.mrr).name, "Revenue")
+
+    def test_rolling_over_keeps_member_copies(self):
+        self.assign(self.dave, self.north, self.grace)
+        self.check_in(self.grace, self.member_metric(self.grace, self.mrr), 40)
+        next_cycle = self.ok(self.alice, "cycles", name="Q1", org_id=self.org["id"], starts_on="2027-01-01",
+                             ends_on="2027-03-31", status="planning")
+        decisions = [{"goal": str(g.id), "action": "rollover"} for g in Goal.objects.filter(cycle_id=self.cycle["id"])]
+        self.ok(self.alice, f"cycles/{self.cycle['id']}/close", expect=200, decisions=decisions, next_cycle=next_cycle["id"])
+        new = Metric.objects.get(template_metric_id=self.mrr["id"], goal__assignee_id=self.grace.user_id,
+                                 goal__cycle_id=next_cycle["id"])
+        self.assertEqual((new.base_value, new.target_value, str(new.goal.owner_id)), (Decimal(40), Decimal(40), self.grace.user_id))
+        team = Metric.objects.get(template_metric_id=self.mrr["id"], goal__team_id=self.north["id"], goal__is_rollup=False,
+                                  goal__assignee_id__isnull=True, goal__cycle_id=next_cycle["id"])
+        self.assertNotEqual(team.goal_id, new.goal_id)
+
+    def test_deleting_the_team_archives_member_copies(self):
+        self.assign(self.dave, self.north, self.grace)
+        self.assertEqual(self.alice.delete(f"{API}/teams/{self.north['id']}").status_code, 204)
+        copies = Goal.objects.filter(assignee_id=self.grace.user_id)
+        self.assertEqual({(g.status, g.template_goal_id) for g in copies}, {(GoalStatus.ARCHIVED, None)})
+        # North's own copy moved up to Sales, still in the template.
+        self.assertTrue(Goal.objects.filter(team_id=self.sales["id"], is_rollup=False, assignee_id__isnull=True,
+                                            template_goal_id=self.revenue_goal["id"]).exists())

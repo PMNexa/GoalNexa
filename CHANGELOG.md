@@ -15,6 +15,14 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- **Team board: down to each member** (P-91): a team's lead can give
+  members their own share of the team's goals. In Targets mode every
+  member is listed under their team - tick to give them their own copy,
+  set their start and target in their row, untick to take it away. The
+  member checks in on their own row (reminders and the digest come to
+  them); the team keeps its own copy, and its total is its copy plus its
+  members'. Assistants check in on your own copy first.
+
 - **Reminders on your phone** (P-73, P-74): check-ins due, targets still
   short at the end of a period and the digest can go to the GoalNexa
   Android app as push notifications, through a free relay that works for

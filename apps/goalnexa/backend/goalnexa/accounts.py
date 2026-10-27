@@ -82,7 +82,9 @@ def on_team_removed(sender, team_id, org_id, parent_id=None, instances="move", *
     (`instances`). Its template instances move only if the parent team has
     none of its own in that cycle (one instance per team); otherwise - and
     always for a top-level team - they're archived and detached from the
-    template, so their history stays as ordinary goals. Its totals go."""
+    template, so their history stays as ordinary goals. Its members'
+    copies are always archived and detached - they were that team's.
+    Its totals go."""
     from goalnexa.templates import tree_goals
 
     Goal.objects.filter(team_id=team_id, is_rollup=True).delete()
@@ -90,9 +92,9 @@ def on_team_removed(sender, team_id, org_id, parent_id=None, instances="move", *
     roots = goals.filter(template_goal__isnull=False, template_goal__parent__isnull=True).select_related("template_goal")
     for root in roots:
         template_id = root.template_goal.template_id
-        ids = list(tree_goals(template_id, team_id, root.cycle_id, False).values_list("id", flat=True))
+        ids = list(tree_goals(template_id, team_id, root.cycle_id, False, root.assignee_id).values_list("id", flat=True))
         taken = parent_id is None or tree_goals(template_id, parent_id, root.cycle_id, False).exists()
-        if instances == "archive" or taken:
+        if instances == "archive" or taken or root.assignee_id:
             Metric.objects.filter(goal_id__in=ids).update(template_metric=None)
             Goal.objects.filter(id__in=ids).update(template_goal=None, status=GoalStatus.ARCHIVED)
     if instances == "archive":

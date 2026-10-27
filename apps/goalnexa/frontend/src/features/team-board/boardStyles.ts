@@ -23,6 +23,7 @@ export const BOARD_CSS = `.gn-board-wrap { overflow-x: auto; }
 .gn-board tr.gn-total > * { background: var(--tblr-bg-surface-secondary, #f6f8fb); font-weight: 600; }
 .gn-board tr.gn-muted > * { color: var(--tblr-secondary, #667382); }
 .gn-board tr.gn-group > * { background: var(--tblr-bg-surface-secondary, #f6f8fb); font-weight: 600; }
+.gn-board tr.gn-member > th.gn-team { font-weight: 400; }
 .gn-board .gn-pick { position: sticky; z-index: 1; width: 3rem; min-width: 3rem; max-width: 3rem; text-align: center; padding-left: .3rem; padding-right: .3rem; }
 .gn-board .gn-total-line { margin-top: .3rem; padding-top: .2rem; border-top: 1px dashed var(--tblr-border-color, #e6e7e9); font-weight: 600; }
 .gn-board .gn-pick-own { left: var(--gn-team-w, 0px); }

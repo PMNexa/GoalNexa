@@ -44,13 +44,16 @@ function shownBlock(shown: ShownNumbers | null | undefined, numbers: CellNumbers
   );
 }
 
-/** A team with sub-teams and its own copy: its ticked total, as a line under its own numbers. */
+/** A team's own row with a total (ticked with sub-teams, or with members' copies): the total, as a line under its own numbers. */
 function totalLine(row: Row, column: Column) {
-  if (!row.parent || !row.ticked) return null;
+  if (!row.withTotal) return null;
   const numbers = row.total?.metrics[column.metric.id];
   if (!numbers) return <span className="gn-sub gn-total-line">Total -</span>;
+  const title = row.memberCount
+    ? `The total of this team's own numbers${row.parent ? ", its members' and every team below it" : " and its members'"}`
+    : "The total of this team and every team below it";
   return (
-    <span className="gn-sub gn-total-line" title="The total of this team and every team below it">
+    <span className="gn-sub gn-total-line" title={title}>
       Total{" "}
       {numbers.target_per && numbers.target_value !== numbers.base_value
         ? periodLine(numbers)
@@ -83,9 +86,9 @@ function updateCell(row: Row, column: Column) {
       {update && !update.on_day && (
         <span className="gn-sub">{update.last ? `last ${updateDate.format(Date.parse(update.last))}` : "no check-ins yet"}</span>
       )}
-      {row.parent && row.ticked && row.total?.updated?.[goalId] && (
+      {row.withTotal && row.total?.updated?.[goalId] && (
         <span className="gn-sub gn-total-line">
-          {row.total.updated[goalId].updated}/{row.total.updated[goalId].teams} teams
+          {row.total.updated[goalId].updated}/{row.total.updated[goalId].teams} {row.memberCount ? "updated" : "teams"}
         </span>
       )}
     </td>
@@ -106,14 +109,14 @@ export interface BoardTableProps {
   /** "Checked in at" (a `datetime-local` value). */
   when: string;
   busy: boolean;
-  /** Targets mode, managers: each row's "Own" and "Total" ticks, as two columns. */
+  /** Targets mode, managers and team leads: each row's "Own" and "Total" ticks, as two columns. */
   picking: boolean;
   drafts: BoardDrafts;
   templateHref?: (templateId: string) => string;
   goalHref?: (goalId: string) => string;
-  /** Own ticked: the team gets its copy of the template. */
+  /** Own ticked: the team gets its copy of the template (a member's row: the member gets their own). */
   onJoin: (row: Row) => void;
-  /** Own unticked: ask, then take the team out. */
+  /** Own unticked: ask, then take the team (or member) out. */
   onLeave: (row: Row) => void;
   /** A total's tick ("org" or a team id). */
   onToggleTotal: (key: string, on: boolean) => void;
@@ -342,19 +345,20 @@ function BoardTable({
     );
   }
 
-  /** Targets mode, managers: the "Own" and "Total" ticks of a row. */
+  /** Targets mode: the "Own" and "Total" ticks of a row - a team's and the totals' for managers, a member's for the team's lead. */
   function pickCells(row: Row) {
     const owns = row.kind === "instance" ? !row.missing : row.kind === "total" ? false : null;
     const leaf = row.kind === "instance" && !row.parent;
+    const allowed = row.person ? !!row.team?.can_assign : board.can_manage;
     return [
       <td key="own" className="gn-pick gn-pick-own">
         {owns === null ? (
           <span className="text-secondary" title="The whole organization is the sum of its teams">-</span>
         ) : (
           <Checkbox
-            disabled={busy}
+            disabled={busy || !allowed}
             checked={owns}
-            aria-label={`${row.label} has its own targets`}
+            aria-label={row.person ? `${row.label} has their own targets` : `${row.label} has its own targets`}
             onChange={(checked) =>
               checked ? onJoin(row) : onLeave(row)
             }
@@ -362,13 +366,17 @@ function BoardTable({
         )}
       </td>,
       <td key="total" className="gn-pick gn-pick-total">
+        {row.person ? (
+          <span className="text-secondary" title="Added into the team's total">-</span>
+        ) : (
         <Checkbox
-          disabled={busy || leaf}
-          checked={!leaf && !!row.ticked}
-          title={leaf ? "No teams below to add up" : undefined}
+          disabled={busy || leaf || !!row.memberCount || !board.can_manage}
+          checked={!!row.memberCount || (!leaf && !!row.ticked)}
+          title={row.memberCount ? "Always added up: members have targets of their own" : leaf ? "No teams below to add up" : undefined}
           aria-label={`Add up ${row.kind === "org" ? "the whole organization" : row.label}`}
           onChange={(checked) => onToggleTotal(row.kind === "org" ? "org" : row.team!.id, checked)}
         />
+        )}
       </td>,
     ];
   }
@@ -385,6 +393,13 @@ function BoardTable({
             : board.can_manage
               ? "Not added up - tick Total to add up the teams below."
               : "Not added up."}
+        </td>
+      );
+    }
+    if (row.missing && row.person) {
+      return (
+        <td colSpan={span} className="text-secondary">
+          Counts in the team's numbers - tick Own to give {row.label} targets of their own.
         </td>
       );
     }
@@ -503,7 +518,7 @@ function BoardTable({
         {rows.map((row) => (
           <tr
             key={row.key}
-            className={`${row.kind === "org" || row.kind === "total" ? "gn-total" : ""}${row.kind === "group" ? " gn-group" : ""}${row.missing || ((row.kind === "org" || row.kind === "total") && !row.total) ? " gn-muted" : ""}`}
+            className={`${row.kind === "org" || row.kind === "total" ? "gn-total" : ""}${row.kind === "group" ? " gn-group" : ""}${row.person ? " gn-member" : ""}${row.missing || ((row.kind === "org" || row.kind === "total") && !row.total) ? " gn-muted" : ""}`}
           >
             <th className="gn-team" style={{ paddingLeft: `${0.55 + row.depth * 1.1}rem` }}>
               {row.kind === "instance" && row.instance?.root && goalHref ? (
@@ -512,6 +527,9 @@ function BoardTable({
                 row.label
               )}
               {(row.kind === "org" || row.kind === "total") && row.ticked && <span className="gn-sub">Total</span>}
+              {row.person && (
+                <span className="gn-sub">{row.missing ? (row.person.role === "lead" ? "Lead" : "Member") : "Own targets"}</span>
+              )}
               {row.instance?.visibility === "team" && <span className="gn-sub">Team only</span>}
             </th>
             {picking && pickCells(row)}

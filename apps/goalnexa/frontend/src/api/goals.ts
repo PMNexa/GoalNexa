@@ -31,4 +31,7 @@ export interface Goal {
   template_goal?: string | null;
   /** A team total (a department's, or the org's when `team_id` is null) - calculated, read-only. */
   is_rollup?: boolean;
+  /** A team member's own copy of their team's goal: that member (set on the team board). */
+  assignee_id?: string | null;
+  assignee_name?: string;
 }

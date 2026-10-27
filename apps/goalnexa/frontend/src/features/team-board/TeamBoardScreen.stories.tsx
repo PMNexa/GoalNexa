@@ -4,7 +4,7 @@ import { userEvent, within } from "storybook/test";
 import { ACCESS_TOKEN } from "../../storybook/fixtures";
 import { handlers } from "../../storybook/handlers";
 import { PICKERS_KEY, SHOW_KEY, TEMPLATE_KEY, VIEW_KEY } from "./boardHelpers";
-import { boardHandlers, memberBoard } from "./TeamBoardScreen.mocks";
+import { boardHandlers, boardWithMembers, memberBoard } from "./TeamBoardScreen.mocks";
 import TeamBoardScreen from "./TeamBoardScreen";
 
 /** The board's remembered settings (localStorage): cleared before each story, set by the ones that need them. */
@@ -63,6 +63,12 @@ export const OverTimeChart: Story = {
 /** A member: no template editing or ticks; only their own team (North) takes check-ins. */
 export const Member: Story = {
   parameters: { msw: { handlers: [...boardHandlers(memberBoard), ...handlers] } },
+};
+
+/** North's lead gave two members targets of their own: their rows under North's, in Targets every North member with a tick. */
+export const TeamMembers: Story = {
+  parameters: { msw: { handlers: [...boardHandlers(boardWithMembers), ...handlers] } },
+  play: ({ canvasElement }) => pickMode(canvasElement, "Targets"),
 };
 
 /** The pickers folded to one line (remembered per browser). */

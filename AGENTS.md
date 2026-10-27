@@ -352,6 +352,15 @@ The dashboard tags a team's goal with its team and a total with "Total"
 (`GoalTag`, `goalTeamName`) - a template's goals share one title.
 Closing a cycle rolls an instance over with blank targets
 (`roll_over_instance`); totals are rebuilt. The dashboard has a team filter.
+**Members** (P-91, `docs/team-templates.md` "Members"): a team's lead gives
+members their own copy of the team's instance (`Goal.assignee_id`, owned
+by the member; `POST goal-templates/<id>/assign`/`unassign`) - a row per
+member under the team's on the board (Targets lists every member with an
+"Own" tick). A tree is (template, team, assignee, cycle): pass the
+assignee to `tree_goals` (None = the team's own copy). The member checks
+in, the lead sets targets (`can_set_targets` ignores ownership of a
+member copy); a team with member copies is always totalled (its copy +
+theirs). Metrics' `for_me` tells an agent which copy is the user's.
 Tests: `apps/main/backend/tests/test_team_templates.py`.
 
 **Targets per period** (P-54..P-59; `docs/period-targets.md`): a SUM
