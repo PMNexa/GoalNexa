@@ -22,7 +22,7 @@ function InForm(props: FieldWidgetProps) {
 }
 
 const meta = {
-  title: "Metrics/CheckInMomentField",
+  title: "Components/CheckInMomentField",
   component: CheckInMomentField,
   decorators: [
     (Story) => (
