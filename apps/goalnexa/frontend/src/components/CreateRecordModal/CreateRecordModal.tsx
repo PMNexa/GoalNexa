@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { createRequest, createSchemaFields, CrudFormModal, loadSchema, Modal, type CrudField, type FormLayout } from "platform-core";
+import { createRequest, createSchemaFields, CrudFormModal, loadSchema, Modal, useT, type CrudField, type FormLayout } from "platform-core";
+import messages from "./CreateRecordModal.messages";
 
 type Row = Record<string, unknown>;
 
@@ -27,6 +28,7 @@ export interface CreateRecordModalProps {
  * the tree position is the parent.
  */
 function CreateRecordModal({ accessToken, target, onCreated, onClose }: CreateRecordModalProps) {
+  const t = useT(messages);
   const request = useMemo(() => createRequest(accessToken), [accessToken]);
   const endpoint = target?.endpoint ?? null;
   const [loaded, setLoaded] = useState<{ endpoint: string; fields: CrudField<Row>[]; layout?: FormLayout } | null>(null);
@@ -68,7 +70,7 @@ function CreateRecordModal({ accessToken, target, onCreated, onClose }: CreateRe
       title={target?.title ?? ""}
       fields={fields ?? []}
       request={request}
-      submitLabel="Create"
+      submitLabel={t("create")}
       layout={loaded?.layout}
       onSubmit={async (values) => {
         if (!target) return;

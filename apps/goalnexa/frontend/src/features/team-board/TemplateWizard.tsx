@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Checkbox, createRequest, createSchemaFields, FormControl, FormLabel, FormSelect, loadSchema, Modal, type CrudField } from "platform-core";
+import { Button, Checkbox, createRequest, createSchemaFields, FormControl, FormLabel, FormSelect, loadSchema, Modal, useT, type CrudField } from "platform-core";
 import type { Cycle } from "../../api/cycles";
 import type { TeamOption } from "../../api/dashboard";
 import { errorMessage } from "../../api/goalMembers";
@@ -12,17 +12,18 @@ import {
 } from "../../api/teamBoard";
 import {
   NO_CYCLE,
-  ROLLUP_LABELS,
-  SNAP_TO_LABELS,
-  TARGET_PER_LABELS,
   newGoal,
   newMetric,
+  rollupLabel,
+  snapToLabel,
   stepProblem,
+  targetPerLabel,
   teamTree,
   type DraftGoal,
   type DraftMetric,
 } from "./templateWizardModel";
 import WizardMetricRow from "./WizardMetricRow";
+import messages from "./wizardMessages";
 
 const MOMENT_KEYS = ["snap_weekday", "snap_quarter_month", "snap_month", "snap_day", "snap_time", "snap_due"];
 
@@ -51,7 +52,9 @@ export interface TemplateWizardProps {
  * duplicating what went through.
  */
 function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, onDone, onClose }: TemplateWizardProps) {
-  const steps = [...(existing ? [] : ["Template"]), "Goals", "Metrics", "Teams", "Review"];
+  const t = useT(messages);
+  // Step ids (also `stepProblem`'s); their labels are `step_<id>`.
+  const steps = [...(existing ? [] : ["Template" as const]), "Goals" as const, "Metrics" as const, "Teams" as const, "Review" as const];
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -166,46 +169,43 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
     <div className="d-flex w-100 align-items-center gap-2">
       {step > 0 && (
         <Button variant="secondary" outline disabled={busy} onClick={() => { setError(null); setStep(step - 1); }}>
-          Back
+          {t("back")}
         </Button>
       )}
       <span className="text-secondary small ms-auto">
-        Step {step + 1} of {steps.length}
+        {t("stepOf", { n: step + 1, total: steps.length })}
       </span>
       {name === "Teams" && picked.size === 0 ? (
-        <Button variant="primary" onClick={next}>Skip - add to teams later</Button>
+        <Button variant="primary" onClick={next}>{t("skipTeams")}</Button>
       ) : last ? (
         <Button variant="primary" disabled={busy} onClick={() => void finish()}>
-          {busy ? "Creating…" : existing ? "Set it up" : "Create the template"}
+          {busy ? t("creating") : existing ? t("setItUp") : t("createTemplate")}
         </Button>
       ) : (
-        <Button variant="primary" onClick={next}>Next</Button>
+        <Button variant="primary" onClick={next}>{t("next")}</Button>
       )}
     </div>
   );
 
   return (
-    <Modal open size="lg" title={existing ? `Set up "${existing.title}"` : "New goal template"} onClose={onClose} footer={footer}>
+    <Modal open size="lg" title={existing ? t("setUpTitle", { title: existing.title }) : t("newTitle")} onClose={onClose} footer={footer}>
       <div className="steps steps-counter mb-4">
         {steps.map((label, i) => (
-          <span key={label} className={`step-item${i === step ? " active" : ""}`}>{label}</span>
+          <span key={label} className={`step-item${i === step ? " active" : ""}`}>{t(`step_${label}`)}</span>
         ))}
       </div>
       {error && <div className="alert alert-danger" role="alert">{error}</div>}
 
       {name === "Template" && (
         <>
-          <p className="text-secondary">
-            One goal system several teams run: the same goals and metrics, each team with its own targets and check-ins,
-            and totals for every department and the whole organization.
-          </p>
+          <p className="text-secondary">{t("templateIntro")}</p>
           <div className="mb-3">
-            <FormLabel htmlFor="tw-title" required>Name</FormLabel>
-            <FormControl id="tw-title" autoFocus value={title} placeholder="Sales targets" onChange={(e) => setTitle(e.target.value)} />
+            <FormLabel htmlFor="tw-title" required>{t("name")}</FormLabel>
+            <FormControl id="tw-title" autoFocus value={title} placeholder={t("namePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div>
-            <FormLabel htmlFor="tw-description">Description</FormLabel>
-            <FormControl id="tw-description" value={description} placeholder="Optional - what it's for"
+            <FormLabel htmlFor="tw-description">{t("description")}</FormLabel>
+            <FormControl id="tw-description" value={description} placeholder={t("descriptionPlaceholder")}
               onChange={(e) => setDescription(e.target.value)} />
           </div>
         </>
@@ -213,38 +213,32 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
 
       {name === "Goals" && (
         <>
-          <p className="text-secondary">
-            What every team works toward, as an outcome. Break it down into sub-goals if it helps - each gets its own
-            metrics next.
-          </p>
+          <p className="text-secondary">{t("goalsIntro")}</p>
           <div className="mb-3">
-            <FormLabel htmlFor="tw-goal-main" required>Main goal</FormLabel>
-            <FormControl id="tw-goal-main" autoFocus value={goals[0].title} placeholder="Grow revenue"
+            <FormLabel htmlFor="tw-goal-main" required>{t("mainGoal")}</FormLabel>
+            <FormControl id="tw-goal-main" autoFocus value={goals[0].title} placeholder={t("mainGoalPlaceholder")}
               onChange={(e) => updateGoal(goals[0].key, { title: e.target.value })} />
           </div>
-          {goals.length > 1 && <FormLabel className="ms-4">Sub-goals</FormLabel>}
+          {goals.length > 1 && <FormLabel className="ms-4">{t("subGoals")}</FormLabel>}
           {goals.slice(1).map((goal, i) => (
             <div className="d-flex gap-2 mb-2 ms-4" key={goal.key}>
-              <FormControl aria-label={`Sub-goal ${i + 1}`} value={goal.title} placeholder="Hire the team"
+              <FormControl aria-label={t("subGoalAria", { n: i + 1 })} value={goal.title} placeholder={t("subGoalPlaceholder")}
                 onChange={(e) => updateGoal(goal.key, { title: e.target.value })} />
-              <Button variant="danger" outline aria-label={`Remove sub-goal ${i + 1}`}
+              <Button variant="danger" outline aria-label={t("removeSubGoalAria", { n: i + 1 })}
                 onClick={() => setGoals((prev) => prev.filter((g) => g.key !== goal.key))}>
-                Remove
+                {t("remove")}
               </Button>
             </div>
           ))}
           <Button variant="link" className="ms-4 px-0" onClick={() => setGoals((prev) => [...prev, newGoal()])}>
-            + Add a sub-goal
+            {t("addSubGoal")}
           </Button>
         </>
       )}
 
       {name === "Metrics" && (
         <>
-          <p className="text-secondary">
-            The numbers every team tracks. Leave the target empty to let each team set its own (until then it doesn't
-            count toward the totals).
-          </p>
+          <p className="text-secondary">{t("metricsIntro")}</p>
           {goals.map((goal, gi) => (
             <div key={goal.key} className="mb-4">
               <h4 className="mb-2">{gi === 0 ? goal.title : `› ${goal.title}`}</h4>
@@ -260,7 +254,7 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
                 />
               ))}
               <Button variant="link" className="px-0" onClick={() => updateGoal(goal.key, { metrics: [...goal.metrics, newMetric()] })}>
-                + Add a metric
+                {t("addMetric")}
               </Button>
             </div>
           ))}
@@ -269,24 +263,18 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
 
       {name === "Teams" && (
         <>
-          <p className="text-secondary">
-            Which teams run it? Each gets its own copy to set targets and check in on. A department can have its own
-            copy too, next to its teams'.
-          </p>
+          <p className="text-secondary">{t("teamsIntro")}</p>
           {tree.length === 0 ? (
-            <div className="alert alert-info">
-              This organization has no teams yet - create them under Organizations → Teams, then add the template to
-              them from the team board (Targets).
-            </div>
+            <div className="alert alert-info">{t("noTeams")}</div>
           ) : (
             <>
               <div className="mb-3">
-                <FormLabel htmlFor="tw-cycle">Cycle</FormLabel>
+                <FormLabel htmlFor="tw-cycle">{t("cycle")}</FormLabel>
                 <FormSelect id="tw-cycle" className="w-auto" value={cycle} onChange={(e) => setCycle(e.target.value)}>
                   {openCycles.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
-                  <option value={NO_CYCLE}>No cycle</option>
+                  <option value={NO_CYCLE}>{t("noCycle")}</option>
                 </FormSelect>
               </div>
               {tree.map(({ team, depth }) => (
@@ -313,12 +301,12 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
       {name === "Review" && (
         <>
           <dl className="row mb-3">
-            <dt className="col-sm-3">Template</dt>
+            <dt className="col-sm-3">{t("reviewTemplate")}</dt>
             <dd className="col-sm-9">{existing ? existing.title : title}</dd>
-            <dt className="col-sm-3">Teams</dt>
+            <dt className="col-sm-3">{t("reviewTeams")}</dt>
             <dd className="col-sm-9">
               {picked.size === 0
-                ? "None yet - add it to teams later from the board."
+                ? t("noneYet")
                 : `${tree.filter(({ team }) => picked.has(team.id)).map(({ team }) => team.name).join(", ")}${
                     cycle === NO_CYCLE ? "" : ` · ${cycles.find((c) => c.id === cycle)?.name ?? ""}`
                   }`}
@@ -330,18 +318,24 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
               <ul className="mb-0">
                 {goal.metrics.map((m) => (
                   <li key={m.key}>
-                    {m.name}
-                    {m.unit && ` (${m.unit})`}: from {m.base}
-                    {m.target.trim() ? ` to ${m.target}` : ", each team sets its target"}
-                    {m.targetPer ? ` ${TARGET_PER_LABELS[m.targetPer].toLowerCase()}${m.countDays === "weekdays" ? " (weekdays)" : ""}${m.progressBy === "hit_rate" ? ", counted by how often it's hit" : ""}` : ""}
-                    {m.snapTo ? ` · check-in period: ${SNAP_TO_LABELS[m.snapTo].toLowerCase()}` : ""} ·{" "}
-                    {m.aggregation === "sum" ? "amounts add up" : "readings"} · totals: {ROLLUP_LABELS[m.rollup].toLowerCase()}
+                    {t("reviewMetric", {
+                      name: m.name,
+                      unit: m.unit,
+                      base: m.base,
+                      target: m.target.trim() ? m.target : "",
+                      per: m.targetPer ? targetPerLabel(m.targetPer).toLowerCase() : "",
+                      weekdays: m.countDays === "weekdays",
+                      hitRate: m.progressBy === "hit_rate",
+                      snap: m.snapTo ? snapToLabel(m.snapTo).toLowerCase() : "",
+                      sum: m.aggregation === "sum",
+                      rollup: rollupLabel(m.rollup).toLowerCase(),
+                    })}
                   </li>
                 ))}
               </ul>
             </div>
           ))}
-          <p className="text-secondary small mt-3 mb-0">You can change any of it later on the template's page.</p>
+          <p className="text-secondary small mt-3 mb-0">{t("changeLater")}</p>
         </>
       )}
     </Modal>

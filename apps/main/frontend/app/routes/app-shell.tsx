@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router";
-import { AnnouncementBanner, AppShell } from "platform-core";
+import { AnnouncementBanner, AppShell, defineMessages, translator, useLocale, useT } from "platform-core";
 import type { NavEntry } from "platform-core";
 import {
   endImpersonation,
@@ -28,26 +28,70 @@ import { useUserMenu } from "../lib/useUserMenu";
 // remembers which are closed. Instance-wide admin pages (users, roles,
 // system) aren't here: they're the system console's (system-shell.tsx),
 // linked from the user menu. See root AGENTS.md.
-const NAV_ITEMS: NavEntry[] = [
-  { label: "Dashboard", to: "/dashboard", icon: DashboardIcon },
-  { label: "Check-in table", to: "/table", icon: TableIcon },
-  { label: "Team board", to: "/board", icon: TeamsIcon, permission: "goal-templates.view" },
-  {
-    label: "Goal tracking",
-    icon: GoalsIcon,
-    children: [
-      { label: "Goals", to: "/goals" },
-      { label: "Cycles", to: "/cycles" },
-      { label: "Goal templates", to: "/goal-templates", permission: "goal-templates.view" },
-      { label: "Metrics", to: "/metrics" },
-      { label: "Check-ins", to: "/check-ins" },
-      { label: "Reminders", to: "/reminders" },
-    ],
+// Built per render (labels in the current language - `useLocale` below
+// re-renders the shell on a switch).
+const messages = defineMessages({
+  en: {
+    dashboard: "Dashboard",
+    table: "Check-in table",
+    board: "Team board",
+    tracking: "Goal tracking",
+    goals: "Goals",
+    cycles: "Cycles",
+    templates: "Goal templates",
+    metrics: "Metrics",
+    checkIns: "Check-ins",
+    reminders: "Reminders",
+    viewingAs: (v: { name: string; email: string }) => (
+      <>
+        Viewing as <strong>{v.name}</strong> ({v.email}) - read-only, ends in 15 minutes.
+      </>
+    ),
+    stopViewing: "Stop viewing",
   },
-  ...createOrgsNavItems("platform-org"),
-  ...createMcpNavItems("mcp"),
-  ...createExtensionNavItems(),
-];
+  vi: {
+    dashboard: "Bảng điều khiển",
+    table: "Bảng check-in",
+    board: "Bảng nhóm",
+    tracking: "Theo dõi mục tiêu",
+    goals: "Mục tiêu",
+    cycles: "Chu kỳ",
+    templates: "Mẫu mục tiêu",
+    metrics: "Chỉ số",
+    checkIns: "Check-in",
+    reminders: "Nhắc nhở",
+    viewingAs: (v: { name: string; email: string }) => (
+      <>
+        Đang xem với tư cách <strong>{v.name}</strong> ({v.email}) - chỉ đọc, kết thúc sau 15 phút.
+      </>
+    ),
+    stopViewing: "Dừng xem",
+  },
+});
+
+function navItems(): NavEntry[] {
+  const t = translator(messages);
+  return [
+    { label: t("dashboard"), to: "/dashboard", icon: DashboardIcon },
+    { label: t("table"), to: "/table", icon: TableIcon },
+    { label: t("board"), to: "/board", icon: TeamsIcon, permission: "goal-templates.view" },
+    {
+      label: t("tracking"),
+      icon: GoalsIcon,
+      children: [
+        { label: t("goals"), to: "/goals" },
+        { label: t("cycles"), to: "/cycles" },
+        { label: t("templates"), to: "/goal-templates", permission: "goal-templates.view" },
+        { label: t("metrics"), to: "/metrics" },
+        { label: t("checkIns"), to: "/check-ins" },
+        { label: t("reminders"), to: "/reminders" },
+      ],
+    },
+    ...createOrgsNavItems("platform-org"),
+    ...createMcpNavItems("mcp"),
+    ...createExtensionNavItems(),
+  ];
+}
 
 /**
  * Wraps every screen except login/signup (see routes.ts) with platform-
@@ -76,10 +120,12 @@ const NAV_ITEMS: NavEntry[] = [
  */
 export default function AppShellLayout() {
   const location = useLocation();
+  const t = useT(messages);
+  useLocale();
   const [session, setSessionState] = useState(() => getSession());
   const accessToken = useRequireAccessToken();
   const permissions = useMyPermissions();
-  const navItems = filterNavByPermissions(NAV_ITEMS, permissions);
+  const nav = filterNavByPermissions(navItems(), permissions);
   const userMenu = useUserMenu(accessToken, permissions);
 
   useEffect(() => {
@@ -90,7 +136,8 @@ export default function AppShellLayout() {
 
   return (
     <AppShell
-      navItems={navItems}
+      brand="GoalNexa"
+      navItems={nav}
       currentPath={location.pathname}
       linkComponent={ShellLink}
       user={session?.user ?? null}
@@ -100,11 +147,9 @@ export default function AppShellLayout() {
     >
       {session?.user.impersonated_by && (
         <div className="alert alert-warning d-flex align-items-center gap-3 mb-3" role="status">
-          <div>
-            Viewing as <strong>{session.user.name}</strong> ({session.user.email}) - read-only, ends in 15 minutes.
-          </div>
+          <div>{t.rich("viewingAs", { name: session.user.name, email: session.user.email })}</div>
           <button type="button" className="btn btn-sm btn-warning ms-auto" onClick={endImpersonation}>
-            Stop viewing
+            {t("stopViewing")}
           </button>
         </div>
       )}

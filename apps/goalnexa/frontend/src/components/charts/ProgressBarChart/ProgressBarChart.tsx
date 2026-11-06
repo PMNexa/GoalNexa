@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { formatDate, formatNumber, useLocale, useT } from "platform-core";
 import type { GoalProgress } from "../../../lib/progress";
 import { formatPct, pctDomainMax, pctTicks, seriesColor, truncate, useElementWidth } from "../chartUtils";
+import messages from "./ProgressBarChart.messages";
 
 export interface BarRow {
   progress: GoalProgress;
@@ -36,6 +38,8 @@ function barPath(x0: number, x1: number, yTop: number, h: number): string {
  * "no metrics" note instead of a misleading 0 bar.
  */
 function ProgressBarChart({ rows }: { rows: BarRow[] }) {
+  const t = useT(messages);
+  const locale = useLocale();
   const [ref, width] = useElementWidth<HTMLDivElement>(720);
   const [hover, setHover] = useState<{ row: BarRow; top: number } | null>(null);
   const TOOLTIP_W = 240;
@@ -46,11 +50,10 @@ function ProgressBarChart({ rows }: { rows: BarRow[] }) {
   const height = margin.top + rows.length * ROW + margin.bottom;
   const xMax = pctDomainMax(rows.map((r) => r.progress.current ?? 0));
   const x = (pct: number) => margin.left + (pct / xMax) * plotW;
-  const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
   return (
     <div ref={ref} className="gn-viz">
-      <svg viewBox={`0 0 ${width} ${height}`} height={height} role="img" aria-label="Current progress by goal">
+      <svg viewBox={`0 0 ${width} ${height}`} height={height} role="img" aria-label={t("ariaLabel")}>
         {pctTicks(xMax, plotW, 44).map((tick) => (
           <g key={tick}>
             <line
@@ -62,7 +65,7 @@ function ProgressBarChart({ rows }: { rows: BarRow[] }) {
               strokeWidth={1}
             />
             <text className="gn-tick" x={x(tick)} y={height - 6} textAnchor="middle">
-              {tick}%
+              {formatPct(tick, locale)}
             </text>
           </g>
         ))}
@@ -87,13 +90,13 @@ function ProgressBarChart({ rows }: { rows: BarRow[] }) {
               </text>
               {current === null ? (
                 <text className="gn-tick" x={margin.left + 6} y={rowTop + ROW / 2} dy="0.32em">
-                  No metrics with a target
+                  {t("noTargetMetrics")}
                 </text>
               ) : (
                 <>
                   <path d={barPath(x(0), x(current), barTop, BAR)} fill={seriesColor(row.slot)} />
                   <text className="gn-value" x={x(current) + 6} y={rowTop + ROW / 2} dy="0.32em">
-                    {formatPct(current)}
+                    {formatPct(current, locale)}
                   </text>
                 </>
               )}
@@ -114,15 +117,15 @@ function ProgressBarChart({ rows }: { rows: BarRow[] }) {
             <span className="gn-key" style={{ background: seriesColor(hover.row.slot) }} />
             <span className="gn-name">{hover.row.label ?? hover.row.progress.goal.title}</span>
             <span className="gn-num">
-              {hover.row.progress.current === null ? "—" : formatPct(hover.row.progress.current)}
+              {hover.row.progress.current === null ? "—" : formatPct(hover.row.progress.current, locale)}
             </span>
           </div>
           <div className="gn-tooltip-title mt-1 mb-0">
-            {hover.row.progress.metricCount} metric{hover.row.progress.metricCount === 1 ? "" : "s"}
+            {t("metrics", { n: hover.row.progress.metricCount, count: formatNumber(hover.row.progress.metricCount, undefined, locale) })}
             {" · "}
             {hover.row.progress.lastCheckIn === null
-              ? "no check-ins"
-              : `last check-in ${dateFormat.format(hover.row.progress.lastCheckIn)}`}
+              ? t("noCheckIns")
+              : t("lastCheckIn", { date: formatDate(hover.row.progress.lastCheckIn, { dateStyle: "medium" }, locale) })}
           </div>
         </div>
       )}

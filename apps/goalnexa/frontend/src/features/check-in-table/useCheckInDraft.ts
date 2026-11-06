@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useT } from "platform-core";
+import messages from "./messages";
 import type { CheckIn } from "../../api/checkIns";
 import { apiRequest } from "../../api/client";
 import { bucketKey, nowLocal, weekStartOf, type Snap } from "./tableColumns";
@@ -24,6 +26,7 @@ export function useCheckInDraft({
   metricName,
   onSaved,
 }: CheckInDraftOptions) {
+  const t = useT(messages);
   // The new check-in column: one time for the whole column, a value per metric.
   const [draftWhen, setDraftWhen] = useState(nowLocal);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
@@ -91,7 +94,7 @@ export function useCheckInDraft({
       }
     }
     setSaving(false);
-    if (failed.length) setSaveError(`Couldn't save: ${failed.join(", ")}`);
+    if (failed.length) setSaveError(t("saveFailed", { names: failed.join(", ") }));
     else setDraftWhen(nowLocal());
     onSaved();
   }

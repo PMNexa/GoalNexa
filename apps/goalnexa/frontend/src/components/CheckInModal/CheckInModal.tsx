@@ -1,27 +1,13 @@
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
-import { Button, FormControl, FormLabel, FormSelect, Modal } from "platform-core";
+import { Button, formatDateTime, formatNumber, formatTime, FormControl, FormLabel, FormSelect, Modal, useLocale, useT, type Locale } from "platform-core";
 import { apiRequest } from "../../api/client";
 import type { CheckIn } from "../../api/checkIns";
 import type { Metric } from "../../api/metrics";
 import { countedPer, midPeriod, nextPeriodStart, periodStart, recentPeriods, type Snap } from "../../lib/periods";
+import messages from "./CheckInModal.messages";
 
-const THIS_PERIOD: Record<Snap, string> = {
-  day: "today",
-  week: "this week",
-  month: "this month",
-  quarter: "this quarter",
-  year: "this year",
-};
-const THAT_PERIOD: Record<Snap, string> = {
-  day: "that day",
-  week: "that week",
-  month: "that month",
-  quarter: "that quarter",
-  year: "that year",
-};
-
-const timeOfDay = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
-const shortDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const TIME_OF_DAY: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+const SHORT_DATE: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
 
 /**
  * The check-in that counts for the period `t` falls in (one reading per
@@ -75,8 +61,8 @@ export interface CheckInModalProps {
   onClose: () => void;
 }
 
-function formatAmount(value: string): string {
-  return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
+function formatAmount(value: string, locale: Locale): string {
+  return formatNumber(Number(value), { maximumFractionDigits: 2 }, locale);
 }
 
 /**
@@ -86,19 +72,20 @@ function formatAmount(value: string): string {
  * fields reset each time it opens (`key` on the inner form).
  */
 function CheckInModal({ accessToken, metric, goalTitle, onSaved, onClose }: CheckInModalProps) {
+  const t = useT(messages);
   return (
     <Modal
       open={metric !== null}
       onClose={onClose}
       size="sm"
-      title={metric ? `Check in: ${metric.name}` : ""}
+      title={metric ? t("title", { name: metric.name }) : ""}
       footer={
         <>
           <Button variant="secondary" outline onClick={onClose}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button type="submit" variant="primary" form="dashboard-check-in-form">
-            Save check-in
+            {t("save")}
           </Button>
         </>
       }
@@ -121,6 +108,9 @@ function CheckInForm({
   goalTitle?: string;
   onSaved: () => void;
 }) {
+  const t = useT(messages);
+  const locale = useLocale();
+  const amount = (v: string) => formatAmount(v, locale);
   const [value, setValue] = useState("");
   const [when, setWhen] = useState("");
   const [note, setNote] = useState("");
@@ -139,7 +129,7 @@ function CheckInForm({
     if (checkIn && !prefilled.current) setValue((current) => (current === "" ? String(Number(checkIn.value)) : current));
     prefilled.current = true;
   });
-  const periodWord = per ? (when ? THAT_PERIOD[per] : THIS_PERIOD[per]) : "";
+  const periodWord = per ? t(when ? `that_${per}` : `this_${per}`) : "";
   // A later check-in in the same period keeps counting - this one would be replaced at once.
   // A check-in for a period lands on the period's moment (which may be ahead of now), like this one will.
   const existingAt = existing ? Date.parse(existing.checked_in_at) : 0;
@@ -176,13 +166,12 @@ function CheckInForm({
     <form id="dashboard-check-in-form" onSubmit={handleSubmit}>
       <p className="text-secondary mb-3">
         {goalTitle && <>{goalTitle} · </>}
-        now {formatAmount(metric.current_value)} of {formatAmount(metric.target_value)}
-        {metric.unit ? ` ${metric.unit}` : ""}
-        {Number(metric.base_value) !== 0 && <> · started at {formatAmount(metric.base_value)}</>}
+        {t("now", { current: amount(metric.current_value), target: amount(metric.target_value), unit: metric.unit })}
+        {Number(metric.base_value) !== 0 && <> · {t("startedAt", { base: amount(metric.base_value) })}</>}
       </p>
       <div className="mb-3">
         <FormLabel htmlFor="dashboard-check-in-value" required>
-          {adds ? (per ? `Total so far ${periodWord}` : "Amount to add") : "Value"}
+          {adds ? (per ? t("totalSoFar", { period: periodWord }) : t("amountToAdd")) : t("value")}
           {metric.unit ? ` (${metric.unit})` : ""}
         </FormLabel>
         <FormControl
@@ -197,43 +186,53 @@ function CheckInForm({
         {existing && (
           <small className="form-hint">
             {later
-              ? `${formatAmount(existing.value)} at ${shortDate.format(Date.parse(existing.checked_in_at))} is later in ${periodWord} and keeps counting - this one won't.`
-              : `Replaces ${periodWord === "today" ? "today's" : `${periodWord}'s`} ${formatAmount(existing.value)}${
+              ? t("later", {
+                  value: amount(existing.value),
+                  when: formatDateTime(existing.checked_in_at, SHORT_DATE, locale),
+                  period: periodWord,
+                })
+              : t("replaces", {
+                  period: periodWord,
+                  value: amount(existing.value),
                   // A check-in for a period has no time of its own - it's the period's first day.
-                  snap ? "" : ` (${(when ? shortDate : timeOfDay).format(Date.parse(existing.checked_in_at))})`
-                }`}
-            {!later && adds && newTotal !== null && when === "" ? ` - new total ${formatAmount(String(newTotal))}` : ""}
+                  time: snap
+                    ? undefined
+                    : when
+                      ? formatDateTime(existing.checked_in_at, SHORT_DATE, locale)
+                      : formatTime(existing.checked_in_at, TIME_OF_DAY, locale),
+                })}
+            {!later && adds && newTotal !== null && when === "" ? t("newTotal", { total: amount(String(newTotal)) }) : ""}
             {!later ? "." : ""}
           </small>
         )}
         {adds && !existing && (
           <small className="form-hint">
-            {per ? `The total ${periodWord}; a later check-in ${periodWord} replaces it` : "Adds to the total"}
-            {newTotal !== null && when === "" ? ` - new total ${formatAmount(String(newTotal))}` : ""}.
+            {per ? t("totalHint", { period: periodWord }) : t("addsToTotal")}
+            {newTotal !== null && when === "" ? t("newTotal", { total: amount(String(newTotal)) }) : ""}.
           </small>
         )}
       </div>
       {snap ? (
         // Check-ins are for a whole period: pick it (the server sets the time to its first day).
         <div className="mb-3">
-          <FormLabel htmlFor="dashboard-check-in-when">For</FormLabel>
+          <FormLabel htmlFor="dashboard-check-in-when">{t("for")}</FormLabel>
           <FormSelect id="dashboard-check-in-when" value={when} onChange={(event) => setWhen(event.target.value)}>
-            {recentPeriods(snap, openedAt).map((period, index) => (
+            {recentPeriods(snap, openedAt, 12, locale).map((period, index) => (
               <option key={period.start} value={index === 0 ? "" : new Date(midPeriod(period.start, snap as Snap)).toISOString()}>
-                {index === 0 ? `${THIS_PERIOD[snap as Snap].replace(/^./, (c) => c.toUpperCase())} (${period.label})` : period.label}
+                {index === 0 ? `${t(`this_${snap as Snap}`).replace(/^./, (c) => c.toUpperCase())} (${period.label})` : period.label}
               </option>
             ))}
           </FormSelect>
         </div>
       ) : (
         <div className="mb-3">
-          <FormLabel htmlFor="dashboard-check-in-when">When</FormLabel>
+          <FormLabel htmlFor="dashboard-check-in-when">{t("when")}</FormLabel>
           <FormControl id="dashboard-check-in-when" type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} />
-          <small className="form-hint">Leave blank for now.</small>
+          <small className="form-hint">{t("whenHint")}</small>
         </div>
       )}
       <div>
-        <FormLabel htmlFor="dashboard-check-in-note">Note</FormLabel>
+        <FormLabel htmlFor="dashboard-check-in-note">{t("note")}</FormLabel>
         <FormControl id="dashboard-check-in-note" value={note} onChange={(event) => setNote(event.target.value)} />
       </div>
       {error && (

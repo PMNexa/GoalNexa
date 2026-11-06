@@ -1,3 +1,4 @@
+from django.utils.translation import gettext
 from rest_framework import serializers
 
 from core_api.serializers import BaseSerializer
@@ -35,19 +36,22 @@ def validate_one_per(one_per: str, target_per: str, snap_to: str = "") -> None:
     """One reading per period, and the period check-ins are for, can't be
     longer than the target's period; check-ins for a period can't be longer
     than the one reading's either."""
-    from goalnexa.periods import PERIOD_RANK
+    from goalnexa.periods import PERIOD_RANK, period_name
 
     if one_per and target_per and PERIOD_RANK[one_per] > PERIOD_RANK[target_per]:
         raise serializers.ValidationError(
-            {"one_per": [f"Can't be longer than the target's period: a target per {target_per} needs at most one reading per {target_per}."]}
+            {"one_per": [gettext("Can't be longer than the target's period: a target per {period} needs at most one reading per {period}.").format(
+                period=period_name(target_per))]}
         )
     if snap_to and target_per and PERIOD_RANK[snap_to] > PERIOD_RANK[target_per]:
         raise serializers.ValidationError(
-            {"snap_to": [f"Can't be longer than the target's period: a target per {target_per} needs check-ins for a {target_per} at most."]}
+            {"snap_to": [gettext("Can't be longer than the target's period: a target per {period} needs check-ins for a {period} at most.").format(
+                period=period_name(target_per))]}
         )
     if snap_to and one_per and PERIOD_RANK[snap_to] > PERIOD_RANK[one_per]:
         raise serializers.ValidationError(
-            {"snap_to": [f"Can't be longer than \"one reading per {one_per}\" - every check-in would land in the same {one_per}."]}
+            {"snap_to": [gettext("Can't be longer than \"one reading per {period}\" - every check-in would land in the same {period}.").format(
+                period=period_name(one_per))]}
         )
 
 

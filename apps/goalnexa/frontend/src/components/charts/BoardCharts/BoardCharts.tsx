@@ -1,9 +1,11 @@
 import { Fragment, useState, type PointerEvent, type ReactNode } from "react";
+import { formatNumber, useLocale, useT, type Locale } from "platform-core";
 import type { BoardMetric, CellNumbers } from "../../../api/teamBoard";
 import { seriesColor, seriesDash, seriesKey, useElementWidth } from "../chartUtils";
+import messages from "./BoardCharts.messages";
 
-const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
-const FULL = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+const COMPACT: Intl.NumberFormatOptions = { notation: "compact", maximumFractionDigits: 1 };
+const FULL: Intl.NumberFormatOptions = { maximumFractionDigits: 2 };
 
 /** One team's (or total's) cells - a row of the board. */
 export interface ChartSeries {
@@ -35,9 +37,10 @@ function heatClass(pct: number | null): string {
   return "gn-bar-low";
 }
 
-function valueText(point: ChartPoint, unit: string): string {
+function valueText(point: ChartPoint, unit: string, locale: Locale): string {
   if (point.value === null) return "—";
-  return `${FULL.format(point.value)}${point.target !== null ? ` / ${FULL.format(point.target)}` : ""}${unit ? ` ${unit}` : ""}`;
+  const full = (v: number) => formatNumber(v, FULL, locale);
+  return `${full(point.value)}${point.target !== null ? ` / ${full(point.target)}` : ""}${unit ? ` ${unit}` : ""}`;
 }
 
 /** The goals in board order, each with its metrics - one heading and a grid of metric cards each. */
@@ -92,6 +95,8 @@ export interface BoardBarChartsProps {
  * metric with no target: bars by value instead. Totals come last.
  */
 export function BoardBarCharts({ goals, metrics, series, point }: BoardBarChartsProps) {
+  const t = useT(messages);
+  const locale = useLocale();
   return (
     <GoalSections
       goals={goals}
@@ -101,7 +106,7 @@ export function BoardBarCharts({ goals, metrics, series, point }: BoardBarCharts
           .filter((s) => s.metrics[metric.id])
           .map((s) => ({ series: s, point: point(s.metrics[metric.id], metric) }))
           .sort((a, b) => Number(a.series.total) - Number(b.series.total));
-        if (rows.length === 0) return <div className="text-secondary small">No team has this metric.</div>;
+        if (rows.length === 0) return <div className="text-secondary small">{t("noTeam")}</div>;
         const pctMax = Math.max(100, ...rows.map((r) => r.point.pct ?? 0));
         const valueMax = Math.max(1, ...rows.filter((r) => r.point.pct === null).map((r) => r.point.value ?? 0));
         return (
@@ -113,17 +118,17 @@ export function BoardBarCharts({ goals, metrics, series, point }: BoardBarCharts
                 <Fragment key={s.key}>
                 {firstTotal && index > 0 && <span className="gn-bar-divider" />}
                 <div className={`gn-bar-row${s.total ? " gn-bar-total" : ""}`}>
-                  <span className="gn-bar-name" title={s.total ? `${s.label} (total)` : s.label}>
+                  <span className="gn-bar-name" title={s.total ? t("totalTitle", { label: s.label }) : s.label}>
                     {s.label}
-                    {s.total && <span className="text-secondary"> · total</span>}
+                    {s.total && <span className="text-secondary"> · {t("totalSuffix")}</span>}
                   </span>
-                  <span className="gn-bar-track" title={valueText(p, metric.unit)}>
+                  <span className="gn-bar-track" title={valueText(p, metric.unit, locale)}>
                     <span className={`gn-bar-fill ${heatClass(p.pct)}`} style={{ width: `${Math.max(width, 0)}%` }} />
                     {p.pct !== null && <span className="gn-bar-target" style={{ left: `${(100 / pctMax) * 100}%` }} />}
                   </span>
                   <span className="gn-bar-value">
-                    {valueText(p, "")}
-                    {p.pct !== null && <span className="text-secondary"> · {Math.round(p.pct)}%</span>}
+                    {valueText(p, "", locale)}
+                    {p.pct !== null && <span className="text-secondary"> · {formatNumber(Math.round(p.pct), undefined, locale)}%</span>}
                   </span>
                 </div>
                 </Fragment>
@@ -186,6 +191,8 @@ function LineChart({
   starts: string[];
   label: (start: string) => string;
 }) {
+  const t = useT(messages);
+  const locale = useLocale();
   const [ref, width] = useElementWidth<HTMLDivElement>(320);
   const [hover, setHover] = useState<number | null>(null);
   const HEIGHT = 150;
@@ -243,15 +250,15 @@ function LineChart({
   const tooltipLeft = hoverX + 12 + TOOLTIP_W > width ? Math.max(0, hoverX - 12 - TOOLTIP_W) : hoverX + 12;
   const unit = metric.unit ? ` ${metric.unit}` : "";
 
-  if (starts.length === 0) return <div className="text-secondary small">No check-ins in these periods.</div>;
+  if (starts.length === 0) return <div className="text-secondary small">{t("noCheckIns")}</div>;
   return (
     <div ref={ref} className="gn-viz">
-      <svg viewBox={`0 0 ${width} ${HEIGHT}`} height={HEIGHT} role="img" aria-label={`${metric.name} per period, one line per team`}>
+      <svg viewBox={`0 0 ${width} ${HEIGHT}`} height={HEIGHT} role="img" aria-label={t("ariaLabel", { name: metric.name })}>
         {[vMax / 1.1, vMin].map((v) => (
           <g key={v}>
             <line x1={margin.left} x2={margin.left + plotW} y1={y(v)} y2={y(v)} stroke="var(--gn-grid)" strokeWidth={1} />
             <text className="gn-tick" x={margin.left - 6} y={y(v)} dy="0.32em" textAnchor="end">
-              {COMPACT.format(v)}
+              {formatNumber(v, COMPACT, locale)}
             </text>
           </g>
         ))}
@@ -303,10 +310,10 @@ function LineChart({
             return (
               <div key={s.key} className="gn-tooltip-row">
                 {teamIndex >= 0 ? <span className="gn-key" style={{ background: seriesKey(teamIndex + 1) }} /> : <span className="gn-key" />}
-                <span className="gn-name">{s.total ? `${s.label} · total` : s.label}</span>
+                <span className="gn-name">{s.total ? t("seriesTotal", { label: s.label }) : s.label}</span>
                 <span className="gn-num">
-                  {c?.value === null || c === null ? "—" : FULL.format(c.value)}
-                  {c?.quota !== null && c?.quota !== undefined ? ` / ${FULL.format(c.quota)}` : ""}
+                  {c?.value === null || c === null ? "—" : formatNumber(c.value, FULL, locale)}
+                  {c?.quota !== null && c?.quota !== undefined ? ` / ${formatNumber(c.quota, FULL, locale)}` : ""}
                   {unit}
                 </span>
               </div>

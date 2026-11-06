@@ -32,6 +32,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_noop
 
 from core_api.registry import endpoint_model
 from goalnexa.models import CountDays, ProgressBy, TargetPer
@@ -167,6 +168,19 @@ def goal_range(metric, goal, zone: ZoneInfo, first_check_in: date | None) -> tup
 
 
 #: Shortest first - `one_per` can't be longer than `target_per`.
+#: A period as a word in a sentence ("a target per week") - see `period_name`.
+PERIOD_NAMES = {
+    "day": gettext_noop("day"), "week": gettext_noop("week"), "month": gettext_noop("month"),
+    "quarter": gettext_noop("quarter"), "year": gettext_noop("year"),
+}
+
+
+def period_name(code) -> str:
+    """`code` ("week") as a word in the request's language."""
+    code = str(code or "")
+    return gettext(PERIOD_NAMES[code]) if code in PERIOD_NAMES else code
+
+
 PERIOD_RANK = {TargetPer.DAY: 1, TargetPer.WEEK: 2, TargetPer.MONTH: 3, TargetPer.QUARTER: 4, TargetPer.YEAR: 5}
 
 

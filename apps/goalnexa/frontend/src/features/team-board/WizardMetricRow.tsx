@@ -1,15 +1,17 @@
-import { Button, FormControl, FormLabel, FormSelect, type CrudField } from "platform-core";
+import { Button, FormControl, FormLabel, FormSelect, useT, type CrudField } from "platform-core";
 import CheckInMomentField from "../../components/CheckInMomentField";
 import type { RollupRule } from "../../api/teamBoard";
 import type { TargetPer } from "../../api/metrics";
 import {
   PER_ORDER,
-  ROLLUP_LABELS,
-  SNAP_TO_LABELS,
-  TARGET_PER_LABELS,
+  ROLLUP_RULES,
   periodFits,
+  rollupLabel,
+  snapToLabel,
+  targetPerLabel,
   type DraftMetric,
 } from "./templateWizardModel";
+import messages from "./wizardMessages";
 
 export interface WizardMetricRowProps {
   /** The goal it's under (its key makes the inputs' ids; its title names the Remove button). */
@@ -29,80 +31,81 @@ export interface WizardMetricRowProps {
  * the check-in period (and its moment), the default start and target.
  */
 function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove, momentFields = {} }: WizardMetricRowProps) {
+  const t = useT(messages);
   const id = `tw-${goal.key}-${metric.key}`;
   // "Check-in period" offers only the periods that fit the target's. Which check-ins in it count
   // follows "Each check-in is": the last new value, or every amount added up.
   const snapField: CrudField<Record<string, unknown>> = {
     key: "snap_to",
-    label: "Check-in period",
+    label: t("checkInPeriod"),
     type: "select",
     options: PER_ORDER.filter((per) => periodFits(per, metric.targetPer)).map((per) => ({
       value: per,
-      label: SNAP_TO_LABELS[per],
+      label: snapToLabel(per),
     })),
   };
   return (
     <div className="row g-2 align-items-end mb-2 pb-2 border-bottom">
       <div className="col-md-4">
-        <FormLabel htmlFor={`${id}-name`}>Metric</FormLabel>
-        <FormControl id={`${id}-name`} value={metric.name} placeholder="Revenue"
+        <FormLabel htmlFor={`${id}-name`}>{t("metric")}</FormLabel>
+        <FormControl id={`${id}-name`} value={metric.name} placeholder={t("metricPlaceholder")}
           onChange={(e) => onChange({ name: e.target.value })} />
       </div>
       <div className="col-md-2">
-        <FormLabel htmlFor={`${id}-unit`}>Unit</FormLabel>
+        <FormLabel htmlFor={`${id}-unit`}>{t("unit")}</FormLabel>
         <FormControl id={`${id}-unit`} value={metric.unit} placeholder="$"
           onChange={(e) => onChange({ unit: e.target.value })} />
       </div>
       <div className="col-md-3">
-        <FormLabel htmlFor={`${id}-agg`}>Each check-in is</FormLabel>
+        <FormLabel htmlFor={`${id}-agg`}>{t("eachCheckInIs")}</FormLabel>
         <FormSelect id={`${id}-agg`} value={metric.aggregation}
           onChange={(e) => {
             const aggregation = e.target.value as DraftMetric["aggregation"];
             // A target per period is for amounts to add only.
             onChange(aggregation === "sum" ? { aggregation } : { aggregation, targetPer: "", progressBy: "total" });
           }}>
-          <option value="latest">The new value</option>
-          <option value="sum">An amount to add</option>
+          <option value="latest">{t("theNewValue")}</option>
+          <option value="sum">{t("anAmountToAdd")}</option>
         </FormSelect>
       </div>
       <div className="col-md-3">
-        <FormLabel htmlFor={`${id}-rollup`}>Totals</FormLabel>
+        <FormLabel htmlFor={`${id}-rollup`}>{t("totals")}</FormLabel>
         <FormSelect id={`${id}-rollup`} value={metric.rollup}
           onChange={(e) => onChange({ rollup: e.target.value as RollupRule })}>
-          {(Object.keys(ROLLUP_LABELS) as RollupRule[])
+          {ROLLUP_RULES
             .filter((r) => !(r === "sum" && metric.progressBy === "hit_rate" && metric.targetPer))
             .map((r) => (
-              <option key={r} value={r}>{ROLLUP_LABELS[r]}</option>
+              <option key={r} value={r}>{rollupLabel(r)}</option>
             ))}
         </FormSelect>
       </div>
       {metric.aggregation === "sum" && (
         <>
           <div className="col-md-4">
-            <FormLabel htmlFor={`${id}-per`}>Target is for</FormLabel>
+            <FormLabel htmlFor={`${id}-per`}>{t("targetIsFor")}</FormLabel>
             <FormSelect id={`${id}-per`} value={metric.targetPer}
               onChange={(e) => {
                 const targetPer = e.target.value as TargetPer;
                 onChange({ targetPer, ...(periodFits(metric.snapTo, targetPer) ? {} : { snapTo: "" as TargetPer }) });
               }}>
-              {(Object.keys(TARGET_PER_LABELS) as TargetPer[]).map((per) => (
-                <option key={per} value={per}>{TARGET_PER_LABELS[per]}</option>
+              {PER_ORDER.map((per) => (
+                <option key={per} value={per}>{targetPerLabel(per)}</option>
               ))}
             </FormSelect>
           </div>
           {(metric.targetPer === "day" || metric.targetPer === "week") && (
             <div className="col-md-4">
-              <FormLabel htmlFor={`${id}-days`}>Counts</FormLabel>
+              <FormLabel htmlFor={`${id}-days`}>{t("counts")}</FormLabel>
               <FormSelect id={`${id}-days`} value={metric.countDays}
                 onChange={(e) => onChange({ countDays: e.target.value as DraftMetric["countDays"] })}>
-                <option value="all">Every day</option>
-                <option value="weekdays">Weekdays only</option>
+                <option value="all">{t("everyDay")}</option>
+                <option value="weekdays">{t("weekdaysOnly")}</option>
               </FormSelect>
             </div>
           )}
           {metric.targetPer && (
             <div className="col-md-4">
-              <FormLabel htmlFor={`${id}-by`}>Progress is</FormLabel>
+              <FormLabel htmlFor={`${id}-by`}>{t("progressIs")}</FormLabel>
               <FormSelect id={`${id}-by`} value={metric.progressBy}
                 onChange={(e) => {
                   const progressBy = e.target.value as DraftMetric["progressBy"];
@@ -111,8 +114,8 @@ function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove, momentFi
                     ...(progressBy === "hit_rate" && metric.rollup === "sum" ? { rollup: "avg" as RollupRule } : {}),
                   });
                 }}>
-                <option value="total">The total</option>
-                <option value="hit_rate">How often it's hit</option>
+                <option value="total">{t("theTotal")}</option>
+                <option value="hit_rate">{t("howOftenHit")}</option>
               </FormSelect>
             </div>
           )}
@@ -130,21 +133,21 @@ function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove, momentFi
         />
       </div>
       <div className="col-md-3">
-        <FormLabel htmlFor={`${id}-base`}>Start</FormLabel>
+        <FormLabel htmlFor={`${id}-base`}>{t("start")}</FormLabel>
         <FormControl id={`${id}-base`} inputMode="decimal" value={metric.base}
           onChange={(e) => onChange({ base: e.target.value })} />
       </div>
       <div className="col-md-3">
         <FormLabel htmlFor={`${id}-target`}>
-          Default target{metric.targetPer ? ` / ${metric.targetPer}` : ""}
+          {metric.targetPer ? t(`defaultTargetPer_${metric.targetPer}`) : t("defaultTarget")}
         </FormLabel>
-        <FormControl id={`${id}-target`} inputMode="decimal" value={metric.target} placeholder="Each team's own"
+        <FormControl id={`${id}-target`} inputMode="decimal" value={metric.target} placeholder={t("eachTeamsOwn")}
           onChange={(e) => onChange({ target: e.target.value })} />
       </div>
       <div className="col-md-auto ms-auto">
-        <Button variant="danger" outline aria-label={`Remove metric ${mi + 1} of ${goal.title}`}
+        <Button variant="danger" outline aria-label={t("removeMetricAria", { n: mi + 1, goal: goal.title })}
           onClick={onRemove}>
-          Remove
+          {t("remove")}
         </Button>
       </div>
     </div>

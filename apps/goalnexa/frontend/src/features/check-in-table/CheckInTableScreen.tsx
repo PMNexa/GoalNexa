@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { Card, CardBody } from "platform-core";
+import { Card, CardBody, useLocale, useT } from "platform-core";
+import messages from "./messages";
 import type { Goal } from "../../api/goals";
 import type { Metric } from "../../api/metrics";
 import { goalTeamName } from "../../api/dashboard";
@@ -52,6 +53,8 @@ const PICKED_KEY = "goalnexa:table-goals";
  * computes it), shown only on days one of its own metrics was checked in.
  */
 function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
+  const t = useT(messages);
+  const locale = useLocale();
   const { orgKey, data, setData, error, reload } = useTableData(accessToken);
   const [snap, setSnap] = useState<Snap>("day");
   const [view, setViewState] = useState<TableView>(() => readStored<TableView>(VIEW_KEY, "table"));
@@ -128,7 +131,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
     setData(next);
     setOrderError(null);
     saveOrder(accessToken, kind, ids).catch((e) => {
-      setOrderError(`Couldn't save the new order: ${String(e?.message ?? e)}`);
+      setOrderError(t("orderSaveFailed", { error: String(e?.message ?? e) }));
       reload();
     });
   }
@@ -154,8 +157,8 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
 
   const table = useMemo(() => {
     if (!data || data.org !== orgKey) return null;
-    return buildTable(data, picked, snap, weekStart);
-  }, [data, orgKey, snap, weekStart, picked]);
+    return buildTable(data, picked, snap, weekStart, locale);
+  }, [data, orgKey, snap, weekStart, picked, locale]);
 
   // The goal picker's list: every goal, in the table's tree order.
   const goalOptions = useMemo(() => {
@@ -181,8 +184,8 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
     setCreateTarget({
       endpoint: "/api/v1/goals",
       title: parentGoalId
-        ? `New sub-goal of ${goalTitle(parentGoalId)}`
-        : "New goal",
+        ? t("newSubGoal", { title: goalTitle(parentGoalId) })
+        : t("newGoal"),
       preset: {
         org_id: orgId,
         ...(parentGoalId ? { parent: parentGoalId } : {}),
@@ -194,8 +197,8 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
     setCreateTarget({
       endpoint: "/api/v1/metrics",
       title: parentMetricId
-        ? `New sub-metric of ${metricById(parentMetricId)?.name ?? ""}`
-        : `New metric for ${goalTitle(goalId)}`,
+        ? t("newSubMetric", { title: metricById(parentMetricId)?.name ?? "" })
+        : t("newMetric", { title: goalTitle(goalId) }),
       preset: {
         goal: goalId,
         ...(parentMetricId ? { parent: parentMetricId } : {}),
@@ -254,11 +257,11 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
           {error ? (
             <div className="text-danger p-3">{error}</div>
           ) : !table ? (
-            <div className="text-secondary p-3">Loading…</div>
+            <div className="text-secondary p-3">{t("loading")}</div>
           ) : table.rows.length === 0 ? (
-            <div className="text-secondary p-3">No goals yet.</div>
+            <div className="text-secondary p-3">{t("noGoals")}</div>
           ) : view === "chart" ? (
-            <TableCharts cards={chartCards(table, data?.teamNames)} columns={table.columns} label={(col) => bucketLabel(col, snap)} />
+            <TableCharts cards={chartCards(table, data?.teamNames, locale)} columns={table.columns} label={(col) => bucketLabel(col, snap, locale)} />
           ) : (
             <div
               className="gn-table-wrap"
@@ -273,10 +276,10 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
               <table className="gn-table">
                 <thead>
                   <tr>
-                    <th className="gn-sticky">Goal / metric</th>
-                    <th>Target</th>
+                    <th className="gn-sticky">{t("goalMetric")}</th>
+                    <th>{t("target")}</th>
                     {table.columns.map((col) => (
-                      <th key={col}>{bucketLabel(col, snap)}</th>
+                      <th key={col}>{bucketLabel(col, snap, locale)}</th>
                     ))}
                     <th className="gn-fill" aria-hidden="true" />
                     <DraftColumnHeader
@@ -309,22 +312,22 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
                           row.kind === "goal"
                             ? [
                                 {
-                                  label: "Add metric",
+                                  label: t("addMetric"),
                                   onSelect: () => addMetric(row.id, null),
                                 },
                                 {
-                                  label: "Add sub-goal",
+                                  label: t("addSubGoal"),
                                   onSelect: () => addGoal(row.id),
                                 },
                               ]
                             : [
                                 {
-                                  label: "Check in",
+                                  label: t("checkIn"),
                                   onSelect: () =>
                                     setCheckInFor(metricById(row.id)),
                                 },
                                 {
-                                  label: "Add sub-metric",
+                                  label: t("addSubMetric"),
                                   onSelect: () =>
                                     addMetric(row.goalId, row.id),
                                 },
@@ -333,7 +336,7 @@ function CheckInTableScreen({ accessToken }: CheckInTableScreenProps) {
                         draftValue={draft.draftValues[row.id] ?? ""}
                         draftPlaceholder={
                           metricById(row.id)?.aggregation === "sum"
-                            ? "+ amount"
+                            ? t("amountPlaceholder")
                             : (metricById(row.id)?.unit ?? "")
                         }
                         onDraftChange={(value) => draft.setDraftValue(row.id, value)}

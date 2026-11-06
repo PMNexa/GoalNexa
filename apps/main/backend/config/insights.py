@@ -13,6 +13,7 @@ from datetime import timezone as dt_timezone
 
 from django.db.models import Count, Max, Min, Q
 from django.utils import timezone
+from django.utils.translation import gettext
 
 from core_api.system import InsightSection, org_limit, register_insight_section
 from goalnexa.models import (
@@ -187,7 +188,7 @@ def activation(days: int) -> list[dict]:
 
     split_columns = [{"label": ""}, {"label": "Sign-ups", "align": "end"}, *[{"label": s} for s in STEPS[1:]]]
     return [
-        {"kind": "table", "title": f"Accounts created in the last {days} days",
+        {"kind": "table", "title": gettext("Accounts created in the last {days} days").format(days=days),
          "columns": [{"label": "Step"}, {"label": "Users", "align": "end"}, {"label": "Of sign-ups"},
                      {"label": "From previous step", "align": "end"}, {"label": "Median time from sign-up", "align": "end"}],
          "rows": rows},
@@ -246,16 +247,16 @@ def retention(days: int) -> list[dict]:
 
     return [
         {"kind": "tiles", "items": [
-            {"label": f"Quiet {QUIET_DAYS[0]}-{QUIET_DAYS[1] - 1} days", "value": sum(1 for _, t in quiet if (now - t).days < QUIET_DAYS[1])},
-            {"label": f"Quiet {QUIET_DAYS[1]}+ days", "value": sum(1 for _, t in quiet if (now - t).days >= QUIET_DAYS[1])},
+            {"label": gettext("Quiet {low}-{high} days").format(low=QUIET_DAYS[0], high=QUIET_DAYS[1] - 1), "value": sum(1 for _, t in quiet if (now - t).days < QUIET_DAYS[1])},
+            {"label": gettext("Quiet {days}+ days").format(days=QUIET_DAYS[1]), "value": sum(1 for _, t in quiet if (now - t).days >= QUIET_DAYS[1])},
             {"label": "Organizations gone quiet", "value": len(quiet_orgs)},
         ]},
         {"kind": "table", "title": "Weekly sign-up cohorts: % active N weeks later", "empty": "No sign-ups in these weeks.",
          "columns": [{"label": "Week of"}, {"label": "Users", "align": "end"}, *[{"label": f"W{w}", "align": "end"} for w in range(weeks)]],
          "rows": rows},
-        {"kind": "table", "title": f"People gone quiet ({QUIET_DAYS[0]}+ days, most recent first)", "empty": "Nobody.",
+        {"kind": "table", "title": gettext("People gone quiet ({days}+ days, most recent first)").format(days=QUIET_DAYS[0]), "empty": "Nobody.",
          "columns": [{"label": "User"}, {"label": "Last active"}, {"label": "Days", "align": "end"}], "rows": quiet_users},
-        {"kind": "table", "title": f"Organizations gone quiet ({QUIET_DAYS[0]}+ days without goal activity)", "empty": "None.",
+        {"kind": "table", "title": gettext("Organizations gone quiet ({days}+ days without goal activity)").format(days=QUIET_DAYS[0]), "empty": "None.",
          "columns": [{"label": "Organization"}, {"label": "Last activity"}, {"label": "Days", "align": "end"}, {"label": "Members", "align": "end"}],
          "rows": quiet_orgs[:50]},
     ]
@@ -333,7 +334,7 @@ def adoption(days: int) -> list[dict]:
                 near.append([org.name, what, f"{used} / {limit}", _cell(used, limit)])
 
     return [
-        {"kind": "table", "title": f"Of the {n} people active in this range, how many use…",
+        {"kind": "table", "title": gettext("Of the {count} people active in this range, how many use…").format(count=n),
          "columns": [{"label": "Feature"}, {"label": "Users", "align": "end"}, {"label": "Of active"}, {"label": "Counts as"}],
          "rows": [[label, used, _cell(used, n), hint] for label, used, hint in features]},
         {"kind": "tiles", "title": "Goal outcomes", "items": [
@@ -341,7 +342,7 @@ def adoption(days: int) -> list[dict]:
             {"label": "Goals archived (abandoned)", "value": goals.filter(status=GoalStatus.ARCHIVED).count(), "hint": "All time"},
             {"label": "Goals scored at cycle close", "value": scores.count(), "hint": "In this range"},
             {"label": "Average cycle score", "value": f"{statistics.mean(score_values):.2f}" if score_values else "—", "hint": "0-1"},
-            *[{"label": f"Scored {label.lower()}", "value": outcomes.get(value, 0)} for value, label in GoalScore._meta.get_field("outcome").choices],
+            *[{"label": gettext("Scored {outcome}").format(outcome=gettext(str(label)).lower()), "value": outcomes.get(value, 0)} for value, label in GoalScore._meta.get_field("outcome").choices],
         ]},
         {"kind": "tiles", "title": "Reminders", "items": [
             {"label": "Reminders sent", "value": len(reminders)},

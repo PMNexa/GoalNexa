@@ -1,4 +1,4 @@
-import { Card, CardBody, CardHeader, CardTitle } from "platform-core";
+import { Card, CardBody, CardHeader, CardTitle, formatDate, useLocale, useT, type Locale, type Translate } from "platform-core";
 import type { Goal, GoalHealth } from "../../api/goals";
 import { goalHealth, goalTargetTime, isHitRate } from "../../lib/progress";
 import ProgressBarChart from "../../components/charts/ProgressBarChart";
@@ -9,22 +9,23 @@ import { formatPct } from "../../components/charts/chartUtils";
 import { goalLabel, goalTeamName } from "../../api/dashboard";
 import GoalTag from "../../components/GoalTag";
 import { MAX_GOALS, type DashboardChartsData } from "./useDashboardCharts";
+import messages from "./messages";
 
-const markerDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+const markerDate = (t: number, locale: Locale) => formatDate(t, { month: "short", day: "numeric" }, locale);
 
-const HEALTH_LABELS: Record<Exclude<GoalHealth, "unknown">, string> = {
-  on_track: "On track",
-  at_risk: "At risk",
-  off_track: "Off track",
-  achieved: "Achieved",
-};
+const HEALTH_KEYS = {
+  on_track: "health_on_track",
+  at_risk: "health_at_risk",
+  off_track: "health_off_track",
+  achieved: "health_achieved",
+} as const satisfies Record<Exclude<GoalHealth, "unknown">, string>;
 
 /** Vertical lines on a goal's panel: now, and its target date if it has one. */
-function goalMarkers(goal: Goal, now: number): ChartMarker[] {
+function goalMarkers(goal: Goal, now: number, t: Translate<(typeof messages)["en"]>, locale: Locale): ChartMarker[] {
   const target = goalTargetTime(goal);
   return [
-    { t: now, label: "Now", kind: "now" },
-    ...(target === null ? [] : [{ t: target, label: `Target ${markerDate.format(target)}`, kind: "target" as const }]),
+    { t: now, label: t("now"), kind: "now" },
+    ...(target === null ? [] : [{ t: target, label: t("targetMarker", { date: markerDate(target, locale) }), kind: "target" as const }]),
   ];
 }
 
@@ -46,12 +47,14 @@ export interface DashboardChartsProps {
  */
 function DashboardCharts({ charts, slotOf, loading = false, teamNames }: DashboardChartsProps) {
   const { progress, metricsByGoal, metricPanels, now, panelDomains } = charts;
+  const t = useT(messages);
+  const locale = useLocale();
   return (
     <div className="d-flex flex-column gap-3">
       {loading ? (
         <Card>
           <CardBody>
-            <div className="text-secondary py-4 text-center">Loading…</div>
+            <div className="text-secondary py-4 text-center">{t("loading")}</div>
           </CardBody>
         </Card>
       ) : (
@@ -68,14 +71,14 @@ function DashboardCharts({ charts, slotOf, loading = false, teamNames }: Dashboa
                   {projected !== null && (
                     <span
                       className="gn-goal-projection"
-                      title="Linear projection: each metric's check-in trend carried to the target date"
+                      title={t("projectionHint")}
                     >
-                      → {formatPct(projected.pct)} by {markerDate.format(projected.t)}
+                      {t("projection", { pct: formatPct(projected.pct), date: markerDate(projected.t, locale) })}
                     </span>
                   )}
                   {p.current === null && tracked.length > 0 && (
-                    <span className="gn-health is-tracking" title="No metric here has a target (start = target), so there's no % or health - just the readings">
-                      Tracking
+                    <span className="gn-health is-tracking" title={t("trackingHint")}>
+                      {t("tracking")}
                     </span>
                   )}
                   {(() => {
@@ -84,8 +87,8 @@ function DashboardCharts({ charts, slotOf, loading = false, teamNames }: Dashboa
                     const openHitRate = (metricsByGoal.get(p.goal.id) ?? []).some(isHitRate) && (target === null || now < target + 86400000);
                     const health = goalHealth(p.current, projected?.pct ?? null, target, now, { canAchieve: !openHitRate });
                     return health === "unknown" ? null : (
-                      <span className={`gn-health is-${health}`} title="From the projection: on track = 100% by the target date, at risk = 80%+">
-                        {HEALTH_LABELS[health]}
+                      <span className={`gn-health is-${health}`} title={t("healthHint")}>
+                        {t(HEALTH_KEYS[health])}
                       </span>
                     );
                   })()}
@@ -95,7 +98,7 @@ function DashboardCharts({ charts, slotOf, loading = false, teamNames }: Dashboa
             <CardBody>
               {shownCount === 0 && (
                 <p className="text-secondary small mb-0">
-                  {(metricsByGoal.get(p.goal.id)?.length ?? 0) === 0 ? "No metrics yet." : "All metrics hidden."}
+                  {(metricsByGoal.get(p.goal.id)?.length ?? 0) === 0 ? t("noMetrics") : t("allMetricsHidden")}
                 </p>
               )}
               {series.length > 0 && (
@@ -104,16 +107,16 @@ function DashboardCharts({ charts, slotOf, loading = false, teamNames }: Dashboa
                   // More room once the lines outnumber the palette.
                   height={series.length > MAX_GOALS ? 300 : 220}
                   domain={panelDomain}
-                  markers={goalMarkers(p.goal, now)}
+                  markers={goalMarkers(p.goal, now, t, locale)}
                   alwaysLegend
-                  ariaLabel={`${p.goal.title}: metric progress over time`}
+                  ariaLabel={t("chartLabel", { title: p.goal.title })}
                 />
               )}
               {tracked.length > 0 && panelDomain && (
                 <div className={series.length > 0 ? "mt-3" : undefined}>
                   {series.length > 0 && (
-                    <div className="subheader mb-2" title="Start = target, so these have no % and don't count toward the goal's progress">
-                      Tracked, no target
+                    <div className="subheader mb-2" title={t("trackedHint")}>
+                      {t("trackedNoTarget")}
                     </div>
                   )}
                   <div className="gn-tracked-grid">
@@ -125,7 +128,7 @@ function DashboardCharts({ charts, slotOf, loading = false, teamNames }: Dashboa
               )}
               {bars.length > 0 && (
                 <div className={series.length > 0 || tracked.length > 0 ? "mt-3" : undefined}>
-                  <div className="subheader mb-2">Per period</div>
+                  <div className="subheader mb-2">{t("perPeriod")}</div>
                   <div className="gn-tracked-grid">
                     {bars.map((bar) => (
                       <PeriodBarChart key={bar.id} label={bar.label} unit={bar.unit} slot={bar.slot} bars={bar.bars} quota={bar.quota} />
@@ -134,7 +137,7 @@ function DashboardCharts({ charts, slotOf, loading = false, teamNames }: Dashboa
                 </div>
               )}
               {tracked.length > 0 && !panelDomain && series.length === 0 && (
-                <p className="text-secondary small mb-0">No check-ins yet.</p>
+                <p className="text-secondary small mb-0">{t("noCheckIns")}</p>
               )}
             </CardBody>
           </Card>
@@ -143,11 +146,11 @@ function DashboardCharts({ charts, slotOf, loading = false, teamNames }: Dashboa
       )}
       <Card>
         <CardHeader>
-          <CardTitle>Current progress</CardTitle>
+          <CardTitle>{t("currentProgress")}</CardTitle>
         </CardHeader>
         <CardBody>
           {loading ? (
-            <div className="text-secondary py-4 text-center">Loading…</div>
+            <div className="text-secondary py-4 text-center">{t("loading")}</div>
           ) : (
             <ProgressBarChart rows={progress.map((p) => ({ progress: p, slot: slotOf(p.goal.id), label: goalLabel(p.goal, teamNames) }))} />
           )}

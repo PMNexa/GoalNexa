@@ -15,6 +15,7 @@ ever has their own links, nothing to browse, filter or grant roles on.
 import uuid
 
 from django.conf import settings
+from django.utils.translation import gettext
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -42,7 +43,7 @@ def _share_payload(share: DashboardShare) -> dict:
 def _ids(data, key: str, limit: int) -> list[str]:
     raw = data.get(key) or []
     if not isinstance(raw, list) or len(raw) > limit:
-        raise ValidationError({key: [f"A list of at most {limit} ids."]})
+        raise ValidationError({key: [gettext("A list of at most {count} ids.").format(count=limit)]})
     try:
         return list(dict.fromkeys(str(uuid.UUID(str(value))) for value in raw))
     except ValueError:

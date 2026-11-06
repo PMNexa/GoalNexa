@@ -18,6 +18,7 @@ import hashlib
 import secrets
 
 from django.shortcuts import get_object_or_404
+from django.utils.translation import gettext
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -28,7 +29,7 @@ from goalnexa.access import visible_goals
 from goalnexa.activity import changes, record, snapshot
 from goalnexa.models import ActivityVerb, Goal, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
-from goalnexa.periods import NEW_SETTINGS, SNAP_FIELDS, STAMP_FIELDS, apply_follow, metric_follow_plan, resnap, snap_settings
+from goalnexa.periods import NEW_SETTINGS, SNAP_FIELDS, STAMP_FIELDS, apply_follow, metric_follow_plan, period_name, resnap, snap_settings
 from goalnexa.progress import refresh_goal, refresh_metric, refresh_metric_and_goal
 from goalnexa.serializers import MetricSerializer
 from goalnexa.serializers.metric import SNAP_TO_GOAL, validate_one_per
@@ -110,7 +111,8 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
             if not follows:
                 raise
             raise ValidationError({"snap_to": [
-                f"What it inherits is check-ins for a whole {value['snap_to']}, longer than this metric's target or one-reading period. Pick a period for this metric."
+                gettext("What it inherits is check-ins for a whole {period}, longer than this metric's target or one-reading period. "
+                        "Pick a period for this metric.").format(period=period_name(value["snap_to"]))
             ]})
         return {**value, "snap_to_goal": follows}
 

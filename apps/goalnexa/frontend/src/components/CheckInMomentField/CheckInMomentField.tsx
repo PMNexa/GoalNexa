@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { FormLabel, type CrudField, type FieldWidgetProps } from "platform-core";
+import { formatDate, FormLabel, useLocale, useT, type CrudField, type FieldWidgetProps, type Locale } from "platform-core";
+import messages from "./CheckInMomentField.messages";
 
 const CSS = `.gn-moment .gn-mo-anchor { position: relative; }
 .gn-moment .gn-mo-menu { position: absolute; top: calc(100% + .25rem); left: 0; right: 0; max-width: 26rem; z-index: 30; padding: .75rem; background: var(--tblr-bg-surface, #fff); border: 1px solid var(--tblr-border-color, #e6e7e9); border-radius: 4px; box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .1); }
@@ -16,7 +17,6 @@ const CSS = `.gn-moment .gn-mo-anchor { position: relative; }
 
 /** The periods with a moment; any other `snap_to` value (inherited, any time) has none. */
 const PERIODS = ["day", "week", "month", "quarter", "year"];
-const EACH: Record<string, string> = { day: "Each day", week: "Each week", month: "Each month", quarter: "Each quarter", year: "Each year" };
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 type Values = Record<string, unknown>;
@@ -30,6 +30,16 @@ function valueOf(values: Values, field: CrudField<Values> | undefined, key: stri
 
 const same = (a: unknown, b: unknown) => String(a) === String(b);
 
+/** A weekday's name from its value (1 = Monday) - in the UI language, not the schema's label. */
+function weekdayName(value: unknown, style: "short" | "long", locale: Locale): string {
+  return formatDate(new Date(2024, 0, Number(value)), { weekday: style }, locale); // Jan 1, 2024 was a Monday.
+}
+
+/** A month's name from its value (1 = January). */
+function monthName(value: unknown, style: "short" | "long", locale: Locale): string {
+  return formatDate(new Date(2024, Number(value) - 1, 1), { month: style }, locale);
+}
+
 function optionLabel(field: CrudField<Values> | undefined, value: unknown): string {
   return field?.options?.find((option) => same(option.value, value))?.label ?? String(value);
 }
@@ -42,6 +52,8 @@ function optionLabel(field: CrudField<Values> | undefined, value: unknown): stri
  * schema's own (`snap_to` and the `SnapMoment` fields), sent as picked.
  */
 export default function CheckInMomentField({ id, field, fields, values, onChange, errors }: FieldWidgetProps) {
+  const t = useT(messages);
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -77,13 +89,13 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
   function summary(): string {
     if (!hasMoment) return optionLabel(field, per);
     const parts: string[] = [];
-    if (per === "week" && fields.snap_weekday) parts.push(optionLabel(fields.snap_weekday, weekday));
-    if (per === "quarter" && fields.snap_quarter_month) parts.push(optionLabel(fields.snap_quarter_month, quarterMonth).replace(/ \(.*\)$/, ""));
-    if (per === "year" && fields.snap_month) parts.push(`${optionLabel(fields.snap_month, month)} ${day}`);
-    else if ((per === "month" || per === "quarter") && fields.snap_day) parts.push(`day ${day}`);
+    if (per === "week" && fields.snap_weekday) parts.push(weekdayName(weekday, "long", locale));
+    if (per === "quarter" && fields.snap_quarter_month) parts.push(t("quarterMonth", { n: Number(quarterMonth) }));
+    if (per === "year" && fields.snap_month) parts.push(t("monthDay", { month: monthName(month, "long", locale), day }));
+    else if ((per === "month" || per === "quarter") && fields.snap_day) parts.push(t("dayN", { day }));
     if (fields.snap_time) parts.push(time);
     const moment = parts.join(", ");
-    return `${EACH[per]}${moment ? ` · ${moment}` : ""}${fields.snap_due && due ? " · due then" : ""}`;
+    return `${t(`each_${per as "day"}`)}${moment ? ` · ${moment}` : ""}${fields.snap_due && due ? ` · ${t("dueThen")}` : ""}`;
   }
 
   function pickPer(value: unknown) {
@@ -91,7 +103,8 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
     if (!PERIODS.includes(String(value))) setOpen(false);
   }
 
-  function choice(key: string, current: unknown, columns: number, short?: (label: string) => string) {
+  /** Buttons for one moment field's options, labelled by `name` (short) and `title` (full). */
+  function choice(key: string, current: unknown, columns: number, name: (value: unknown) => string, title: (value: unknown) => string) {
     const options = fields[key]?.options ?? [];
     return (
       <div className="gn-mo-grid" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
@@ -101,10 +114,10 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
             type="button"
             className="gn-mo-opt"
             aria-pressed={same(option.value, current)}
-            title={option.label}
+            title={title(option.value)}
             onClick={() => set(key, option.value)}
           >
-            {short ? short(option.label) : option.label}
+            {name(option.value)}
           </button>
         ))}
       </div>
@@ -135,7 +148,7 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
         </button>
         {open && (
           <div className="gn-mo-menu" role="dialog" aria-label={String(field.label)}>
-            <div className="gn-mo-step">For</div>
+            <div className="gn-mo-step">{t("for")}</div>
             <div className="gn-mo-grid gn-mo-list" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
               {field.options?.map((option) => (
                 <button
@@ -154,26 +167,44 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
               <>
                 {per === "week" && fields.snap_weekday && (
                   <>
-                    <div className="gn-mo-step">Day of the week</div>
-                    {choice("snap_weekday", weekday, 7, (label) => label.slice(0, 3))}
+                    <div className="gn-mo-step">{t("dayOfWeek")}</div>
+                    {choice(
+                      "snap_weekday",
+                      weekday,
+                      7,
+                      (value) => weekdayName(value, "short", locale),
+                      (value) => weekdayName(value, "long", locale),
+                    )}
                   </>
                 )}
                 {per === "quarter" && fields.snap_quarter_month && (
                   <>
-                    <div className="gn-mo-step">Month of the quarter</div>
-                    {choice("snap_quarter_month", quarterMonth, 3, (label) => label.replace(/ month.*$/, ""))}
-                    <div className="gn-mo-hint">{optionLabel(fields.snap_quarter_month, quarterMonth)}</div>
+                    <div className="gn-mo-step">{t("monthOfQuarter")}</div>
+                    {choice(
+                      "snap_quarter_month",
+                      quarterMonth,
+                      3,
+                      (value) => t("quarterMonthShort", { n: Number(value) }),
+                      (value) => t("quarterMonthFull", { n: Number(value) }),
+                    )}
+                    <div className="gn-mo-hint">{t("quarterMonthFull", { n: Number(quarterMonth) })}</div>
                   </>
                 )}
                 {per === "year" && fields.snap_month && (
                   <>
-                    <div className="gn-mo-step">Month</div>
-                    {choice("snap_month", month, 6, (label) => label.slice(0, 3))}
+                    <div className="gn-mo-step">{t("month")}</div>
+                    {choice(
+                      "snap_month",
+                      month,
+                      6,
+                      (value) => monthName(value, "short", locale),
+                      (value) => monthName(value, "long", locale),
+                    )}
                   </>
                 )}
                 {["month", "quarter", "year"].includes(per) && fields.snap_day && (
                   <>
-                    <div className="gn-mo-step">Day of the month</div>
+                    <div className="gn-mo-step">{t("dayOfMonth")}</div>
                     <div className="gn-mo-grid" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
                       {DAYS.map((d) => (
                         <button key={d} type="button" className="gn-mo-opt" aria-pressed={d === day} onClick={() => set("snap_day", d)}>
@@ -181,12 +212,12 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
                         </button>
                       ))}
                     </div>
-                    {day > 28 && <div className="gn-mo-hint">A shorter month uses its last day.</div>}
+                    {day > 28 && <div className="gn-mo-hint">{t("shorterMonth")}</div>}
                   </>
                 )}
                 {fields.snap_time && (
                   <>
-                    <label className="gn-mo-step d-block" htmlFor={`${id}-time`}>Time</label>
+                    <label className="gn-mo-step d-block" htmlFor={`${id}-time`}>{t("time")}</label>
                     <select
                       id={`${id}-time`}
                       className="form-select form-select-sm"
@@ -209,12 +240,12 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
                       checked={due}
                       onChange={(event) => set("snap_due", event.target.checked)}
                     />
-                    <span className="form-check-label">Due at that moment - flagged and reminded when it passes</span>
+                    <span className="form-check-label">{t("due")}</span>
                   </label>
                 )}
                 <div className="gn-mo-foot">
                   <button type="button" className="btn btn-primary btn-sm" onClick={() => setOpen(false)}>
-                    Done
+                    {t("done")}
                   </button>
                 </div>
               </>
@@ -224,9 +255,7 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
       </div>
       {locked ? (
         <small className="form-hint">
-          {values.template_metric
-            ? "Set by the goal template - change it on its metric there (Goal templates)."
-            : "Set by the goal template - change it on its goal there (Goal templates)."}
+          {values.template_metric ? t("lockedMetric") : t("lockedGoal")}
         </small>
       ) : (
         field.helpText && <small className="form-hint">{field.helpText}</small>

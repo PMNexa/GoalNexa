@@ -1,12 +1,10 @@
-import { FormLabel, SegmentedControl } from "platform-core";
+import { FormLabel, SegmentedControl, useLocale, useT } from "platform-core";
 import GoalPicker, { type GoalPickerOption } from "../../components/GoalPicker";
-import { SNAPS, WEEKDAYS, type Snap } from "./tableColumns";
+import { SNAPS, weekdayName, type Snap } from "./tableColumns";
+import messages from "./messages";
 
 export type TableView = "table" | "chart";
-const VIEWS: { value: TableView; label: string }[] = [
-  { value: "table", label: "Table" },
-  { value: "chart", label: "Chart" },
-];
+const WEEK_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
 export interface TableToolbarProps {
   goalOptions: GoalPickerOption[];
@@ -41,10 +39,16 @@ export function TableToolbar({
   weekStart,
   onWeekStartChange,
 }: TableToolbarProps) {
+  const t = useT(messages);
+  const locale = useLocale();
+  const views: { value: TableView; label: string }[] = [
+    { value: "table", label: t("viewTable") },
+    { value: "chart", label: t("viewChart") },
+  ];
   return (
     <div className="d-flex align-items-end gap-3 mb-3">
       <div>
-        <FormLabel>Goals</FormLabel>
+        <FormLabel>{t("goals")}</FormLabel>
         <GoalPicker
           options={goalOptions}
           selected={picked}
@@ -58,13 +62,13 @@ export function TableToolbar({
         onClick={onNewGoal}
         disabled={newGoalDisabled}
       >
-        New goal
+        {t("newGoal")}
       </button>
       <div className="ms-auto">
-        <SegmentedControl label="View" variant="secondary" options={VIEWS} value={view} onChange={onViewChange} />
+        <SegmentedControl label={t("view")} variant="secondary" options={views} value={view} onChange={onViewChange} />
       </div>
       <div>
-        <FormLabel htmlFor="table-snap">Snap to</FormLabel>
+        <FormLabel htmlFor="table-snap">{t("snapTo")}</FormLabel>
         <div className="d-flex gap-2">
           <select
             id="table-snap"
@@ -73,22 +77,22 @@ export function TableToolbar({
             onChange={(event) => onSnapChange(event.target.value as Snap)}
           >
             {SNAPS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+              <option key={option} value={option}>
+                {t(`snap_${option}`)}
               </option>
             ))}
           </select>
           {snap === "week" && (
             <select
-              aria-label="Week starts on"
-              title="Week starts on"
+              aria-label={t("weekStartsOn")}
+              title={t("weekStartsOn")}
               className="form-select form-select-sm w-auto"
               value={weekStart}
               onChange={(event) => onWeekStartChange(Number(event.target.value))}
             >
-              {WEEKDAYS.map((name, day) => (
-                <option key={name} value={day}>
-                  {name}
+              {WEEK_DAYS.map((day) => (
+                <option key={day} value={day}>
+                  {weekdayName(day, locale)}
                 </option>
               ))}
             </select>

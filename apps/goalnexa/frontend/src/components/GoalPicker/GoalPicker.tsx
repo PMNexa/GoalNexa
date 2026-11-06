@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { formatNumber, useLocale, useT } from "platform-core";
+import messages from "./GoalPicker.messages";
 
 export interface GoalPickerOption {
   id: string;
@@ -30,6 +32,9 @@ const PICKER_CSS = `.gn-goal-picker { position: relative; }
  * goal brings its sub-goals with it.
  */
 function GoalPicker({ options, selected, onChange, disabled }: GoalPickerProps) {
+  const t = useT(messages);
+  const locale = useLocale();
+  const count = (n: number) => formatNumber(n, undefined, locale);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const picked = options.filter((option) => selected.has(option.id));
@@ -59,10 +64,10 @@ function GoalPicker({ options, selected, onChange, disabled }: GoalPickerProps) 
 
   const label =
     picked.length === 0
-      ? "All goals"
+      ? t("allGoals")
       : picked.length === 1
         ? picked[0].title
-        : `${picked.length} goals`;
+        : t("nGoals", { n: count(picked.length) });
 
   return (
     <div className="gn-goal-picker" ref={root}>
@@ -75,17 +80,17 @@ function GoalPicker({ options, selected, onChange, disabled }: GoalPickerProps) 
         style={{ maxWidth: "16rem" }}
         aria-haspopup="true"
         aria-expanded={open}
-        title={picked.map((option) => option.title).join("\n") || "All goals"}
+        title={picked.map((option) => option.title).join("\n") || t("allGoals")}
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
       >
         {label}
       </button>
       {open && (
-        <div className="gn-goal-picker-menu" role="group" aria-label="Goals to show">
+        <div className="gn-goal-picker-menu" role="group" aria-label={t("goalsToShow")}>
           <div className="gn-goal-picker-head">
             <span>
-              {picked.length ? `${picked.length} of ${options.length}` : "Showing all"}
+              {picked.length ? t("nOfTotal", { n: count(picked.length), total: count(options.length) }) : t("showingAll")}
             </span>
             <button
               type="button"
@@ -93,11 +98,11 @@ function GoalPicker({ options, selected, onChange, disabled }: GoalPickerProps) 
               disabled={picked.length === 0}
               onClick={() => onChange(new Set())}
             >
-              Show all
+              {t("showAll")}
             </button>
           </div>
           {options.length === 0 ? (
-            <div className="text-secondary small px-3 py-1">No goals yet.</div>
+            <div className="text-secondary small px-3 py-1">{t("noGoals")}</div>
           ) : (
             options.map((option) => (
               <label

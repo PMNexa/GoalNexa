@@ -1,6 +1,8 @@
 import { useState, type PointerEvent } from "react";
+import { formatDateTime, useLocale, useT } from "platform-core";
 import type { ProgressPoint } from "../../../lib/progress";
 import { DAY, fitDomain, formatPct, pctTicks, seriesColor, seriesDash, seriesKey, truncate, useElementWidth, type ChartDomain } from "../chartUtils";
+import messages from "./ProgressLineChart.messages";
 
 export interface LineSeries {
   id: string;
@@ -66,12 +68,14 @@ export interface ChartMarker {
 function ProgressLineChart({
   series,
   height: HEIGHT = 280,
-  emptyText = "No check-ins yet.",
-  ariaLabel = "Progress over time",
+  emptyText,
+  ariaLabel,
   domain,
   alwaysLegend = false,
   markers = [],
 }: ProgressLineChartProps) {
+  const t = useT(messages);
+  const locale = useLocale();
   const [ref, width] = useElementWidth<HTMLDivElement>(720);
   const [hoverT, setHoverT] = useState<number | null>(null);
 
@@ -80,7 +84,7 @@ function ProgressLineChart({
   if (allPoints.length === 0) {
     return (
       <div ref={ref} className="gn-viz text-secondary small py-3">
-        {emptyText}
+        {emptyText ?? t("empty")}
       </div>
     );
   }
@@ -97,13 +101,12 @@ function ProgressLineChart({
   const y = (pct: number) => margin.top + plotH - (pct / yMax) * plotH;
 
   const spansYears = new Date(tMin).getFullYear() !== new Date(tMax).getFullYear();
-  const tickFormat = new Intl.DateTimeFormat(undefined, {
+  const tickFormat: Intl.DateTimeFormatOptions = {
     month: "short",
     day: "numeric",
     ...(spansYears ? { year: "2-digit" } : {}),
     ...(tMax - tMin < 3 * DAY ? { hour: "numeric" } : {}),
-  });
-  const tooltipFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+  };
   const xTickCount = Math.max(2, Math.min(6, Math.floor(plotW / 110)));
   const xTicks = Array.from({ length: xTickCount }, (_, i) => tMin + ((tMax - tMin) * i) / (xTickCount - 1));
 
@@ -161,7 +164,7 @@ function ProgressLineChart({
         viewBox={`0 0 ${width} ${HEIGHT}`}
         height={HEIGHT}
         role="img"
-        aria-label={`${ariaLabel}: ${drawn.map((s) => s.label).join(", ")}`}
+        aria-label={`${ariaLabel ?? t("ariaLabel")}: ${drawn.map((s) => s.label).join(", ")}`}
       >
         {pctTicks(yMax, plotH, 28).map((tick) => (
           <g key={tick}>
@@ -174,19 +177,19 @@ function ProgressLineChart({
               strokeWidth={1}
             />
             <text className="gn-tick" x={margin.left - 8} y={y(tick)} dy="0.32em" textAnchor="end">
-              {tick}%
+              {formatPct(tick, locale)}
             </text>
           </g>
         ))}
-        {xTicks.map((t, i) => (
+        {xTicks.map((time, i) => (
           <text
-            key={t}
+            key={time}
             className="gn-tick"
-            x={x(t)}
+            x={x(time)}
             y={HEIGHT - 8}
             textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"}
           >
-            {tickFormat.format(t)}
+            {formatDateTime(time, tickFormat, locale)}
           </text>
         ))}
 
@@ -286,7 +289,7 @@ function ProgressLineChart({
                 />
               )}
               <text className="gn-label" x={edge + 16} y={labelY} dy="0.32em">
-                <tspan className="gn-value">{formatPct(s.points[s.points.length - 1].pct)}</tspan>{" "}
+                <tspan className="gn-value">{formatPct(s.points[s.points.length - 1].pct, locale)}</tspan>{" "}
                 {truncate(s.label, 14)}
               </text>
             </g>
@@ -321,7 +324,7 @@ function ProgressLineChart({
       </svg>
       {hoverT !== null && hoverRows.length > 0 && (
         <div className="gn-tooltip" style={{ left: tooltipLeft, top: margin.top + (drawn.length >= 2 ? 28 : 0) }}>
-          <div className="gn-tooltip-title">{tooltipFormat.format(hoverT)}</div>
+          <div className="gn-tooltip-title">{formatDateTime(hoverT, { dateStyle: "medium", timeStyle: "short" }, locale)}</div>
           {hoverRows.map(({ s, point, value, projected }) => {
             const detail = s.formatDetail?.(point);
             return (
@@ -330,9 +333,9 @@ function ProgressLineChart({
                   <span className="gn-key" style={{ background: seriesKey(s.slot) }} />
                   <span className="gn-name">
                     {s.label}
-                    {projected && <span className="gn-projected"> · projected</span>}
+                    {projected && <span className="gn-projected"> · {t("projected")}</span>}
                   </span>
-                  <span className="gn-num">{formatPct(value)}</span>
+                  <span className="gn-num">{formatPct(value, locale)}</span>
                 </div>
                 {detail && <div className="gn-tooltip-detail">{detail}</div>}
               </div>

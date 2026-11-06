@@ -5,6 +5,8 @@
 import type { TeamOption } from "../../api/dashboard";
 import type { RollupRule } from "../../api/teamBoard";
 import type { TargetPer } from "../../api/metrics";
+import { translate } from "platform-core";
+import messages from "./wizardMessages";
 
 export interface DraftMetric {
   key: number;
@@ -22,28 +24,19 @@ export interface DraftMetric {
   moment: Record<string, unknown>;
 }
 
-/** "Check-in period": a check-in's time is snapped to its period. */
-export const SNAP_TO_LABELS: Record<TargetPer, string> = {
-  "": "Any time",
-  day: "A day",
-  week: "A week",
-  month: "A month",
-  quarter: "A quarter",
-  year: "A year",
-};
+/** "Check-in period": a check-in's time is snapped to its period ("Any time", "A week"...), in the UI language. */
+export function snapToLabel(per: TargetPer): string {
+  return translate(messages, per ? (`snap_${per}` as const) : "snap_any");
+}
 export const PER_ORDER: TargetPer[] = ["", "day", "week", "month", "quarter", "year"];
 /** A check-in period can't be longer than the target's period. */
 export const periodFits = (per: TargetPer, targetPer: TargetPer) =>
   !per || !targetPer || PER_ORDER.indexOf(per) <= PER_ORDER.indexOf(targetPer);
 
-export const TARGET_PER_LABELS: Record<TargetPer, string> = {
-  "": "The whole goal",
-  day: "Each day",
-  week: "Each week",
-  month: "Each month",
-  quarter: "Each quarter",
-  year: "Each year",
-};
+/** What a target is for ("The whole goal", "Each day"...), in the UI language. */
+export function targetPerLabel(per: TargetPer): string {
+  return translate(messages, per ? (`targetPer_${per}` as const) : "targetPer_whole");
+}
 
 export interface DraftGoal {
   key: number;
@@ -52,12 +45,11 @@ export interface DraftGoal {
 }
 
 export const NO_CYCLE = "none";
-export const ROLLUP_LABELS: Record<RollupRule, string> = {
-  sum: "Add up",
-  avg: "Average",
-  min: "Lowest team",
-  none: "No total",
-};
+export const ROLLUP_RULES: RollupRule[] = ["sum", "avg", "min", "none"];
+/** How teams add up ("Add up", "Average"...), in the UI language. */
+export function rollupLabel(rule: RollupRule): string {
+  return translate(messages, `rollup_${rule}` as const);
+}
 
 let nextKey = 1;
 export const newMetric = (): DraftMetric => ({
@@ -87,21 +79,21 @@ export function teamTree(teams: TeamOption[]): { team: TeamOption; depth: number
   return out;
 }
 
-/** Why the step `name` can't go on yet, or null. */
+/** Why the step `name` (a step id: "Template", "Goals", "Metrics"...) can't go on yet, or null - in the UI language. */
 export function stepProblem(name: string, title: string, goals: DraftGoal[]): string | null {
-  if (name === "Template" && !title.trim()) return "Give the template a name.";
+  if (name === "Template" && !title.trim()) return translate(messages, "errTemplateName");
   if (name === "Goals") {
-    if (!goals[0].title.trim()) return "Name the main goal.";
-    if (goals.slice(1).some((g) => !g.title.trim())) return "Name every sub-goal, or remove the empty one.";
+    if (!goals[0].title.trim()) return translate(messages, "errMainGoal");
+    if (goals.slice(1).some((g) => !g.title.trim())) return translate(messages, "errSubGoals");
   }
   if (name === "Metrics") {
     const metrics = goals.flatMap((g) => g.metrics);
-    if (metrics.length === 0) return "Add at least one metric.";
-    if (metrics.some((m) => !m.name.trim())) return "Name every metric, or remove the empty one.";
-    if (metrics.some((m) => !isNumber(m.base))) return "Every start needs a number (0 is fine).";
-    if (metrics.some((m) => m.target.trim() !== "" && !isNumber(m.target))) return "A target needs a number - or leave it empty.";
+    if (metrics.length === 0) return translate(messages, "errNoMetrics");
+    if (metrics.some((m) => !m.name.trim())) return translate(messages, "errMetricNames");
+    if (metrics.some((m) => !isNumber(m.base))) return translate(messages, "errStart");
+    if (metrics.some((m) => m.target.trim() !== "" && !isNumber(m.target))) return translate(messages, "errTarget");
     if (metrics.some((m) => m.target.trim() !== "" && Number(m.target) === Number(m.base)))
-      return "A target equal to its start means no target - leave it empty instead.";
+      return translate(messages, "errTargetEqualsStart");
   }
   return null;
 }

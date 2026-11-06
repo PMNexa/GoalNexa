@@ -1,14 +1,18 @@
+import { translator, type Locale } from "platform-core";
 import { goalTeamName } from "../../api/dashboard";
 import GoalTag from "../../components/GoalTag";
 import type { TableChartCard } from "./TableCharts";
 import type { Table } from "./buildTable";
+import messages from "./messages";
 
 /** The chart view: per goal, its % and each metric's; a tracked metric on its own. */
 export function chartCards(
   table: Table | null,
   teamNames: Map<string, string> | undefined,
+  locale?: Locale,
 ): TableChartCard[] {
   if (!table) return [];
+  const t = translator(messages, locale);
   return table.rows.flatMap((row) => {
     if (row.kind !== "goal") return [];
     const metrics = table.rows.filter((r) => r.kind === "metric" && r.goalId === row.id);
@@ -26,7 +30,7 @@ export function chartCards(
         unit: "%",
         percent: true,
         lines: [
-          ...(scored.length > 1 ? [{ key: row.key, label: "Goal", slot: 0, points: row.points }] : []),
+          ...(scored.length > 1 ? [{ key: row.key, label: t("goalLine"), slot: 0, points: row.points }] : []),
           ...scored.map((m, i) => ({ key: m.key, label: m.label, slot: i + 1, points: m.points })),
         ],
       });

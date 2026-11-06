@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Button, CopyButton, FormControl, FormLabel, Modal } from "platform-core";
+import { Button, CopyButton, FormControl, FormLabel, Modal, formatDate, useLocale, useT } from "platform-core";
 import type { Goal } from "../../api/goals";
 import { createShare, deleteShare, fetchShares, type DashboardShare } from "../../api/shares";
+import messages from "./messages";
 
 export interface ShareDashboardModalProps {
   open: boolean;
@@ -16,8 +17,6 @@ export interface ShareDashboardModalProps {
   shareUrl: (token: string) => string;
   onClose: () => void;
 }
-
-const created = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 /**
  * Public, read-only links to the dashboard: "Create link" for the goals
@@ -34,6 +33,8 @@ function ShareDashboardModal({
   shareUrl,
   onClose,
 }: ShareDashboardModalProps) {
+  const t = useT(messages);
+  const locale = useLocale();
   const [shares, setShares] = useState<DashboardShare[] | null>(null);
   const [title, setTitle] = useState(defaultTitle);
   const [justCreated, setJustCreated] = useState<DashboardShare | null>(null);
@@ -89,31 +90,26 @@ function ShareDashboardModal({
     }
   }
 
-  const goalCount = (n: number) => `${n} goal${n === 1 ? "" : "s"}`;
-
   return (
-    <Modal open={open} title="Share dashboard" onClose={onClose}>
+    <Modal open={open} title={t("shareTitle")} onClose={onClose}>
       {justCreated ? (
         <div className="mb-3">
-          <FormLabel htmlFor="share-link">Anyone with this link can see it</FormLabel>
+          <FormLabel htmlFor="share-link">{t("anyoneWithLink")}</FormLabel>
           <div className="d-flex gap-2">
             <FormControl id="share-link" readOnly value={shareUrl(justCreated.token)} onFocus={(e) => e.target.select()} />
             <CopyButton text={shareUrl(justCreated.token)} />
           </div>
         </div>
       ) : goals.length === 0 ? (
-        <p className="text-secondary">Show one or more goals first - a link shows the goals on your dashboard.</p>
+        <p className="text-secondary">{t("showGoalsFirst")}</p>
       ) : (
         <form onSubmit={create} className="mb-3">
-          <p className="text-secondary">
-            Anyone with the link sees the progress of {goals.map((goal) => goal.title).join(", ")} - live, read-only, no
-            sign-in. Check-in notes and who checked in stay private.
-          </p>
-          <FormLabel htmlFor="share-title">Name</FormLabel>
+          <p className="text-secondary">{t("shareIntro", { goals: goals.map((goal) => goal.title).join(", ") })}</p>
+          <FormLabel htmlFor="share-title">{t("name")}</FormLabel>
           <div className="d-flex gap-2">
             <FormControl id="share-title" value={title} maxLength={255} onChange={(e) => setTitle(e.target.value)} />
             <Button type="submit" variant="primary" disabled={busy} className="text-nowrap">
-              Create link
+              {t("createLink")}
             </Button>
           </div>
         </form>
@@ -125,21 +121,21 @@ function ShareDashboardModal({
       )}
       {shares !== null && shares.length > 0 && (
         <>
-          <div className="form-label">Your links</div>
+          <div className="form-label">{t("yourLinks")}</div>
           <ul className="list-group list-group-flush">
             {shares.map((share) => (
               <li key={share.id} className="list-group-item px-0 d-flex align-items-center gap-2">
                 <div className="flex-fill text-truncate">
                   <a href={shareUrl(share.token)} target="_blank" rel="noreferrer">
-                    {share.title || "Untitled"}
+                    {share.title || t("untitled")}
                   </a>
                   <div className="text-secondary small">
-                    {goalCount(share.goals.length)} · {created.format(new Date(share.created_at))}
+                    {t("goalCount", { n: share.goals.length })} · {formatDate(share.created_at, { dateStyle: "medium" }, locale)}
                   </div>
                 </div>
                 <CopyButton text={shareUrl(share.token)} />
                 <Button variant="danger" outline disabled={busy} onClick={() => void revoke(share)}>
-                  Revoke
+                  {t("revoke")}
                 </Button>
               </li>
             ))}

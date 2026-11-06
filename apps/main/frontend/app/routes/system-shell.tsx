@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
-import { AppShell } from "platform-core";
+import { AppShell, defineMessages, useT } from "platform-core";
 import type { NavEntry, UserMenuEntry } from "platform-core";
 import { getSession, logout, subscribeSession, useMyPermissions } from "platform-auth-frontend";
 import { BackIcon } from "../lib/navIcons";
@@ -8,10 +8,10 @@ import { ShellLink } from "../lib/ShellLink";
 import { allowedConsoleNav } from "../lib/systemNav";
 import { useRequireAccessToken } from "../lib/useRequireAccessToken";
 
-const USER_MENU: UserMenuEntry[] = [
-  { label: "Back to GoalNexa", to: "/dashboard" },
-  { label: "My account", to: "/account" },
-];
+const messages = defineMessages({
+  en: { back: "Back to GoalNexa", account: "My account", brand: "System console" },
+  vi: { back: "Quay lại GoalNexa", account: "Tài khoản của tôi", brand: "Bảng quản trị hệ thống" },
+});
 
 /**
  * The system console: every instance-wide admin page (status, settings,
@@ -30,6 +30,7 @@ const USER_MENU: UserMenuEntry[] = [
 export default function SystemShellLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const t = useT(messages);
   const [session, setSessionState] = useState(() => getSession());
   const accessToken = useRequireAccessToken();
   const permissions = useMyPermissions();
@@ -44,17 +45,21 @@ export default function SystemShellLayout() {
 
   if (accessToken === null || permissions === null || denied) return null;
 
-  const navItems: NavEntry[] = [{ label: "Back to GoalNexa", to: "/dashboard", icon: BackIcon }, ...allowed];
+  const navItems: NavEntry[] = [{ label: t("back"), to: "/dashboard", icon: BackIcon }, ...allowed];
+  const userMenu: UserMenuEntry[] = [
+    { label: t("back"), to: "/dashboard" },
+    { label: t("account"), to: "/account" },
+  ];
 
   return (
     <AppShell
-      brand="System console"
+      brand={t("brand")}
       navItems={navItems}
       currentPath={location.pathname}
       linkComponent={ShellLink}
       user={session?.user ?? null}
       onLogout={session ? () => void logout() : undefined}
-      userMenu={USER_MENU}
+      userMenu={userMenu}
     >
       <Outlet context={accessToken} />
     </AppShell>

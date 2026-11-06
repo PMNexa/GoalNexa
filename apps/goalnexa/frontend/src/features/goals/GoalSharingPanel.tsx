@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Card, CardBody, CardHeader, CardTitle } from "platform-core";
+import { Button, Card, CardBody, CardHeader, CardTitle, useT, type Translate } from "platform-core";
 import type { Goal, GoalVisibility } from "../../api/goals";
 import {
   addGoalMember,
@@ -13,6 +13,7 @@ import {
   type GoalMember,
   type OrgPerson,
 } from "../../api/goalMembers";
+import messages from "./GoalSharingPanel.messages";
 
 export interface GoalSharingPanelProps {
   accessToken: string;
@@ -30,16 +31,12 @@ interface Loaded {
   members: GoalMember[];
 }
 
-const VISIBILITY_HINTS: Record<GoalVisibility, (org: string) => string> = {
-  public: (org) => `Everyone in ${org} sees this goal.`,
-  private: () => "Only the owner and the members below see this goal.",
-  team: (org) => `Only its team (and the teams under it, their leads above it) and ${org}'s owners and admins see this goal.`,
-};
+type T = Translate<(typeof messages)["en"]>;
 
-const VISIBILITY_LABELS: Record<GoalVisibility, string> = { public: "Public", private: "Private", team: "Team only" };
+const VISIBILITY_HINTS = { public: "hintPublic", private: "hintPrivate", team: "hintTeam" } as const satisfies Record<GoalVisibility, string>;
 
-function personLabel(person: OrgPerson | undefined, userId: string): string {
-  return person?.name ?? person?.email ?? `Unknown user (${userId.slice(0, 8)})`;
+function personLabel(t: T, person: OrgPerson | undefined, userId: string): string {
+  return person?.name ?? person?.email ?? t("unknownUser", { id: userId.slice(0, 8) });
 }
 
 /**
@@ -63,6 +60,7 @@ async function loadSharing(accessToken: string, goalId: string): Promise<Loaded 
 }
 
 function GoalSharingPanel({ accessToken, goalId, onChanged, onLeft }: GoalSharingPanelProps) {
+  const t = useT(messages);
   const [view, setView] = useState<Loaded | "personal" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState("");
@@ -96,10 +94,10 @@ function GoalSharingPanel({ accessToken, goalId, onChanged, onLeft }: GoalSharin
     return (
       <Card className="mt-3">
         <CardHeader>
-          <CardTitle>Sharing</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
         </CardHeader>
         <CardBody className="text-secondary">
-          A personal goal - only you see it. Put it in an organization to share it.
+          {t("personal")}
         </CardBody>
       </Card>
     );
@@ -116,8 +114,8 @@ function GoalSharingPanel({ accessToken, goalId, onChanged, onLeft }: GoalSharin
   function handleRemove(member: GoalMember) {
     const self = member.user_id === me?.user_id;
     const question = self
-      ? "Leave this goal?" + (loaded?.goal.visibility === "private" ? " You won't see it anymore." : "")
-      : `Remove ${personLabel(byUser.get(member.user_id), member.user_id)} from this goal?`;
+      ? t(loaded?.goal.visibility === "private" ? "leavePrivateConfirm" : "leaveConfirm")
+      : t("removeConfirm", { name: personLabel(t, byUser.get(member.user_id), member.user_id) });
     if (!window.confirm(question)) return;
     if (self && loaded?.goal.visibility === "private") {
       // The goal is out of reach once we're off it - no refresh to do.
@@ -134,7 +132,7 @@ function GoalSharingPanel({ accessToken, goalId, onChanged, onLeft }: GoalSharin
   return (
     <Card className="mt-3">
       <CardHeader>
-        <CardTitle>Sharing</CardTitle>
+        <CardTitle>{t("title")}</CardTitle>
       </CardHeader>
       {error && (
         <CardBody className="border-bottom">
@@ -144,12 +142,12 @@ function GoalSharingPanel({ accessToken, goalId, onChanged, onLeft }: GoalSharin
         </CardBody>
       )}
       {loaded === null ? (
-        !error && <CardBody className="text-secondary">Loading…</CardBody>
+        !error && <CardBody className="text-secondary">{t("loading")}</CardBody>
       ) : (
         <>
           <CardBody className="border-bottom">
             <label className="form-label" htmlFor={`goal-visibility-${goalId}`}>
-              Visibility
+              {t("visibility")}
             </label>
             {isOwner ? (
               <select
@@ -162,29 +160,29 @@ function GoalSharingPanel({ accessToken, goalId, onChanged, onLeft }: GoalSharin
                   void act(() => setGoalVisibility(accessToken, goalId, visibility), onChanged);
                 }}
               >
-                <option value="public">Public</option>
-                <option value="private">Private</option>
-                {(loaded.goal.team_id || loaded.goal.visibility === "team") && <option value="team">Team only</option>}
+                <option value="public">{t("public")}</option>
+                <option value="private">{t("private")}</option>
+                {(loaded.goal.team_id || loaded.goal.visibility === "team") && <option value="team">{t("team")}</option>}
               </select>
             ) : (
-              <div id={`goal-visibility-${goalId}`}>{VISIBILITY_LABELS[loaded.goal.visibility]}</div>
+              <div id={`goal-visibility-${goalId}`}>{t(loaded.goal.visibility)}</div>
             )}
-            <small className="form-hint">{VISIBILITY_HINTS[loaded.goal.visibility](loaded.orgName)}</small>
+            <small className="form-hint">{t(VISIBILITY_HINTS[loaded.goal.visibility], { org: loaded.orgName })}</small>
           </CardBody>
           <div className="table-responsive">
             <table className="table table-vcenter card-table">
               <thead>
                 <tr>
-                  <th>Member</th>
+                  <th>{t("member")}</th>
                   <th className="w-1" />
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>
-                    {personLabel(byUser.get(loaded.goal.owner_id), loaded.goal.owner_id)}
-                    {loaded.goal.owner_id === me?.user_id && <span className="text-secondary"> (you)</span>}
-                    <span className="badge bg-secondary-lt ms-2">Owner</span>
+                    {personLabel(t, byUser.get(loaded.goal.owner_id), loaded.goal.owner_id)}
+                    {loaded.goal.owner_id === me?.user_id && <span className="text-secondary"> {t("you")}</span>}
+                    <span className="badge bg-secondary-lt ms-2">{t("owner")}</span>
                   </td>
                   <td />
                 </tr>
@@ -193,13 +191,13 @@ function GoalSharingPanel({ accessToken, goalId, onChanged, onLeft }: GoalSharin
                   return (
                     <tr key={member.id}>
                       <td>
-                        {personLabel(byUser.get(member.user_id), member.user_id)}
-                        {self && <span className="text-secondary"> (you)</span>}
+                        {personLabel(t, byUser.get(member.user_id), member.user_id)}
+                        {self && <span className="text-secondary"> {t("you")}</span>}
                       </td>
                       <td className="text-nowrap">
                         {(isOwner || self) && (
                           <Button variant="danger" outline disabled={busy} onClick={() => handleRemove(member)}>
-                            {self ? "Leave" : "Remove"}
+                            {self ? t("leave") : t("remove")}
                           </Button>
                         )}
                       </td>
@@ -212,7 +210,7 @@ function GoalSharingPanel({ accessToken, goalId, onChanged, onLeft }: GoalSharin
           {isOwner && (
             <CardBody className="border-top">
               {candidates.length === 0 ? (
-                <div className="text-secondary">Everyone in {loaded.orgName} is already on this goal.</div>
+                <div className="text-secondary">{t("everyoneOn", { org: loaded.orgName })}</div>
               ) : (
                 <form
                   className="d-flex gap-2"
@@ -227,21 +225,21 @@ function GoalSharingPanel({ accessToken, goalId, onChanged, onLeft }: GoalSharin
                 >
                   <select
                     className="form-select form-select-sm"
-                    aria-label="Member to add"
+                    aria-label={t("memberToAdd")}
                     value={adding}
                     disabled={busy}
                     onChange={(event) => setAdding(event.target.value)}
                   >
-                    <option value="">Add a member of {loaded.orgName}…</option>
+                    <option value="">{t("addPlaceholder", { org: loaded.orgName })}</option>
                     {candidates.map((person) => (
                       <option key={person.user_id} value={person.user_id}>
-                        {personLabel(person, person.user_id)}
+                        {personLabel(t, person, person.user_id)}
                         {person.name && person.email ? ` (${person.email})` : ""}
                       </option>
                     ))}
                   </select>
                   <Button type="submit" variant="primary" disabled={busy || !adding}>
-                    Add
+                    {t("add")}
                   </Button>
                 </form>
               )}

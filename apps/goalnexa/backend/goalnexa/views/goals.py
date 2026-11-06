@@ -9,6 +9,7 @@ sub-goals instead of leaving those fields off.
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_noop
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -20,7 +21,7 @@ from goalnexa.activity import changes, record, snapshot
 from core_api.system import check_org_limit
 from goalnexa.models import ActivityVerb, CheckIn, Cycle, CycleStatus, Goal, GoalStatus, GoalVisibility, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
-from goalnexa.periods import ANY_TIME, NEW_SETTINGS, SNAP_FIELDS, apply_follow, follow_plan, pace_pct, snap_settings, zone_for
+from goalnexa.periods import ANY_TIME, NEW_SETTINGS, SNAP_FIELDS, apply_follow, follow_plan, pace_pct, period_name, snap_settings, zone_for
 from goalnexa.progress import metric_pct, metric_readings, project_value, refresh_goal, root_metrics, target_datetime
 from goalnexa.serializers import GoalSerializer
 from goalnexa.serializers.goal import SNAP_TO_PARENT
@@ -124,8 +125,8 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
                 validate_one_per(metric.one_per, metric.target_per, value["snap_to"])
             except ValidationError:
                 raise ValidationError({"snap_to": [
-                    f'"{metric.name}" can\'t have check-ins for a whole {value["snap_to"]} (its target or one-reading period is shorter). '
-                    "Pick a period for that metric first."
+                    gettext('"{metric}" can\'t have check-ins for a whole {period} (its target or one-reading period is shorter). '
+                            "Pick a period for that metric first.").format(metric=metric.name, period=period_name(value["snap_to"]))
                 ]})
 
     def _check_team(self, team_id, org_id, visibility):
@@ -140,7 +141,7 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         current = Goal.objects.filter(org_id=org_id, is_rollup=False).exclude(status=GoalStatus.ARCHIVED)
         if exclude_id is not None:
             current = current.exclude(id=exclude_id)
-        check_org_limit(org_id, "max_goals", current.count(), "goals")
+        check_org_limit(org_id, "max_goals", current.count(), gettext_noop("goals"))
 
     def perform_create(self, serializer):
         org_id = serializer.validated_data.get("org_id")

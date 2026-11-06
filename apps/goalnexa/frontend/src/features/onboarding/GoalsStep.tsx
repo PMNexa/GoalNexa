@@ -1,4 +1,5 @@
-import { Button, FormControl, FormLabel, Icon } from "platform-core";
+import { Button, FormControl, FormLabel, Icon, useT } from "platform-core";
+import messages from "./messages";
 import type { GoalDraft } from "./onboardingDrafts";
 
 export interface GoalsStepProps {
@@ -12,20 +13,21 @@ export interface GoalsStepProps {
 
 /** The website path's goals: a title, an optional target date and description each. */
 function GoalsStep({ goals, locked, onUpdate, onAdd, onRemove }: GoalsStepProps) {
+  const t = useT(messages);
   return (
     <div>
-      <h3 className="card-title">What are you aiming for?</h3>
-      <p className="text-secondary">Add a few goals. A target date is optional, but it lets the dashboard project whether you'll make it.</p>
+      <h3 className="card-title">{t("goalsTitle")}</h3>
+      <p className="text-secondary">{t("goalsHint")}</p>
       {goals.map((goal, i) => (
         <div key={goal.key} className="row g-2 align-items-end mb-3">
           <div className="col">
             <FormLabel htmlFor={`onboarding-goal-${goal.key}`} required={i === 0}>
-              {i === 0 ? "Goal" : <span className="visually-hidden">Goal</span>}
+              {i === 0 ? t("goal") : <span className="visually-hidden">{t("goal")}</span>}
             </FormLabel>
             <FormControl
               id={`onboarding-goal-${goal.key}`}
               autoFocus={i === 0}
-              placeholder={i === 0 ? "e.g. Grow monthly revenue" : "Another goal"}
+              placeholder={i === 0 ? t("goalPlaceholder") : t("anotherGoal")}
               value={goal.title}
               disabled={locked.has(goal.key)}
               onChange={(event) => onUpdate(goal.key, { title: event.target.value })}
@@ -33,7 +35,7 @@ function GoalsStep({ goals, locked, onUpdate, onAdd, onRemove }: GoalsStepProps)
           </div>
           <div className="col-4 col-md-3">
             <FormLabel htmlFor={`onboarding-goal-date-${goal.key}`}>
-              {i === 0 ? "Target date" : <span className="visually-hidden">Target date</span>}
+              {i === 0 ? t("targetDate") : <span className="visually-hidden">{t("targetDate")}</span>}
             </FormLabel>
             <FormControl
               id={`onboarding-goal-date-${goal.key}`}
@@ -48,7 +50,7 @@ function GoalsStep({ goals, locked, onUpdate, onAdd, onRemove }: GoalsStepProps)
               icon
               outline
               variant="secondary"
-              aria-label={`Remove goal ${goal.title || i + 1}`}
+              aria-label={t("removeGoal", { name: goal.title || i + 1 })}
               disabled={goals.length === 1 || locked.has(goal.key)}
               onClick={() => onRemove(goal.key)}
             >
@@ -56,10 +58,10 @@ function GoalsStep({ goals, locked, onUpdate, onAdd, onRemove }: GoalsStepProps)
             </Button>
           </div>
           <div className="col-12">
-            <label className="visually-hidden" htmlFor={`onboarding-goal-desc-${goal.key}`}>Goal description</label>
+            <label className="visually-hidden" htmlFor={`onboarding-goal-desc-${goal.key}`}>{t("goalDescription")}</label>
             <FormControl
               id={`onboarding-goal-desc-${goal.key}`}
-              placeholder="Description (optional) - why it matters, what done looks like"
+              placeholder={t("goalDescriptionPlaceholder")}
               value={goal.description}
               disabled={locked.has(goal.key)}
               onChange={(event) => onUpdate(goal.key, { description: event.target.value })}
@@ -68,7 +70,7 @@ function GoalsStep({ goals, locked, onUpdate, onAdd, onRemove }: GoalsStepProps)
         </div>
       ))}
       <Button variant="link" className="px-0" onClick={onAdd}>
-        <Icon name="plus" /> Add goal
+        <Icon name="plus" /> {t("addGoal")}
       </Button>
     </div>
   );

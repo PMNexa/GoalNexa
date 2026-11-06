@@ -1,4 +1,5 @@
-import { CrudDetailScreen, Drawer, type LinkComponent } from "platform-core";
+import { CrudDetailScreen, Drawer, useT, type LinkComponent } from "platform-core";
+import messages from "./messages";
 import GoalActivityPanel from "../goals/GoalActivityPanel";
 import GoalSharingPanel from "../goals/GoalSharingPanel";
 import MetricIngestPanel from "../metrics/MetricIngestPanel";
@@ -34,8 +35,9 @@ function DashboardDetailDrawer({
   onDeleted,
   onChanged,
 }: DashboardDetailDrawerProps) {
+  const t = useT(messages);
   return (
-    <Drawer open={detail !== null} title={detail?.endpoint === "/api/v1/metrics" ? "Metric" : "Goal"} onClose={onClose}>
+    <Drawer open={detail !== null} title={detail?.endpoint === "/api/v1/metrics" ? t("drawerMetric") : t("drawerGoal")} onClose={onClose}>
       {detail && (
         <CrudDetailScreen
           key={`${detail.endpoint}/${detail.id}/${detailVersion}`}

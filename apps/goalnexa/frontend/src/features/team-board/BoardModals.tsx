@@ -1,4 +1,5 @@
-import { Button, Modal } from "platform-core";
+import { Button, Modal, useT } from "platform-core";
+import messages from "./messages";
 import type { EditTarget } from "./boardHelpers";
 import type { Row } from "./boardRows";
 
@@ -15,6 +16,7 @@ export function LeaveTemplateModal({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const t = useT(messages);
   const name = leaving?.label ?? "";
   const member = !!leaving?.person;
   return (
@@ -22,14 +24,14 @@ export function LeaveTemplateModal({
       open={leaving !== null}
       onClose={() => !busy && onCancel()}
       size="sm"
-      title={leaving ? (member ? `Take ${name}'s own targets away?` : `Take ${name} out of the template?`) : ""}
+      title={leaving ? t(member ? "leaveMemberTitle" : "leaveTeamTitle", { name }) : ""}
       footer={
         <>
           <Button variant="secondary" outline onClick={onCancel} disabled={busy}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button variant="danger" onClick={onConfirm} disabled={busy}>
-            Take out
+            {t("takeOut")}
           </Button>
         </>
       }
@@ -37,11 +39,9 @@ export function LeaveTemplateModal({
       {leaving && (
         <p className="mb-0">
           {Object.values(leaving.instance?.metrics ?? {}).some((m) => m.last_checked_in_at)
-            ? `${name} has check-ins: ${member ? "their" : "its"} goals and their history stay, as ${name}'s own goals, no longer part of the template.`
-            : `${name}'s copy of the template and its targets are deleted.`}{" "}
-          {member
-            ? "The team's total stops counting it. Tick it again to start a fresh copy."
-            : `${leaving.memberCount ? "Its members' own copies go the same way. " : ""}The totals above it stop counting it. Tick it again to start a fresh copy.`}
+            ? t(member ? "hasCheckInsMember" : "hasCheckInsTeam", { name })
+            : t("copyDeleted", { name })}{" "}
+          {member ? t("memberTail") : `${leaving.memberCount ? t("membersCopiesToo") : ""}${t("teamTail")}`}
         </p>
       )}
     </Modal>
@@ -61,19 +61,20 @@ export function RemoveFromTemplateModal({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const t = useT(messages);
   return (
     <Modal
       open={removing !== null}
       onClose={() => !busy && onCancel()}
       size="sm"
-      title={removing ? `Remove "${removing.name}"?` : ""}
+      title={removing ? t("removeTitle", { name: removing.name }) : ""}
       footer={
         <>
           <Button variant="secondary" outline onClick={onCancel} disabled={busy}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button variant="danger" onClick={onConfirm} disabled={busy}>
-            Remove
+            {t("remove")}
           </Button>
         </>
       }
@@ -81,9 +82,9 @@ export function RemoveFromTemplateModal({
       {removing && (
         <p className="mb-0">
           {removing.endpoint === "/api/v1/template-metrics"
-            ? "The metric and its sub-metrics leave the template and every team's copy, and the totals drop it."
-            : "The goal, its sub-goals and their metrics leave the template and every team's copy, and the totals drop them."}{" "}
-          A team's copy that already has check-ins is kept as that team's own, no longer part of the template.
+            ? t("removeMetricText")
+            : t("removeGoalText")}{" "}
+          {t("removeKept")}
         </p>
       )}
     </Modal>

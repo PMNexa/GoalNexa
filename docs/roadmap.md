@@ -292,7 +292,7 @@ private (`goalnexa-cloud`); the server side is here. Design:
 | P-13 | Git/Gitea/GitLab sync | A metric follows a repo number (issues closed, milestone %, releases) via the ingest URL, with setup recipes per forge | Proposed |                                   |
 | P-14 | Feature switches      | Admin toggles to turn whole features off (cycles, comments, MCP, ingest, digest) - nav, API and MCP tools follow       | Proposed |                                   |
 | P-15 | Org-level audit log   | Org owners/admins see the audit events of their own org (members, roles, goals, cycles), with CSV export               | Proposed |                                   |
-| P-16 | Translations          | UI strings extracted, language picker per user, first extra language: Vietnamese                                       | Proposed | Language choice is a guess - edit |
+| P-16 | Translations          | UI strings extracted, language picker per user, first extra language: Vietnamese                                       | Done | 2026-11-07. Website + API messages; emails are P-47. Design: `docs/translations.md` |
 
 
 Integrations stay last and stay open (webhooks, ingest URLs), so one

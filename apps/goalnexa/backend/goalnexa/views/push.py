@@ -12,6 +12,7 @@ sees their own phones and messages.
 import uuid
 
 from django.utils import timezone
+from django.utils.translation import gettext
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import serializers
@@ -110,7 +111,7 @@ class PushDeviceListView(APIView):
             raise ValidationError({"handle": ["The handle the push relay returned."]})
         platform = request.data.get("platform", PushPlatform.ANDROID)
         if platform not in PushPlatform.values:
-            raise ValidationError({"platform": [f"One of: {', '.join(PushPlatform.values)}."]})
+            raise ValidationError({"platform": [gettext("One of: {choices}.").format(choices=", ".join(PushPlatform.values))]})
         device_name = str(request.data.get("device_name") or "")[:128]
         now = timezone.now()
         device = PushDevice.objects.filter(handle=handle.strip()).first()
