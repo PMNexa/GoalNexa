@@ -1,5 +1,5 @@
 import { useEffect, useState, type SubmitEvent } from "react";
-import { Button, Card, CardBody, CardHeader, CardTitle, FormLabel } from "platform-core";
+import { Button, Card, CardBody, CardHeader, CardTitle, formatDateTime, FormLabel, useLocale, useT } from "platform-core";
 import { errorMessage } from "../../api/goalMembers";
 import {
   fetchDueMetrics,
@@ -11,14 +11,15 @@ import {
   type ReminderSettings,
   type ReminderSettingsInput,
 } from "../../api/reminders";
+import messages from "./RemindersScreen.messages";
 
 export interface RemindersScreenProps {
   accessToken: string;
 }
 
-const DUE = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const DUE: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
 
-const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const WEEKDAYS = ["onDay0", "onDay1", "onDay2", "onDay3", "onDay4", "onDay5", "onDay6"] as const;
 
 /** The browser's IANA time zone - digests go out at the chosen hour there. */
 function browserTimeZone(): string {
@@ -46,8 +47,8 @@ const EXAMPLES = [
   ["Telegram", "tgram://bot-token/chat-id"],
   ["Slack", "slack://TokenA/TokenB/TokenC/#channel"],
   ["Discord", "discord://webhook-id/webhook-token"],
-  ["Webhook (JSON POST)", "json://example.com/hooks/goalnexa"],
-];
+  ["webhook", "json://example.com/hooks/goalnexa"],
+] as const;
 
 /**
  * Check-in reminders: where the signed-in user's reminders go (Apprise
@@ -60,6 +61,8 @@ const EXAMPLES = [
  * screen here - `accessToken` in, no router dependency.
  */
 function RemindersScreen({ accessToken }: RemindersScreenProps) {
+  const t = useT(messages);
+  const locale = useLocale();
   const [settings, setSettings] = useState<ReminderSettings | null>(null);
   const [form, setForm] = useState<ReminderSettingsInput | null>(null);
   const [due, setDue] = useState<{ items: DueMetric[]; total: number } | null>(null);
@@ -105,7 +108,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
       const saved = await saveReminderSettings(accessToken, { ...form, timezone: browserTimeZone() });
       setSettings(saved);
       setForm(formFrom(saved));
-    }, "Saved.");
+    }, t("saved"));
   }
 
   function update<K extends keyof ReminderSettingsInput>(key: K, value: ReminderSettingsInput[K]) {
@@ -123,15 +126,14 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
       <div className="col-12 col-lg-7">
         <Card>
           <CardHeader>
-            <CardTitle>Check-in reminders</CardTitle>
+            <CardTitle>{t("title")}</CardTitle>
           </CardHeader>
           <CardBody>
             <p className="text-secondary">
-              Give a metric a schedule (its <strong>Check in every</strong> field) and, once a check-in is overdue, its
-              goal's owner gets a reminder listing everything that's due - one message, once per due date.
+              {t.rich("intro", {})}
             </p>
             {settings === null || form === null ? (
-              !error && <div className="text-secondary">Loading…</div>
+              !error && <div className="text-secondary">{t("loading")}</div>
             ) : (
               <form id="reminder-settings-form" onSubmit={handleSave}>
                 <label className="form-check form-switch mb-3">
@@ -141,7 +143,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                     checked={form.enabled}
                     onChange={(event) => update("enabled", event.target.checked)}
                   />
-                  <span className="form-check-label">Send me reminders</span>
+                  <span className="form-check-label">{t("enabled")}</span>
                 </label>
                 {settings.email_available && (
                   <label className="form-check mb-3">
@@ -151,7 +153,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                       checked={form.email}
                       onChange={(event) => update("email", event.target.checked)}
                     />
-                    <span className="form-check-label">Email them to my account address</span>
+                    <span className="form-check-label">{t("email")}</span>
                   </label>
                 )}
                 {settings.push_available && (
@@ -163,16 +165,16 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                       onChange={(event) => update("push", event.target.checked)}
                     />
                     <span className="form-check-label">
-                      Send them to the GoalNexa app
+                      {t("push")}
                       <span className="form-check-description">
                         {settings.push_devices === 0
-                          ? "Sign in to the Android app and turn on notifications there."
-                          : `On ${settings.push_devices} phone${settings.push_devices === 1 ? "" : "s"}.`}
+                          ? t("pushNone")
+                          : t("pushOn", { n: settings.push_devices })}
                       </span>
                     </span>
                   </label>
                 )}
-                <FormLabel htmlFor="reminder-urls">{settings.email_available ? "Also send to" : "Send to"}</FormLabel>
+                <FormLabel htmlFor="reminder-urls">{settings.email_available ? t("alsoSendTo") : t("sendTo")}</FormLabel>
                 <textarea
                   id="reminder-urls"
                   className="form-control font-monospace"
@@ -182,15 +184,17 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                   onChange={(event) => update("urls", event.target.value)}
                 />
                 <small className="form-hint">
-                  One{" "}
-                  <a href="https://github.com/caronc/apprise/wiki" target="_blank" rel="noreferrer">
-                    Apprise URL
-                  </a>{" "}
-                  per line; lines starting with # are ignored.
-                  {settings.allowed_schemes && <> This server accepts: {settings.allowed_schemes.join(", ")}.</>}
+                  {t.rich("urlsHint", {
+                    link: (text: string) => (
+                      <a href="https://github.com/caronc/apprise/wiki" target="_blank" rel="noreferrer">
+                        {text}
+                      </a>
+                    ),
+                  })}
+                  {settings.allowed_schemes && <> {t("accepts", { schemes: settings.allowed_schemes.join(", ") })}</>}
                 </small>
                 <FormLabel className="mt-3" htmlFor="reminder-digest">
-                  Goals digest
+                  {t("digest")}
                 </FormLabel>
                 <div className="d-flex flex-wrap gap-2 align-items-center">
                   <select
@@ -199,20 +203,20 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                     value={form.digest}
                     onChange={(event) => update("digest", event.target.value as DigestFrequency)}
                   >
-                    <option value="weekly">Weekly</option>
-                    <option value="daily">Daily</option>
-                    <option value="off">Off</option>
+                    <option value="weekly">{t("weekly")}</option>
+                    <option value="daily">{t("daily")}</option>
+                    <option value="off">{t("off")}</option>
                   </select>
                   {form.digest === "weekly" && (
                     <select
                       className="form-select w-auto"
-                      aria-label="Digest day"
+                      aria-label={t("digestDay")}
                       value={form.digest_weekday}
                       onChange={(event) => update("digest_weekday", Number(event.target.value))}
                     >
                       {WEEKDAYS.map((day, i) => (
                         <option key={day} value={i}>
-                          on {day}
+                          {t(day)}
                         </option>
                       ))}
                     </select>
@@ -220,22 +224,21 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                   {form.digest !== "off" && (
                     <select
                       className="form-select w-auto"
-                      aria-label="Digest hour"
+                      aria-label={t("digestHour")}
                       value={form.digest_hour}
                       onChange={(event) => update("digest_hour", Number(event.target.value))}
                     >
                       {Array.from({ length: 24 }, (_, hour) => (
                         <option key={hour} value={hour}>
-                          at {String(hour).padStart(2, "0")}:00
+                          {t("atHour", { time: `${String(hour).padStart(2, "0")}:00` })}
                         </option>
                       ))}
                     </select>
                   )}
                 </div>
                 <small className="form-hint">
-                  What moved, what's at risk or off track, what's achieved and which check-ins are due - across your goals
-                  and your organizations' shared ones. Your time zone: {browserTimeZone()}
-                  {zoneChanged && <> (saved as {settings.timezone} - save to update)</>}.
+                  {t("digestHint", { zone: browserTimeZone() })}
+                  {zoneChanged && t("zoneChanged", { zone: settings.timezone })}.
                 </small>
               </form>
             )}
@@ -253,16 +256,16 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
           {settings !== null && (
             <CardBody className="border-top d-flex gap-2">
               <Button type="submit" form="reminder-settings-form" variant="primary" disabled={busy || !(dirty || zoneChanged)}>
-                Save
+                {t("save")}
               </Button>
               <Button
                 variant="secondary"
                 outline
                 disabled={busy || dirty || (!settings.urls.trim() && !settings.email && !(settings.push && settings.push_devices > 0))}
-                title={dirty ? "Save first" : undefined}
-                onClick={() => void act(() => sendTestReminder(accessToken), "Test message sent.")}
+                title={dirty ? t("saveFirst") : undefined}
+                onClick={() => void act(() => sendTestReminder(accessToken), t("testSent"))}
               >
-                Send a test
+                {t("sendTest")}
               </Button>
             </CardBody>
           )}
@@ -271,21 +274,21 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
       <div className="col-12 col-lg-5">
         <Card>
           <CardHeader>
-            <CardTitle>Due now</CardTitle>
+            <CardTitle>{t("dueNow")}</CardTitle>
           </CardHeader>
           {due === null ? (
-            <CardBody>{!error && <div className="text-secondary">Loading…</div>}</CardBody>
+            <CardBody>{!error && <div className="text-secondary">{t("loading")}</div>}</CardBody>
           ) : due.items.length === 0 ? (
             <CardBody>
-              <div className="text-secondary">Nothing's due. Metrics without a schedule never are.</div>
+              <div className="text-secondary">{t("nothingDue")}</div>
             </CardBody>
           ) : (
             <div className="table-responsive">
               <table className="table table-vcenter card-table">
                 <thead>
                   <tr>
-                    <th>Metric</th>
-                    <th>Due since</th>
+                    <th>{t("metric")}</th>
+                    <th>{t("dueSince")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -295,27 +298,27 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                         <div className="text-secondary small">{metric.goal.title}</div>
                         {metric.name}
                       </td>
-                      <td className="text-nowrap">{DUE.format(Date.parse(metric.check_in_due_at as string))}</td>
+                      <td className="text-nowrap">{formatDateTime(metric.check_in_due_at as string, DUE, locale)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {due.total > due.items.length && (
-                <div className="card-footer text-secondary small">And {due.total - due.items.length} more.</div>
+                <div className="card-footer text-secondary small">{t("more", { n: due.total - due.items.length })}</div>
               )}
             </div>
           )}
         </Card>
         <Card className="mt-3">
           <CardHeader>
-            <CardTitle>URL examples</CardTitle>
+            <CardTitle>{t("examples")}</CardTitle>
           </CardHeader>
           <div className="table-responsive">
             <table className="table table-vcenter card-table">
               <tbody>
                 {EXAMPLES.map(([service, example]) => (
                   <tr key={service}>
-                    <td className="text-nowrap">{service}</td>
+                    <td className="text-nowrap">{service === "webhook" ? t("webhook") : service}</td>
                     <td>
                       <code className="text-break">{example}</code>
                     </td>

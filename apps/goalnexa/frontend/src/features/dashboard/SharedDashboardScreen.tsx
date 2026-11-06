@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardBody, CardHeader, CardTitle } from "platform-core";
+import { Card, CardBody, CardHeader, CardTitle, useT } from "platform-core";
 import type { CheckIn } from "../../api/checkIns";
 import type { Goal } from "../../api/goals";
 import type { Metric } from "../../api/metrics";
@@ -8,6 +8,7 @@ import DashboardCharts from "./DashboardCharts";
 import GoalFilterList, { withDescendants } from "../../components/GoalFilterList";
 import { MAX_GOALS, useDashboardCharts } from "./useDashboardCharts";
 import { DASHBOARD_CSS } from "../../components/dashboardStyles";
+import messages from "./messages";
 
 export interface SharedDashboardScreenProps {
   /** The secret from the link. */
@@ -43,6 +44,7 @@ function asCheckIn(checkIn: SharedDashboard["check_ins"][number]): CheckIn {
  * what it was made with). Live: progress as it is when opened.
  */
 function SharedDashboardScreen({ token }: SharedDashboardScreenProps) {
+  const t = useT(messages);
   const [data, setData] = useState<SharedDashboard | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   // The visitor's own show/hide, starting from the link's.
@@ -87,9 +89,9 @@ function SharedDashboardScreen({ token }: SharedDashboardScreenProps) {
   const message = error
     ? error
     : data === null
-      ? "This link was removed, or it never existed."
+      ? t("linkRemoved")
       : data && goals.length === 0
-        ? "Nothing to show here anymore."
+        ? t("nothingToShow")
         : null;
 
   return (
@@ -98,13 +100,13 @@ function SharedDashboardScreen({ token }: SharedDashboardScreenProps) {
         {DASHBOARD_CSS}
       </style>
       <div className="mb-3">
-        <h2 className="page-title">{data?.title || "Shared goals"}</h2>
-        <div className="text-secondary small">Read-only · shared from GoalNexa</div>
+        <h2 className="page-title">{data?.title || t("sharedTitle")}</h2>
+        <div className="text-secondary small">{t("sharedSubtitle")}</div>
       </div>
       {data === undefined && !error ? (
         <Card>
           <CardBody>
-            <div className="text-secondary py-4 text-center">Loading…</div>
+            <div className="text-secondary py-4 text-center">{t("loading")}</div>
           </CardBody>
         </Card>
       ) : message ? (
@@ -118,7 +120,7 @@ function SharedDashboardScreen({ token }: SharedDashboardScreenProps) {
           <div className="col-12 col-lg-4">
             <Card>
               <CardHeader>
-                <CardTitle>Goals</CardTitle>
+                <CardTitle>{t("goals")}</CardTitle>
               </CardHeader>
               <CardBody>
                 <GoalFilterList
@@ -146,7 +148,7 @@ function SharedDashboardScreen({ token }: SharedDashboardScreenProps) {
             {selected.size === 0 ? (
               <Card>
                 <CardBody>
-                  <div className="text-secondary text-center py-5">Show one or more goals (the eye icon) to chart their progress.</div>
+                  <div className="text-secondary text-center py-5">{t("showToChart")}</div>
                 </CardBody>
               </Card>
             ) : (

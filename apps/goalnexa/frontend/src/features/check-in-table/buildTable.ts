@@ -15,7 +15,9 @@ import { formatPct } from "../../components/charts/chartUtils";
 import { buildTree, type TreeNode } from "../../components/GoalFilterList";
 import { byPosition, goalGroup, metricGroup } from "../../lib/ordering";
 import type { GoalPickerOption } from "../../components/GoalPicker";
-import { bucketEnd, bucketKey, fmt, type Snap } from "./tableColumns";
+import { translator, type Locale } from "platform-core";
+import { bucketEnd, bucketKey, fmt as formatValue, type Snap } from "./tableColumns";
+import messages from "./messages";
 
 /** What the table loads for one organization. */
 export interface TableData {
@@ -64,14 +66,17 @@ export interface Table {
 /**
  * The table for `data`: picked goals and their sub-goals (none picked =
  * all), columns = the buckets their check-ins fall in, rows nested as in
- * the goal tree.
+ * the goal tree. Text is in `locale` (the current UI language if left out).
  */
 export function buildTable(
   data: TableData,
   picked: Set<string>,
   snap: Snap,
   weekStart: number,
+  locale?: Locale,
 ): Table {
+  const t = translator(messages, locale);
+  const fmt = (n: number) => formatValue(n, locale);
   // Picked goals and their sub-goals; a pick that no longer exists is ignored.
   const parentOf = new Map(data.goals.map((g) => [g.id, g.parent]));
   const isShown = (id: string | null): boolean => {
@@ -154,15 +159,17 @@ export function buildTable(
       hasChildren,
       label: m.name,
       target: tracked
-        ? "tracked"
+        ? t("tracked")
         : `${fmt(Number(m.base_value))} → ${fmt(Number(m.target_value))}${unit}`,
       targetTitle: tracked
-        ? `Tracked only: no target, so it has no % and doesn't count toward the goal's progress.${m.unit ? ` Unit: ${m.unit}.` : ""}`
-        : `Starts at ${fmt(Number(m.base_value))}, target ${fmt(Number(m.target_value))}${m.unit ? ` (${m.unit})` : ""}. Progress is how far the value has moved from the start toward the target. ${
-            m.aggregation === "sum"
-              ? "Each check-in is an amount added to the running total."
-              : "Each check-in is the new reading."
-          }`,
+        ? m.unit
+          ? t("trackedUnit", { unit: m.unit })
+          : t("trackedTitle")
+        : `${t(m.unit ? "rangeTitleUnit" : "rangeTitle", {
+            base: fmt(Number(m.base_value)),
+            target: fmt(Number(m.target_value)),
+            unit: m.unit,
+          })} ${m.aggregation === "sum" ? t("sumHint") : t("latestHint")}`,
       cells,
       points,
       tracked,

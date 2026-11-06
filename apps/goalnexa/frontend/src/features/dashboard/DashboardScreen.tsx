@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, CardBody, CardHeader, CardTitle, FormLabel, FormSelect, Icon, type LinkComponent } from "platform-core";
+import { Button, Card, CardBody, CardHeader, CardTitle, FormLabel, FormSelect, Icon, useT, type LinkComponent } from "platform-core";
+import messages from "./messages";
 import type { Goal } from "../../api/goals";
 import type { Metric } from "../../api/metrics";
 import {
@@ -74,6 +75,7 @@ export interface DashboardScreenProps {
  * this package - `accessToken` in, no router dependency.
  */
 function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }: DashboardScreenProps) {
+  const t = useT(messages);
   const [orgs, setOrgs] = useState<OrgOption[] | null>(null);
   const [orgKey, setOrgKey] = useState<string | null>(null);
   const [goals, setGoals] = useState<Goal[] | null>(null);
@@ -333,7 +335,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   function addGoal(parentGoalId: string | null) {
     setCreateTarget({
       endpoint: "/api/v1/goals",
-      title: parentGoalId ? `New sub-goal of ${titleOf("/api/v1/goals", parentGoalId)}` : "New goal",
+      title: parentGoalId ? t("newSubGoal", { title: titleOf("/api/v1/goals", parentGoalId) }) : t("newGoal"),
       preset: {
         org_id: orgId,
         ...(parentGoalId ? { parent: parentGoalId } : {}),
@@ -346,8 +348,8 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
     setCreateTarget({
       endpoint: "/api/v1/metrics",
       title: parentMetricId
-        ? `New sub-metric of ${titleOf("/api/v1/metrics", parentMetricId)}`
-        : `New metric for ${titleOf("/api/v1/goals", goalId)}`,
+        ? t("newSubMetric", { title: titleOf("/api/v1/metrics", parentMetricId) })
+        : t("newMetric", { title: titleOf("/api/v1/goals", goalId) }),
       preset: { goal: goalId, ...(parentMetricId ? { parent: parentMetricId } : {}) },
     });
   }
@@ -380,13 +382,13 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         setCurrentOrg(event.target.value);
       }}
     >
-      {orgs === null && <option value="">Loading…</option>}
+      {orgs === null && <option value="">{t("loading")}</option>}
       {orgs?.map((org) => (
         <option key={org.id} value={org.id}>
           {org.name}
         </option>
       ))}
-      <option value={PERSONAL_ORG}>Personal (no organization)</option>
+      <option value={PERSONAL_ORG}>{t("personalOrg")}</option>
     </FormSelect>
   );
 
@@ -402,7 +404,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         key={emptyOrg.id}
         accessToken={accessToken}
         existingOrg={{ id: emptyOrg.id, name: emptyOrg.name }}
-        orgPicker={orgSelect("setup-org", "md", "w-auto fw-semibold", "Organization")}
+        orgPicker={orgSelect("setup-org", "md", "w-auto fw-semibold", t("organization"))}
         onComplete={() => setGoalsVersion((v) => v + 1)}
         onSkip={() => setSetupSkipped((prev) => new Set(prev).add(emptyOrg.id))}
       />
@@ -459,7 +461,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
             .flatMap(([id]) => goals?.find((goal) => goal.id === id) ?? [])}
           hiddenMetrics={metrics.filter((metric) => disabledMetrics.has(metric.id)).map((metric) => metric.id)}
           defaultTitle={[
-            orgKey === PERSONAL_ORG ? "Personal goals" : orgs?.find((org) => org.id === orgKey)?.name,
+            orgKey === PERSONAL_ORG ? t("personalGoals") : orgs?.find((org) => org.id === orgKey)?.name,
             cycles.find((cycle) => cycle.id === cycleKey)?.name,
           ]
             .filter(Boolean)
@@ -486,17 +488,17 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
       <div className="col-12 col-lg-4 gn-pane">
         <Card>
           <CardHeader>
-            <CardTitle>Filters</CardTitle>
+            <CardTitle>{t("filters")}</CardTitle>
             {shareUrl && (
               <Button
                 variant="secondary"
                 outline
                 className="ms-auto"
                 onClick={() => setSharing(true)}
-                title="A public, read-only link to the goals shown"
+                title={t("shareHint")}
               >
                 <Icon name="link" />
-                Share
+                {t("share")}
               </Button>
             )}
           </CardHeader>
@@ -517,17 +519,17 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
 
             <div className="d-flex align-items-center justify-content-between mb-2">
               <FormLabel className="mb-0">
-                Goals{" "}
+                {t("goals")}{" "}
                 <span className="text-secondary fw-normal">
                   {selected.size}/{Math.min(MAX_GOALS, shownGoals.length)}
                 </span>
               </FormLabel>
               <div className="d-flex gap-2">
                 <button type="button" className="btn btn-link btn-sm p-0" onClick={() => addGoal(null)} disabled={orgKey === null}>
-                  New goal
+                  {t("newGoal")}
                 </button>
                 <button type="button" className="btn btn-link btn-sm p-0" onClick={selectFirst} disabled={!shownGoals.length}>
-                  {shownGoals.length > MAX_GOALS ? `Show first ${MAX_GOALS}` : "Show all"}
+                  {shownGoals.length > MAX_GOALS ? t("showFirst", { n: MAX_GOALS }) : t("showAll")}
                 </button>
                 <button
                   type="button"
@@ -535,19 +537,19 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
                   onClick={() => chooseShown(() => new Map())}
                   disabled={selected.size === 0}
                 >
-                  Hide all
+                  {t("hideAll")}
                 </button>
               </div>
             </div>
             {goals === null ? (
-              <div className="text-secondary small">Loading goals…</div>
+              <div className="text-secondary small">{t("loadingGoals")}</div>
             ) : shownGoals.length === 0 ? (
               <div className="text-secondary small">
                 {!hasActiveGoals
-                  ? "No goals in this organization yet."
+                  ? t("noGoalsInOrg")
                   : teamKey
-                    ? "No goals for this team here yet."
-                    : "No goals in this cycle yet."}
+                    ? t("noGoalsForTeam")
+                    : t("noGoalsInCycle")}
               </div>
             ) : (
               <GoalFilterList
@@ -575,7 +577,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
               />
             )}
             {atLimit && shownGoals.length > MAX_GOALS && (
-              <div className="text-secondary small mt-2">Up to {MAX_GOALS} goals at a time.</div>
+              <div className="text-secondary small mt-2">{t("upToGoals", { n: MAX_GOALS })}</div>
             )}
           </CardBody>
         </Card>
@@ -585,7 +587,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         {selected.size === 0 ? (
           <Card>
             <CardBody>
-              <div className="text-secondary text-center py-5">Show one or more goals (the eye icon) to chart their progress.</div>
+              <div className="text-secondary text-center py-5">{t("showToChart")}</div>
             </CardBody>
           </Card>
         ) : (

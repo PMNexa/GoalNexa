@@ -1,16 +1,14 @@
-import { Button, CopyButton, FormControl } from "platform-core";
+import { Button, CopyButton, FormControl, useT } from "platform-core";
 import { McpConnectGuide } from "platform-mcp-frontend";
+import messages from "./messages";
 import { AGENT_STEPS } from "./onboardingDrafts";
 
 /** What to say to the agent first - each maps to one of goalnexa's skills. */
 const STARTER_PROMPTS = [
-  {
-    skill: "Plan",
-    prompt: "Set up GoalNexa for my team Acme: we want to grow monthly revenue from $40k to $60k by December 31.",
-  },
-  { skill: "Check in", prompt: "We're at $45k monthly revenue now." },
-  { skill: "Review", prompt: "How are my goals doing? Anything at risk?" },
-];
+  { skill: "skillPlan", prompt: "promptPlan" },
+  { skill: "skillCheckIn", prompt: "promptCheckIn" },
+  { skill: "skillReview", prompt: "promptReview" },
+] as const;
 
 export interface AgentStepsProps {
   accessToken: string;
@@ -37,15 +35,15 @@ function AgentSteps({
   onBack,
   onDone,
 }: AgentStepsProps) {
+  const t = useT(messages);
   const last = step === AGENT_STEPS.length - 1;
   return (
     <div>
       {step === 0 && (
         <div>
-          <h3 className="card-title">Connect your AI assistant</h3>
+          <h3 className="card-title">{t("connectTitle")}</h3>
           <p className="text-secondary">
-            Pick the app you use. It gets exactly your access in GoalNexa - nothing more - and you can disconnect it any
-            time from “MCP access”.
+            {t("connectHint")}
           </p>
           <McpConnectGuide accessToken={accessToken} tokenName="Onboarding" />
         </div>
@@ -53,18 +51,17 @@ function AgentSteps({
 
       {step === 1 && (
         <div>
-          <h3 className="card-title">Teach it GoalNexa</h3>
+          <h3 className="card-title">{t("skillsTitle")}</h3>
           <p className="text-secondary">
-            Skills are ready-made playbooks - planning goals, checking in, weekly reviews. Paste this into Claude Code,
-            Codex or any agent that supports skills. (A Claude connector works without them; skip this step then.)
+            {t("skillsHint")}
           </p>
           <div className="d-flex gap-2">
-            <FormControl readOnly value={skillsPrompt} aria-label="Skills install prompt" onFocus={(event) => event.target.select()} />
+            <FormControl readOnly value={skillsPrompt} aria-label={t("skillsPromptLabel")} onFocus={(event) => event.target.select()} />
             <CopyButton text={skillsPrompt} />
           </div>
           <small className="form-hint">
             <a href={skillsUrl} target="_blank" rel="noreferrer">
-              See what gets installed
+              {t("skillsSee")}
             </a>
           </small>
         </div>
@@ -72,19 +69,18 @@ function AgentSteps({
 
       {step === 2 && (
         <div>
-          <h3 className="card-title">Tell it what you're working toward</h3>
+          <h3 className="card-title">{t("tryTitle")}</h3>
           <p className="text-secondary">
-            Start with a plan - your agent creates the organization, goals and metrics, and asks before saving. Then keep it
-            updated in plain words.
+            {t("tryHint")}
           </p>
           <ul className="list-unstyled mb-0">
             {STARTER_PROMPTS.map(({ skill, prompt }) => (
               <li key={skill} className="d-flex align-items-center gap-2 mb-2">
                 <span className="badge bg-secondary-lt" style={{ minWidth: "5rem" }}>
-                  {skill}
+                  {t(skill)}
                 </span>
-                <span className="flex-fill">“{prompt}”</span>
-                <CopyButton text={prompt} />
+                <span className="flex-fill">“{t(prompt)}”</span>
+                <CopyButton text={t(prompt)} />
               </li>
             ))}
           </ul>
@@ -93,14 +89,14 @@ function AgentSteps({
 
       <div className="d-flex align-items-center gap-2 mt-4">
         <Button variant="link" className="px-0 text-secondary" onClick={onDone}>
-          Skip for now
+          {t("skip")}
         </Button>
         <div className="ms-auto d-flex gap-2">
           <Button variant="secondary" outline onClick={onBack}>
-            Back
+            {t("back")}
           </Button>
           <Button variant="primary" onClick={() => (last ? onDone() : onStep(step + 1))}>
-            {last ? "Done - open dashboard" : "Next"}
+            {last ? t("doneOpen") : t("next")}
           </Button>
         </div>
       </div>

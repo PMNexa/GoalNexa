@@ -1,10 +1,12 @@
 import { useParams } from "react-router";
+import { localeFromMatches, translator } from "platform-core";
+import messages from "../messages";
 import SharedDashboardScreen from "../SharedDashboardScreen";
 
 // oxlint-disable-next-line react/only-export-components
-export function meta() {
+export function meta({ matches }: { matches?: readonly unknown[] }) {
   // A link is meant for the people it's sent to, not for search engines.
-  return [{ title: "Shared goals" }, { name: "robots", content: "noindex, nofollow" }];
+  return [{ title: translator(messages, localeFromMatches(matches))("sharedPageTitle") }, { name: "robots", content: "noindex, nofollow" }];
 }
 
 /**

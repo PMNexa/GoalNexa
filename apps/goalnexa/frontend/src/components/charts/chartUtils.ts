@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { formatNumber, type Locale } from "platform-core";
 import type { ProgressPoint } from "../../lib/progress";
 
 /** Validated categorical colors in the palette (`dashboardStyles.ts`). */
@@ -28,8 +29,9 @@ export function seriesKey(slot: number): string {
   return color;
 }
 
-export function formatPct(pct: number): string {
-  return `${Math.round(pct)}%`;
+/** "57%" - pass `useLocale()`'s value inside a component (digit grouping follows the language). */
+export function formatPct(pct: number, locale?: Locale): string {
+  return `${formatNumber(Math.round(pct), undefined, locale)}%`;
 }
 
 /** Container width via ResizeObserver; `fallback` covers SSR/first paint. */

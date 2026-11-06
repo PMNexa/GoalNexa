@@ -39,6 +39,7 @@ Last updated: 2026-10-26.
 | Sign out | Done | Done | Done | Planned | Ported | |
 | Delete account | Done | Done | Partial | Planned | Ported | Store requirement; SSO-only accounts can't yet in the app |
 | Export my data | Done | Done | - | - | Web only | A file download |
+| Language: English, Vietnamese | Done | Partial | - | - | Later | P-16; saved on the account (`User.language`). Website: team board and server-side labels still English |
 | Two-factor login | Planned | Planned | Planned | Planned | Planned | P-01; the apps need it when it ships |
 
 ## Goals and metrics

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { formatDate, formatNumber, useLocale, useT } from "platform-core";
+import messages from "./PeriodPicker.messages";
 import { nextPeriodStart, periodLabel, periodStart, SNAP_LABELS, type Snap } from "../../lib/periods";
 
 export interface PeriodPickerProps {
@@ -44,9 +46,9 @@ const PERIOD_PICKER_CSS = `.gn-period-picker { position: relative; }
 .gn-period-picker .gn-pp-hint { font-size: .75rem; color: var(--tblr-secondary, #667382); margin-top: .4rem; }
 `;
 
-const MONTH = new Intl.DateTimeFormat(undefined, { month: "short" });
-const MONTH_YEAR = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
-const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: "narrow" });
+const MONTH: Intl.DateTimeFormatOptions = { month: "short" };
+const MONTH_YEAR: Intl.DateTimeFormatOptions = { month: "long", year: "numeric" };
+const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: "narrow" };
 
 function addMonths(t: number, months: number): number {
   const d = new Date(t);
@@ -67,6 +69,8 @@ export function periodRangeLabel(from: number, to: number, per: Snap): string {
  * time (`lib/periods.ts`).
  */
 function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, max, noneTab, noneText, none, onNone }: PeriodPickerProps) {
+  const t = useT(messages);
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   // What the grid shows: a month (days, weeks) or a year (months, quarters) or a block of 12 years.
   const [nav, setNav] = useState(to);
@@ -148,7 +152,7 @@ function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, m
   const step = (direction: number) =>
     setNav(addMonths(nav, direction * (monthly ? 1 : per === "year" ? 144 : 12)));
   const navTitle = monthly
-    ? MONTH_YEAR.format(navStart)
+    ? formatDate(navStart, MONTH_YEAR, locale)
     : per === "year"
       ? `${new Date(navStart).getFullYear()} – ${new Date(nav).getFullYear()}`
       : String(new Date(navStart).getFullYear());
@@ -161,7 +165,7 @@ function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, m
       return (
         <div className="gn-pp-grid gn-pp-days" onMouseLeave={() => setHover(null)}>
           {Array.from({ length: 7 }, (_, i) => (
-            <div key={i} className="gn-pp-head">{WEEKDAY.format(new Date(weeks[0] + i * 86400000 + 43200000))}</div>
+            <div key={i} className="gn-pp-head">{formatDate(weeks[0] + i * 86400000 + 43200000, WEEKDAY, locale)}</div>
           ))}
           {weeks.map((week) => {
             const days: number[] = [];
@@ -186,7 +190,7 @@ function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, m
                 </div>
               );
             }
-            return days.map((d) => cell(d, String(new Date(d).getDate()), d < navStart || d >= nextNav ? " gn-pp-out" : ""));
+            return days.map((d) => cell(d, formatNumber(new Date(d).getDate(), undefined, locale), d < navStart || d >= nextNav ? " gn-pp-out" : ""));
           })}
         </div>
       );
@@ -203,9 +207,9 @@ function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, m
           cell(
             s,
             per === "month"
-              ? MONTH.format(s)
+              ? formatDate(s, MONTH, locale)
               : per === "quarter"
-                ? `Q${Math.floor(new Date(s).getMonth() / 3) + 1}`
+                ? t("quarter", { n: Math.floor(new Date(s).getMonth() / 3) + 1 })
                 : String(new Date(s).getFullYear()),
           ),
         )}
@@ -229,7 +233,7 @@ function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, m
         {none ? noneText ?? noneTab : range ? periodRangeLabel(from, to, per) : periodLabel(to, per)}
       </button>
       {open && (
-        <div className="gn-pp-menu" role="dialog" aria-label={range ? "Pick a range" : "Pick a period"}>
+        <div className="gn-pp-menu" role="dialog" aria-label={range ? t("pickRange") : t("pickPeriod")}>
           {(kinds.length > 1 || noneTab) && onPerChange && (
             <div className="gn-pp-tabs">
               {noneTab && onNone && (
@@ -262,17 +266,17 @@ function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, m
           )}
           {!none && (<>
           <div className="gn-pp-nav">
-            <button type="button" aria-label="Earlier" onClick={() => step(-1)}>‹</button>
+            <button type="button" aria-label={t("earlier")} onClick={() => step(-1)}>‹</button>
             <span>{navTitle}</span>
-            <button type="button" aria-label="Later" disabled={nextNav > last} onClick={() => step(1)}>›</button>
+            <button type="button" aria-label={t("later")} disabled={nextNav > last} onClick={() => step(1)}>›</button>
           </div>
           {grid()}
           <div className="gn-pp-hint">
             {range
               ? anchor === null
-                ? "Click the first period, then the last."
-                : `From ${periodLabel(anchor, per)} - now click the last.`
-              : `Click a ${SNAP_LABELS[per].toLowerCase()}.`}
+                ? t("rangeHint")
+                : t("rangeFrom", { period: periodLabel(anchor, per) })
+              : t(`pick_${per}`)}
           </div>
           </>)}
         </div>

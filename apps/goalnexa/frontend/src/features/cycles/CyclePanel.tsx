@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Card, CardBody, CardHeader, CardTitle, FormLabel } from "platform-core";
+import { Button, Card, CardBody, CardHeader, CardTitle, formatDate, formatNumber, FormLabel, useLocale, useT, type Locale } from "platform-core";
 import {
   closeCycle,
   createCycle,
@@ -15,6 +15,7 @@ import {
 } from "../../api/cycles";
 import { errorMessage } from "../../api/goalMembers";
 import type { Goal } from "../../api/goals";
+import messages from "./CyclePanel.messages";
 
 export interface CyclePanelProps {
   accessToken: string;
@@ -29,28 +30,26 @@ interface Decision {
   reflection: string;
 }
 
-const OUTCOME_LABELS: Record<GoalOutcome, string> = {
-  achieved: "Achieved",
-  partial: "Partial",
-  missed: "Missed",
-  dropped: "Dropped",
-};
+const OUTCOMES: GoalOutcome[] = ["achieved", "partial", "missed", "dropped"];
 const OUTCOME_BADGES: Record<GoalOutcome, string> = {
   achieved: "bg-success-lt",
   partial: "bg-warning-lt",
   missed: "bg-danger-lt",
   dropped: "bg-secondary-lt",
 };
-const HEALTH_LABELS: Record<string, string> = {
-  on_track: "On track",
-  at_risk: "At risk",
-  off_track: "Off track",
-  achieved: "Achieved",
-  unknown: "—",
+const HEALTH_KEYS: Record<string, "on_track" | "at_risk" | "off_track" | "achieved"> = {
+  on_track: "on_track",
+  at_risk: "at_risk",
+  off_track: "off_track",
+  achieved: "achieved",
 };
 
-function pct(value: string | null): string {
-  return value === null ? "—" : `${Math.round(Number(value))}%`;
+function pct(value: string | null, locale: Locale): string {
+  return value === null ? "—" : formatNumber(Math.round(Number(value)) / 100, { style: "percent" }, locale);
+}
+
+function score(value: number, locale: Locale): string {
+  return formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 }, locale);
 }
 
 /** The default score: progress / 100, capped at 1 - same as the backend's `default_score`. */
@@ -65,8 +64,8 @@ function addDays(iso: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** The cycle after `cycle`: same length, starting the next day, named "Q2 2027" after "Q1 2027". */
-function nextCycleDraft(cycle: Cycle) {
+/** The cycle after `cycle`: same length, starting the next day, named "Q2 2027" after "Q1 2027" (else `nextName(name)`). */
+function nextCycleDraft(cycle: Cycle, nextName: (name: string) => string) {
   const length = (Date.parse(cycle.ends_on) - Date.parse(cycle.starts_on)) / 86400000;
   const starts_on = addDays(cycle.ends_on, 1);
   const quarter = /^Q([1-4])\s+(\d{4})$/.exec(cycle.name.trim());
@@ -74,7 +73,7 @@ function nextCycleDraft(cycle: Cycle) {
     ? quarter[1] === "4"
       ? `Q1 ${Number(quarter[2]) + 1}`
       : `Q${Number(quarter[1]) + 1} ${quarter[2]}`
-    : `${cycle.name} (next)`;
+    : nextName(cycle.name);
   return { name, org_id: cycle.org_id, starts_on, ends_on: addDays(starts_on, length), status: "planning" as const };
 }
 
@@ -86,6 +85,9 @@ function nextCycleDraft(cycle: Cycle) {
  * backend does the closing in one go (`goalnexa/cycles.py`).
  */
 function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
+  const t = useT(messages);
+  const locale = useLocale();
+  const nextName = (name: string) => t("nextName", { name });
   const [cycle, setCycle] = useState<Cycle | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [scores, setScores] = useState<GoalScore[]>([]);
@@ -150,7 +152,7 @@ function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
   function handleCreateNext() {
     if (!cycle) return;
     void run(async () => {
-      const created = await createCycle(accessToken, nextCycleDraft(cycle));
+      const created = await createCycle(accessToken, nextCycleDraft(cycle, nextName));
       setOthers((prev) => [...prev, created]);
       setNextCycle(created.id);
     });
@@ -177,28 +179,28 @@ function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
   if (cycle === null) {
     return (
       <Card className="mt-3">
-        <CardBody>{error ? <div className="text-danger">{error}</div> : <div className="text-secondary">Loading…</div>}</CardBody>
+        <CardBody>{error ? <div className="text-danger">{error}</div> : <div className="text-secondary">{t("loading")}</div>}</CardBody>
       </Card>
     );
   }
 
   if (cycle.status === "closed") {
     const average = scores.length ? scores.reduce((sum, s) => sum + Number(s.score), 0) / scores.length : null;
-    const counts = (Object.keys(OUTCOME_LABELS) as GoalOutcome[]).map((o) => [o, scores.filter((s) => s.outcome === o).length] as const);
+    const counts = OUTCOMES.map((o) => [o, scores.filter((s) => s.outcome === o).length] as const);
     return (
       <Card className="mt-3">
         <CardHeader>
-          <CardTitle>Scorecard</CardTitle>
+          <CardTitle>{t("scorecard")}</CardTitle>
         </CardHeader>
         <CardBody>
           <div className="d-flex flex-wrap gap-3 align-items-baseline">
             <div>
-              <div className="text-secondary small">Average score</div>
-              <div className="h2 mb-0">{average === null ? "—" : average.toFixed(2)}</div>
+              <div className="text-secondary small">{t("averageScore")}</div>
+              <div className="h2 mb-0">{average === null ? "—" : score(average, locale)}</div>
             </div>
             {counts.map(([outcome, count]) => (
               <div key={outcome}>
-                <div className="text-secondary small">{OUTCOME_LABELS[outcome]}</div>
+                <div className="text-secondary small">{t(outcome)}</div>
                 <div className="h3 mb-0">{count}</div>
               </div>
             ))}
@@ -209,25 +211,25 @@ function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
             <table className="table table-vcenter card-table">
               <thead>
                 <tr>
-                  <th>Goal</th>
-                  <th>Score</th>
-                  <th>Outcome</th>
-                  <th>Final progress</th>
-                  <th>Reflection</th>
+                  <th>{t("goal")}</th>
+                  <th>{t("score")}</th>
+                  <th>{t("outcome")}</th>
+                  <th>{t("finalProgress")}</th>
+                  <th>{t("reflection")}</th>
                 </tr>
               </thead>
               <tbody>
                 {scores.map((s) => (
                   <tr key={s.id}>
                     <td>
-                      {scoredGoals.get(s.goal)?.title ?? "(deleted goal)"}
-                      {s.rolled_to && <span className="badge bg-azure-lt ms-2">Rolled over</span>}
+                      {scoredGoals.get(s.goal)?.title ?? t("deletedGoal")}
+                      {s.rolled_to && <span className="badge bg-azure-lt ms-2">{t("rolledOver")}</span>}
                     </td>
-                    <td className="fw-bold">{Number(s.score).toFixed(2)}</td>
+                    <td className="fw-bold">{score(Number(s.score), locale)}</td>
                     <td>
-                      <span className={`badge ${OUTCOME_BADGES[s.outcome]}`}>{OUTCOME_LABELS[s.outcome]}</span>
+                      <span className={`badge ${OUTCOME_BADGES[s.outcome]}`}>{t(s.outcome)}</span>
                     </td>
-                    <td>{pct(s.final_progress)}</td>
+                    <td>{pct(s.final_progress, locale)}</td>
                     <td className="text-secondary">{s.reflection || "—"}</td>
                   </tr>
                 ))}
@@ -242,27 +244,25 @@ function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
   return (
     <Card className="mt-3">
       <CardHeader>
-        <CardTitle>Close this cycle</CardTitle>
+        <CardTitle>{t("closeTitle")}</CardTitle>
       </CardHeader>
       <CardBody>
         <p className="text-secondary mb-0">
-          Score each goal from 0 to 1 (0.7 counts as achieved for an ambitious goal), then mark it done, roll it over into
-          the next cycle (a copy with its metrics - readings continue from where they are, amounts start over) or drop it.
-          Closing can't be undone.
+          {t("closeIntro")}
         </p>
       </CardBody>
       {goals.length === 0 ? (
-        <CardBody className="border-top text-secondary">No goals in this cycle - closing just ends it.</CardBody>
+        <CardBody className="border-top text-secondary">{t("noGoals")}</CardBody>
       ) : (
         <div className="table-responsive">
           <table className="table table-vcenter card-table">
             <thead>
               <tr>
-                <th>Goal</th>
-                <th>Progress</th>
-                <th style={{ width: "7rem" }}>Score</th>
-                <th style={{ width: "9rem" }}>Then</th>
-                <th>Reflection</th>
+                <th>{t("goal")}</th>
+                <th>{t("progress")}</th>
+                <th style={{ width: "7rem" }}>{t("score")}</th>
+                <th style={{ width: "9rem" }}>{t("then")}</th>
+                <th>{t("reflection")}</th>
               </tr>
             </thead>
             <tbody>
@@ -273,7 +273,8 @@ function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
                   <tr key={goal.id}>
                     <td>{goal.title}</td>
                     <td className="text-nowrap">
-                      {pct(goal.progress)} <span className="text-secondary small">{HEALTH_LABELS[goal.health] ?? ""}</span>
+                      {pct(goal.progress, locale)}{" "}
+                      <span className="text-secondary small">{HEALTH_KEYS[goal.health] ? t(HEALTH_KEYS[goal.health]) : goal.health === "unknown" ? "—" : ""}</span>
                     </td>
                     <td>
                       <input
@@ -282,7 +283,7 @@ function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
                         min={0}
                         max={1}
                         step={0.05}
-                        aria-label={`Score for ${goal.title}`}
+                        aria-label={t("scoreFor", { title: goal.title })}
                         value={d.score}
                         onChange={(event) => setDecision(goal.id, { score: event.target.value })}
                       />
@@ -290,20 +291,20 @@ function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
                     <td>
                       <select
                         className="form-select form-select-sm"
-                        aria-label={`What happens to ${goal.title}`}
+                        aria-label={t("whatHappens", { title: goal.title })}
                         value={d.action}
                         onChange={(event) => setDecision(goal.id, { action: event.target.value as CloseAction })}
                       >
-                        <option value="done">Done</option>
-                        <option value="rollover">Roll over</option>
-                        <option value="drop">Drop</option>
+                        <option value="done">{t("done")}</option>
+                        <option value="rollover">{t("rollover")}</option>
+                        <option value="drop">{t("drop")}</option>
                       </select>
                     </td>
                     <td>
                       <input
                         className="form-control form-control-sm"
-                        placeholder="What we learned…"
-                        aria-label={`Reflection on ${goal.title}`}
+                        placeholder={t("reflectionPlaceholder")}
+                        aria-label={t("reflectionOn", { title: goal.title })}
                         value={d.reflection}
                         onChange={(event) => setDecision(goal.id, { reflection: event.target.value })}
                       />
@@ -319,7 +320,7 @@ function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
         {rollsOver && (
           <div className="mb-3">
             <FormLabel htmlFor="cycle-next" required>
-              Roll over into
+              {t("rollInto")}
             </FormLabel>
             <div className="d-flex gap-2">
               <select
@@ -328,25 +329,25 @@ function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
                 value={nextCycle}
                 onChange={(event) => setNextCycle(event.target.value)}
               >
-                <option value="">Pick a cycle…</option>
+                <option value="">{t("pickCycle")}</option>
                 {others.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} ({c.starts_on} – {c.ends_on})
+                    {t("cycleOption", { name: c.name, start: formatDate(`${c.starts_on}T00:00`, undefined, locale), end: formatDate(`${c.ends_on}T00:00`, undefined, locale) })}
                   </option>
                 ))}
               </select>
               <Button variant="secondary" outline disabled={busy} onClick={handleCreateNext}>
-                Create “{nextCycleDraft(cycle).name}”
+                {t("createNext", { name: nextCycleDraft(cycle, nextName).name })}
               </Button>
             </div>
           </div>
         )}
-        <FormLabel htmlFor="cycle-retro">Retro</FormLabel>
+        <FormLabel htmlFor="cycle-retro">{t("retro")}</FormLabel>
         <textarea
           id="cycle-retro"
           className="form-control"
           rows={3}
-          placeholder="What went well, what didn't, what we'll change…"
+          placeholder={t("retroPlaceholder")}
           value={retro}
           onChange={(event) => setRetro(event.target.value)}
         />
@@ -358,7 +359,7 @@ function CyclePanel({ accessToken, cycleId, onClosed }: CyclePanelProps) {
       </CardBody>
       <CardBody className="border-top">
         <Button variant="primary" disabled={busy || badScore || (rollsOver && !nextCycle)} onClick={handleClose}>
-          Close cycle{goals.length ? ` and score ${goals.length} goal${goals.length === 1 ? "" : "s"}` : ""}
+          {t("close", { n: goals.length })}
         </Button>
       </CardBody>
     </Card>

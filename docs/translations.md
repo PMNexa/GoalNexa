@@ -71,9 +71,12 @@ Rules:
 - **JSX inside a sentence** (a link, `<strong>`): a message function
   returning JSX, read with `t.rich("key", vars)`.
 - **Outside a component** (nav builders, `document.title`, `confirm()`):
-  `translate(messages, "key")` in the current language, or as a label
-  element that follows a switch: `<Msg catalog={messages} k="key" />`.
-  Route builders run in Node - they never translate.
+  `translate(messages, "key")` in the current language. A nav builder is
+  called during render on the client (the shells rebuild their nav each
+  render and re-render on a switch), and `NavEntry.label` is a string.
+  Where a ReactNode is accepted, `<Msg catalog={messages} k="key" />`
+  also renders right on the server. Route builders run in Node - they
+  never translate.
 - **Numbers and dates**: `formatNumber`, `formatDate`, `formatDateTime`,
   `formatTime`, `formatRelative` from platform-core, with
   `useLocale()`'s value - never `toLocaleString()` with no locale.

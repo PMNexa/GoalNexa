@@ -1,4 +1,13 @@
+import { useT } from "platform-core";
 import type { Snap } from "./tableColumns";
+import messages from "./messages";
+
+const PICKER_LABELS = {
+  hour: "newCheckInHour",
+  day: "newCheckInDay",
+  week: "newCheckInWeek",
+  month: "newCheckInMonth",
+} as const satisfies Record<Snap, string>;
 
 export interface DraftColumnHeaderProps {
   snap: Snap;
@@ -25,6 +34,7 @@ export function DraftColumnHeader({
   saveError,
   onSave,
 }: DraftColumnHeaderProps) {
+  const t = useT(messages);
   return (
     <th className="gn-draft">
       <div className="d-flex align-items-center gap-2">
@@ -38,10 +48,10 @@ export function DraftColumnHeader({
           }
           step={snap === "hour" ? 3600 : undefined}
           className="form-control form-control-sm"
-          aria-label={`New check-in ${snap}`}
+          aria-label={t(PICKER_LABELS[snap])}
           title={
             snap === "week"
-              ? "The week it counts for (starts on the day chosen above)"
+              ? t("weekPickerHint")
               : undefined
           }
           value={value}
@@ -54,10 +64,10 @@ export function DraftColumnHeader({
           onClick={onSave}
         >
           {saving
-            ? "Saving…"
+            ? t("saving")
             : filledCount
-              ? `Save ${filledCount}`
-              : "Save"}
+              ? t("saveN", { n: filledCount })
+              : t("save")}
         </button>
       </div>
       {saveError && (

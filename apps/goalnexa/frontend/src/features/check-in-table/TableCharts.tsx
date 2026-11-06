@@ -1,8 +1,7 @@
 import { useState, type PointerEvent, type ReactNode } from "react";
+import { formatNumber, useLocale, useT } from "platform-core";
 import { seriesColor, seriesDash, seriesKey, useElementWidth } from "../../components/charts/chartUtils";
-
-const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
-const FULL = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+import messages from "./messages";
 
 export interface TableChartLine {
   key: string;
@@ -36,8 +35,9 @@ export interface TableChartsProps {
  * first check-in to its last; a line runs through columns without one.
  */
 export function TableCharts({ cards, columns, label }: TableChartsProps) {
+  const t = useT(messages);
   const shown = cards.filter((card) => card.lines.some((line) => line.points.size > 0));
-  if (shown.length === 0) return <div className="text-secondary p-3">No check-ins to chart.</div>;
+  if (shown.length === 0) return <div className="text-secondary p-3">{t("noCheckInsToChart")}</div>;
   return (
     <div className="gn-charts gn-viz">
       <div className="row g-3">
@@ -65,6 +65,10 @@ export function TableCharts({ cards, columns, label }: TableChartsProps) {
 }
 
 function LineChart({ card, columns, label }: { card: TableChartCard; columns: string[]; label: (column: string) => string }) {
+  const t = useT(messages);
+  const locale = useLocale();
+  const compact = (v: number) => formatNumber(v, { notation: "compact", maximumFractionDigits: 1 }, locale);
+  const full = (v: number) => formatNumber(v, { maximumFractionDigits: 2 }, locale);
   const [ref, width] = useElementWidth<HTMLDivElement>(320);
   const [hover, setHover] = useState<number | null>(null);
   const HEIGHT = 150;
@@ -81,7 +85,7 @@ function LineChart({ card, columns, label }: { card: TableChartCard; columns: st
   const vMin = Math.min(0, ...values);
   const x = (i: number) => margin.left + (cols.length > 1 ? (i / (cols.length - 1)) * plotW : plotW / 2);
   const y = (v: number) => margin.top + plotH - ((v - vMin) / (vMax - vMin)) * plotH;
-  const format = (v: number) => (card.percent ? `${Math.round(v)}%` : `${FULL.format(v)}${card.unit ? ` ${card.unit}` : ""}`);
+  const format = (v: number) => (card.percent ? `${Math.round(v)}%` : `${full(v)}${card.unit ? ` ${card.unit}` : ""}`);
   const color = (line: TableChartLine) => (line.slot ? seriesColor(line.slot) : "var(--gn-text-primary)");
 
   function path(line: TableChartLine): string {
@@ -105,12 +109,12 @@ function LineChart({ card, columns, label }: { card: TableChartCard; columns: st
 
   return (
     <div ref={ref} className="gn-viz">
-      <svg viewBox={`0 0 ${width} ${HEIGHT}`} height={HEIGHT} role="img" aria-label={`${card.key} over time`}>
+      <svg viewBox={`0 0 ${width} ${HEIGHT}`} height={HEIGHT} role="img" aria-label={t("overTime", { name: card.key })}>
         {ticks.map((v) => (
           <g key={v}>
             <line x1={margin.left} x2={margin.left + plotW} y1={y(v)} y2={y(v)} stroke="var(--gn-grid)" strokeWidth={1} />
             <text className="gn-tick" x={margin.left - 6} y={y(v)} dy="0.32em" textAnchor="end">
-              {card.percent ? `${Math.round(v)}%` : COMPACT.format(v)}
+              {card.percent ? `${Math.round(v)}%` : compact(v)}
             </text>
           </g>
         ))}

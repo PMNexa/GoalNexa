@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { CrudDetailScreen, useResourcePath, type LinkComponentProps } from "platform-core";
+import { CrudDetailScreen, localeFromMatches, translator, type LinkComponentProps, useResourcePath } from "platform-core";
 import { Link as RouterLink, useLocation, useNavigate, useOutletContext, useParams } from "react-router";
 import CyclePanel from "../CyclePanel";
+import messages from "./messages";
 
 // oxlint-disable-next-line react/only-export-components
-export function meta() {
-  return [{ title: "Cycle" }];
+export function meta({ matches }: { matches?: readonly unknown[] }) {
+  return [{ title: translator(messages, localeFromMatches(matches))("pageTitle") }];
 }
 
 function CrudLink({ to, className, children, ...rest }: LinkComponentProps) {

@@ -1,4 +1,5 @@
-import { FormControl, FormLabel } from "platform-core";
+import { FormControl, FormLabel, useT } from "platform-core";
+import messages from "./messages";
 
 export interface OrgNameStepProps {
   orgName: string;
@@ -9,17 +10,18 @@ export interface OrgNameStepProps {
 
 /** The website path's first step: name the organization. */
 function OrgNameStep({ orgName, disabled, onChange }: OrgNameStepProps) {
+  const t = useT(messages);
   return (
     <div>
-      <h3 className="card-title">Name your organization</h3>
-      <p className="text-secondary">Your team, company or household - goals belong to it, and you can invite others later.</p>
+      <h3 className="card-title">{t("orgTitle")}</h3>
+      <p className="text-secondary">{t("orgHint")}</p>
       <FormLabel htmlFor="onboarding-org" required>
-        Organization name
+        {t("orgName")}
       </FormLabel>
       <FormControl
         id="onboarding-org"
         autoFocus
-        placeholder="e.g. Acme Inc."
+        placeholder={t("orgPlaceholder")}
         value={orgName}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

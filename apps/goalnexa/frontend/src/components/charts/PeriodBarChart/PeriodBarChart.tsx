@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { formatNumber, useLocale, useT } from "platform-core";
 import type { PeriodBar } from "../../../lib/periods";
 import { seriesColor, useElementWidth } from "../chartUtils";
+import messages from "./PeriodBarChart.messages";
 
-const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
-const FULL = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+const COMPACT: Intl.NumberFormatOptions = { notation: "compact", maximumFractionDigits: 1 };
+const FULL: Intl.NumberFormatOptions = { maximumFractionDigits: 2 };
 
 export interface PeriodBarChartProps {
   label: string;
@@ -21,6 +23,9 @@ export interface PeriodBarChartProps {
  * other charts; hover (or focus) a bar for its exact amount.
  */
 function PeriodBarChart({ label, unit, slot, bars, quota = null, height: HEIGHT = 120 }: PeriodBarChartProps) {
+  const t = useT(messages);
+  const locale = useLocale();
+  const full = (v: number) => formatNumber(v, FULL, locale);
   const [ref, width] = useElementWidth<HTMLDivElement>(320);
   const [hover, setHover] = useState<number | null>(null);
   const suffix = unit ? ` ${unit}` : "";
@@ -41,17 +46,17 @@ function PeriodBarChart({ label, unit, slot, bars, quota = null, height: HEIGHT 
         <span className="fw-semibold">{label}</span>
         {shown && (
           <span className="text-secondary">
-            {shown.label}: {FULL.format(shown.value)}
-            {quota ? ` / ${FULL.format(quota)}` : ""}
+            {shown.label}: {full(shown.value)}
+            {quota ? ` / ${full(quota)}` : ""}
             {suffix}
-            {hits !== null && hover === null && ` · ${hits}/${bars.length} hit`}
+            {hits !== null && hover === null && ` · ${t("hits", { hits: full(hits), total: full(bars.length) })}`}
           </span>
         )}
       </div>
-      <svg width={width} height={HEIGHT} role="img" aria-label={`${label}: amount per period`} onPointerLeave={() => setHover(null)}>
+      <svg width={width} height={HEIGHT} role="img" aria-label={t("ariaLabel", { label })} onPointerLeave={() => setHover(null)}>
         <line x1={margin.left} x2={margin.left + plotW} y1={y(0)} y2={y(0)} stroke="var(--tblr-border-color, #e6e7e9)" />
         <text x={margin.left - 6} y={y(vMax / 1.1) + 4} textAnchor="end" className="gn-tick">
-          {COMPACT.format(vMax / 1.1)}
+          {formatNumber(vMax / 1.1, COMPACT, locale)}
         </text>
         <text x={margin.left - 6} y={y(0) + 4} textAnchor="end" className="gn-tick">0</text>
         {bars.map((bar, i) => {
@@ -68,7 +73,7 @@ function PeriodBarChart({ label, unit, slot, bars, quota = null, height: HEIGHT 
               opacity={met ? 1 : 0.45}
               rx={2}
               tabIndex={0}
-              aria-label={`${bar.label}: ${FULL.format(bar.value)}${suffix}`}
+              aria-label={`${bar.label}: ${full(bar.value)}${suffix}`}
               onPointerEnter={() => setHover(i)}
               onFocus={() => setHover(i)}
               onBlur={() => setHover(null)}

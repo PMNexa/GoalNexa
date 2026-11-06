@@ -1,12 +1,14 @@
 import { useState, type PointerEvent } from "react";
+import { formatDate, formatDateTime, formatNumber, useLocale, useT } from "platform-core";
 import type { ValuePoint } from "../../../lib/progress";
 import { seriesColor, seriesDash, seriesKey, useElementWidth } from "../chartUtils";
 
-const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
-const FULL = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
-const TOOLTIP_DATE = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
-const AXIS_DATE = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-const SOURCE_LABELS = { agent: "AI agent", mobile: "phone app", ingest: "ingest URL" } as const;
+import messages from "./ValueLineChart.messages";
+
+const COMPACT: Intl.NumberFormatOptions = { notation: "compact", maximumFractionDigits: 1 };
+const FULL: Intl.NumberFormatOptions = { maximumFractionDigits: 2 };
+const TOOLTIP_DATE: Intl.DateTimeFormatOptions = { dateStyle: "medium", timeStyle: "short" };
+const AXIS_DATE: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
 
 export interface ValueLineChartProps {
   label: string;
@@ -29,6 +31,10 @@ export interface ValueLineChartProps {
  * reading in effect at the nearest check-in.
  */
 function ValueLineChart({ label, unit, slot, points, tMin, tMax, now, height: HEIGHT = 112 }: ValueLineChartProps) {
+  const t = useT(messages);
+  const locale = useLocale();
+  const compact = (v: number) => formatNumber(v, COMPACT, locale);
+  const full = (v: number) => formatNumber(v, FULL, locale);
   const [ref, width] = useElementWidth<HTMLDivElement>(320);
   const [hover, setHover] = useState<ValuePoint | null>(null);
   const suffix = unit ? ` ${unit}` : "";
@@ -69,30 +75,30 @@ function ValueLineChart({ label, unit, slot, points, tMin, tMax, now, height: HE
         <span className="gn-tracked-name" title={label}>
           {label}
         </span>
-        <span className="gn-tracked-value" title={latest ? `${FULL.format(latest.value)}${suffix}` : undefined}>
-          {latest ? `${COMPACT.format(latest.value)}${suffix}` : "No check-ins yet"}
+        <span className="gn-tracked-value" title={latest ? `${full(latest.value)}${suffix}` : undefined}>
+          {latest ? `${compact(latest.value)}${suffix}` : t("noCheckIns")}
         </span>
       </div>
       {points.length > 0 && (
-        <svg viewBox={`0 0 ${width} ${HEIGHT}`} height={HEIGHT} role="img" aria-label={`${label} over time, in ${unit || "its unit"}`}>
+        <svg viewBox={`0 0 ${width} ${HEIGHT}`} height={HEIGHT} role="img" aria-label={unit ? t("ariaLabel", { label, unit }) : t("ariaLabelNoUnit", { label })}>
           {[vMax, vMin].map((v) => (
             <g key={v}>
               <line x1={margin.left} x2={margin.left + plotW} y1={y(v)} y2={y(v)} stroke="var(--gn-grid)" strokeWidth={1} />
               <text className="gn-tick" x={margin.left - 6} y={y(v)} dy="0.32em" textAnchor="end">
-                {COMPACT.format(v)}
+                {compact(v)}
               </text>
             </g>
           ))}
-          {[tMin, tMax].map((t, i) => (
-            <text key={i} className="gn-tick" x={x(t)} y={HEIGHT - 6} textAnchor={i === 0 ? "start" : "end"}>
-              {AXIS_DATE.format(t)}
+          {[tMin, tMax].map((time, i) => (
+            <text key={i} className="gn-tick" x={x(time)} y={HEIGHT - 6} textAnchor={i === 0 ? "start" : "end"}>
+              {formatDate(time, AXIS_DATE, locale)}
             </text>
           ))}
           {now !== undefined && now >= tMin && now <= tMax && (
             <g pointerEvents="none">
               <line x1={x(now)} x2={x(now)} y1={margin.top} y2={margin.top + plotH} stroke="var(--gn-axis)" strokeWidth={1} />
               <text className="gn-tick gn-marker" x={x(now)} y={HEIGHT - 6} textAnchor="middle">
-                Now
+                {t("now")}
               </text>
             </g>
           )}
@@ -129,14 +135,14 @@ function ValueLineChart({ label, unit, slot, points, tMin, tMax, now, height: HE
       )}
       {hover && (
         <div className="gn-tooltip" style={{ left: tooltipLeft, top: 28, maxWidth: TOOLTIP_W }}>
-          <div className="gn-tooltip-title">{TOOLTIP_DATE.format(hover.t)}</div>
+          <div className="gn-tooltip-title">{formatDateTime(hover.t, TOOLTIP_DATE, locale)}</div>
           <div className="gn-tooltip-row">
             <span className="gn-num">
-              {FULL.format(hover.value)}
+              {full(hover.value)}
               {suffix}
             </span>
           </div>
-          {hover.source && hover.source !== "web" && <div className="gn-tooltip-title mb-0">via {SOURCE_LABELS[hover.source]}</div>}
+          {hover.source && hover.source !== "web" && <div className="gn-tooltip-title mb-0">{t(`via_${hover.source}`)}</div>}
         </div>
       )}
     </div>

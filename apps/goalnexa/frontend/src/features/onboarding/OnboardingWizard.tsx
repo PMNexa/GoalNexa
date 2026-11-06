@@ -1,11 +1,12 @@
 import { useRef, useState, useSyncExternalStore, type ReactNode, type SubmitEvent } from "react";
-import { Button, Card, CardBody } from "platform-core";
+import { Button, Card, CardBody, useT } from "platform-core";
 import { createGoal, createMetric, createOrg, saveOnboardingChoice } from "../../api/onboarding";
 import AgentSteps from "./AgentSteps";
 import GoalsStep from "./GoalsStep";
 import MetricsStep from "./MetricsStep";
 import ModeChoice from "./ModeChoice";
 import OrgNameStep from "./OrgNameStep";
+import messages from "./messages";
 import ReviewStep from "./ReviewStep";
 import {
   AGENT_STEPS,
@@ -54,6 +55,7 @@ export interface OnboardingWizardProps {
  * no router dependency.
  */
 function OnboardingWizard({ accessToken, onComplete, onSkip, existingOrg, orgPicker }: OnboardingWizardProps) {
+  const t = useT(messages);
   const [mode, setMode] = useState<Mode | null>(null);
   // With an existing org, the first step (naming one) is skipped.
   const firstStep = existingOrg ? 1 : 0;
@@ -114,7 +116,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip, existingOrg, orgPic
       onComplete(orgId);
     } catch (thrown) {
       setKept({ org: done.org, goals: new Map(done.goals), metrics: new Set(done.metrics) });
-      setProblem(`${thrown instanceof Error ? thrown.message : String(thrown)} - fix it and try again; what was already created is kept.`);
+      setProblem(t("createFailed", { error: thrown instanceof Error ? thrown.message : String(thrown) }));
       setSubmitting(false);
     }
   }
@@ -131,7 +133,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip, existingOrg, orgPic
 
   // Before choosing, the steps shown are the recommended (agent) path's.
   const webSteps = STEPS.slice(firstStep);
-  const labels = ["Get started", ...(mode === "web" ? webSteps : AGENT_STEPS)];
+  const labels = (["start", ...(mode === "web" ? webSteps : AGENT_STEPS)] as const).map((key) => t(`step_${key}`));
   const current = mode === null ? 0 : 1 + (mode === "agent" ? agentStep : step - firstStep);
 
   return (
@@ -140,17 +142,17 @@ function OnboardingWizard({ accessToken, onComplete, onSkip, existingOrg, orgPic
         <div className="text-center mb-4">
           {existingOrg && orgPicker ? (
             <h2 className="mb-1 d-flex justify-content-center align-items-center gap-2 flex-wrap">
-              Set up {orgPicker}
+              {t("setUpPrefix")} {orgPicker}
             </h2>
           ) : (
-            <h2 className="mb-1">{existingOrg ? `Set up ${existingOrg.name}` : "Welcome to GoalNexa"}</h2>
+            <h2 className="mb-1">{existingOrg ? t("setUp", { name: existingOrg.name }) : t("welcome")}</h2>
           )}
           <p className="text-secondary mb-0">
             {mode === "web"
               ? existingOrg
-                ? "Add what it's working toward - it takes a minute."
-                : "Set up your organization and what it's working toward - it takes a minute."
-              : "Connect your AI assistant - then just tell it what you're working toward."}
+                ? t("leadExisting")
+                : t("leadWeb")
+              : t("leadAgent")}
           </p>
         </div>
         <div className="steps steps-counter mb-4">
@@ -209,7 +211,7 @@ function OnboardingWizard({ accessToken, onComplete, onSkip, existingOrg, orgPic
 
               <div className="d-flex align-items-center gap-2 mt-4">
                 <Button variant="link" className="px-0 text-secondary" onClick={onSkip} disabled={submitting || started}>
-                  Skip for now
+                  {t("skip")}
                 </Button>
                 <div className="ms-auto d-flex gap-2">
                   {(step > firstStep || !started) && (
@@ -223,11 +225,11 @@ function OnboardingWizard({ accessToken, onComplete, onSkip, existingOrg, orgPic
                         else setMode(null);
                       }}
                     >
-                      Back
+                      {t("back")}
                     </Button>
                   )}
                   <Button type="submit" variant="primary" disabled={submitting}>
-                    {step < STEPS.length - 1 ? "Next" : submitting ? "Creating…" : "Create and open dashboard"}
+                    {step < STEPS.length - 1 ? t("next") : submitting ? t("creating") : t("createAndOpen")}
                   </Button>
                 </div>
               </div>

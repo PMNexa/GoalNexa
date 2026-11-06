@@ -1,4 +1,6 @@
+import { useT } from "platform-core";
 import type { Goal } from "../../api/goals";
+import messages from "./GoalTag.messages";
 
 /**
  * A small chip after a goal's title: "Total" on a team total, else the
@@ -6,15 +8,16 @@ import type { Goal } from "../../api/goals";
  * per team under the same title. Nothing for any other goal.
  */
 function GoalTag({ goal, team }: { goal: Goal; team: string | null }) {
+  const t = useT(messages);
   if (goal.is_rollup) {
     return (
-      <span className="gn-goal-tag is-total" title="Team total - added up from the teams' goals, read-only">
-        Total
+      <span className="gn-goal-tag is-total" title={t("totalTitle")}>
+        {t("total")}
       </span>
     );
   }
   return team ? (
-    <span className="gn-goal-tag" title={`Team: ${team}`}>
+    <span className="gn-goal-tag" title={t("teamTitle", { team })}>
       {team}
     </span>
   ) : null;

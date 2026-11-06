@@ -17,7 +17,12 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
-- Teams: add someone to a team without an account ("+ Someone without an account…" when adding a member on the org chart). They get their own copy on the team board like anyone else, and the team's lead checks in for them. Link them to an account later from the "No account" tag - pick an org member, or invite them and they're linked when they accept.
+- **Vietnamese** (P-16): the website in English or Tiếng Việt. Pick it
+  from the user menu, "My account" or the sign-in page; it's saved on
+  your account, so every device follows. Without a pick, the browser's
+  language is used. Dates and numbers follow the language too.
+
+- Teams: add someone to a team without an account ("+ Someone without an account…" when adding a member on the org chart). They get their own copy on the team board like anyone else, and the team's lead checks in for them. Link them to an account later from the link icon next to their name - pick an org member, or invite them and they're linked when they accept.
 - **Team board: down to each member** (P-91): a team's lead can give
   members their own share of the team's goals. In Targets mode every
   member is listed under their team - tick to give them their own copy,

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Button, Card, CardBody, CardHeader, CardTitle, CodeBlock } from "platform-core";
+import { Button, Card, CardBody, CardHeader, CardTitle, CodeBlock, useT } from "platform-core";
 import { errorMessage } from "../../api/goalMembers";
 import { fetchMetric, issueIngestToken, revokeIngestToken, type IssuedIngestToken } from "../../api/ingest";
 import type { Metric } from "../../api/metrics";
+import messages from "./MetricIngestPanel.messages";
 
 export interface MetricIngestPanelProps {
   accessToken: string;
@@ -11,13 +12,13 @@ export interface MetricIngestPanelProps {
   onChanged?: () => void;
 }
 
-function curlExample(url: string, token: string, metric: Metric): string {
+function curlExample(url: string, token: string, metric: Metric, note: string): string {
   const value = metric.aggregation === "sum" ? 1 : Number(metric.current_value);
   return [
     `curl -X POST ${url} \\`,
     `  -H "Authorization: Bearer ${token}" \\`,
     `  -H "Content-Type: application/json" \\`,
-    `  -d '{"value": ${value}, "note": "from a script"}'`,
+    `  -d '{"value": ${value}, "note": ${JSON.stringify(note)}}'`,
   ].join("\n");
 }
 
@@ -30,6 +31,7 @@ function curlExample(url: string, token: string, metric: Metric): string {
  * (`createMetricsRoutes()`) and in the dashboard's metric drawer.
  */
 function MetricIngestPanel({ accessToken, metricId, onChanged }: MetricIngestPanelProps) {
+  const t = useT(messages);
   const [metric, setMetric] = useState<Metric | null>(null);
   const [issued, setIssued] = useState<IssuedIngestToken | null>(null);
   const [busy, setBusy] = useState(false);
@@ -67,12 +69,11 @@ function MetricIngestPanel({ accessToken, metricId, onChanged }: MetricIngestPan
   return (
     <Card className="mt-3">
       <CardHeader>
-        <CardTitle>Automatic check-ins</CardTitle>
+        <CardTitle>{t("title")}</CardTitle>
       </CardHeader>
       <CardBody>
         <p className="text-secondary">
-          Send {metric?.aggregation === "sum" ? "amounts to add" : "readings"} from a script, a cron job, Home Assistant,
-          n8n or any webhook - no login. The token can only add check-ins to this metric.
+          {t(metric?.aggregation === "sum" ? "introSum" : "introReading")}
         </p>
         {error && (
           <div className="alert alert-danger" role="alert">
@@ -80,32 +81,31 @@ function MetricIngestPanel({ accessToken, metricId, onChanged }: MetricIngestPan
           </div>
         )}
         {metric === null ? (
-          !error && <div className="text-secondary">Loading…</div>
+          !error && <div className="text-secondary">{t("loading")}</div>
         ) : issued ? (
           <>
-            <div className="alert alert-warning">Copy the token now - it won't be shown again.</div>
-            <CodeBlock code={curlExample(issued.url, issued.token, metric)} />
+            <div className="alert alert-warning">{t("copyNow")}</div>
+            <CodeBlock code={curlExample(issued.url, issued.token, metric, t("curlNote"))} />
             <small className="form-hint mt-2">
-              Optional fields: <code>note</code>, <code>checked_in_at</code> (ISO 8601). A sender that can't set headers
-              may add <code>?token=…</code> to the URL instead.
+              {t.rich("optional", {})}
             </small>
           </>
         ) : hint ? (
           <p className="mb-0">
-            Active token ending in <code>…{hint}</code>, posting to <code>{url}</code>
+            {t.rich("active", { hint, url })}
           </p>
         ) : (
-          <p className="mb-0 text-secondary">No token yet.</p>
+          <p className="mb-0 text-secondary">{t("noToken")}</p>
         )}
       </CardBody>
       {metric !== null && (
         <CardBody className="border-top d-flex gap-2">
           <Button variant="primary" disabled={busy} onClick={() => void act(() => issueIngestToken(accessToken, metricId))}>
-            {hint ? "Rotate token" : "Create token"}
+            {hint ? t("rotate") : t("create")}
           </Button>
           {hint && (
             <Button variant="danger" outline disabled={busy} onClick={() => void act(() => revokeIngestToken(accessToken, metricId))}>
-              Revoke
+              {t("revoke")}
             </Button>
           )}
         </CardBody>

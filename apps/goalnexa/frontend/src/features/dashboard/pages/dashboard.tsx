@@ -1,12 +1,13 @@
 import { useCallback, useContext } from "react";
 import { Link as RouterLink, UNSAFE_FrameworkContext, useOutletContext } from "react-router";
-import { useResourcePath, type LinkComponentProps } from "platform-core";
+import { localeFromMatches, translator, type LinkComponentProps, useResourcePath } from "platform-core";
 import { SHARED_DASHBOARD_ROUTE_ID } from "../routes";
 import DashboardScreen from "../DashboardScreen";
+import messages from "../messages";
 
 // oxlint-disable-next-line react/only-export-components
-export function meta() {
-  return [{ title: "Dashboard" }];
+export function meta({ matches }: { matches?: readonly unknown[] }) {
+  return [{ title: translator(messages, localeFromMatches(matches))("pageTitle") }];
 }
 
 /** The details drawer's links (Edit, related rows) are relative mount paths - same as platform-core's `crud-detail.tsx`. */

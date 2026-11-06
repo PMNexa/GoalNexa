@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { formatDateTime, formatNumber, useLocale, useT, type Locale } from "platform-core";
+import messages from "./GoalFilterList.messages";
 import type { Goal } from "../../api/goals";
 import type { Metric } from "../../api/metrics";
 import { isCheckInDue, isTracked } from "../../lib/progress";
@@ -9,9 +11,8 @@ import GoalTag from "../GoalTag";
 import { goalTeamName } from "../../api/dashboard";
 import { goalGroup, metricGroup, useSiblingDrag, type OrderKind } from "../../lib/ordering";
 
-/** A target per period, in the tree: "6 / 10 /day". */
-const PER_SHORT: Record<string, string> = { day: "/day", week: "/wk", month: "/mo", quarter: "/qtr", year: "/yr" };
-const PER_WORDS: Record<string, string> = { day: "per day", week: "per week", month: "per month", quarter: "per quarter", year: "per year" };
+/** A target per period, in the tree: "6 / 10 /day" (`perShort_*`), "per day" in its tooltip (`perWords_*`). */
+type Per = "day" | "week" | "month" | "quarter" | "year";
 
 const COLLAPSED_KEY = "goalnexa:dashboard-collapsed";
 
@@ -69,8 +70,8 @@ function NameCell({ title, onOpen, children }: { title: string; onOpen?: () => v
   );
 }
 
-function formatAmount(value: string): string {
-  return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
+function formatAmount(value: string, locale: Locale): string {
+  return formatNumber(Number(value), { maximumFractionDigits: 2 }, locale);
 }
 
 /** A name's hover text: the name, plus its description when there is one. */
@@ -79,10 +80,8 @@ function withDescription(name: string, description: string | undefined): string 
 }
 
 /** Compact for the narrow tree row (93,500,000 -> "93.5M", 200,000 -> "200K"); the exact figures stay in the row's tooltip. */
-const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
-
-function formatCompact(value: string): string {
-  return COMPACT.format(Number(value));
+function formatCompact(value: string, locale: Locale): string {
+  return formatNumber(Number(value), { notation: "compact", maximumFractionDigits: 1 }, locale);
 }
 
 /* Tabler Icons (MIT), inlined - no icon font is loaded. */
@@ -99,7 +98,7 @@ const ClockIcon = (
     <path d="M12 7v5l3 3" />
   </SvgIcon>
 );
-const DUE_DATE = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const DUE_DATE: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
 const PlusIcon = (
   <SvgIcon>
     <path d="M12 5l0 14" />
@@ -128,7 +127,8 @@ const ChevronIcon = (
 
 /** Folds a node's branches; the node ids it holds are remembered per browser. */
 export function CollapseToggle({ collapsed, name, onToggle }: { collapsed: boolean; name: string; onToggle: () => void }) {
-  const label = `${collapsed ? "Expand" : "Collapse"} ${name}`;
+  const t = useT(messages);
+  const label = t(collapsed ? "expand" : "collapse", { name });
   return (
     <button type="button" className={`gn-collapse${collapsed ? " is-collapsed" : ""}`} aria-expanded={!collapsed} aria-label={label} title={label} onClick={onToggle}>
       {ChevronIcon}
@@ -149,7 +149,8 @@ function VisibilityToggle({
   disabledReason?: string;
   onToggle: () => void;
 }) {
-  const label = `${shown ? "Hide" : "Show"} ${name}`;
+  const t = useT(messages);
+  const label = t(shown ? "hide" : "show", { name });
   return (
     <button
       type="button"
@@ -241,6 +242,10 @@ function GoalFilterList({
   now,
   teamNames,
 }: GoalFilterListProps) {
+  const t = useT(messages);
+  const locale = useLocale();
+  const amount = (value: string) => formatAmount(value, locale);
+  const compact = (value: string) => formatCompact(value, locale);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(readStored<string[]>(COLLAPSED_KEY, [])));
   const dragProps = useSiblingDrag((kind, dragged, target, after) => actions?.onMove(kind, dragged, target, after));
   // Rows are reordered by dragging - not on a read-only (shared) tree.
@@ -289,8 +294,8 @@ function GoalFilterList({
               <button
                 type="button"
                 className="gn-due"
-                title={`Check-in due since ${DUE_DATE.format(Date.parse(metric.check_in_due_at as string))} - check in now`}
-                aria-label={`${metric.name}: check-in due - check in now`}
+                title={t("dueTitle", { date: formatDateTime(Date.parse(metric.check_in_due_at as string), DUE_DATE, locale) })}
+                aria-label={t("dueLabel", { name: metric.name })}
                 onClick={() => actions?.onCheckIn(metric.id)}
               >
                 {ClockIcon}
@@ -300,47 +305,58 @@ function GoalFilterList({
           {isTracked(metric) ? (
             <span
               className="gn-metric-value"
-              title={`${formatAmount(metric.current_value)}${metric.unit ? ` ${metric.unit}` : ""} - tracked, no target`}
+              title={t("trackedTitle", { value: `${amount(metric.current_value)}${metric.unit ? ` ${metric.unit}` : ""}` })}
             >
-              {formatCompact(metric.current_value)}
+              {compact(metric.current_value)}
               {metric.unit && <span className="gn-metric-target"> {metric.unit}</span>}
             </span>
           ) : metric.target_per && metric.pace ? (
             <span
               className="gn-metric-value"
-              title={`${metric.pace.in_period === false ? "No target this period" : `${metric.pace.period_label}: ${formatAmount(String(metric.pace.done ?? 0))} / ${formatAmount(String(metric.pace.quota ?? 0))}`}${
-                metric.unit ? ` ${metric.unit}` : ""
-              } - target ${PER_WORDS[metric.target_per]}${metric.progress_by === "hit_rate" ? `, hit ${Math.round(Number(metric.hit_rate ?? 0))}% of the time` : ""}`}
+              title={t(metric.progress_by === "hit_rate" ? "targetPerHitRate" : "targetPer", {
+                amounts: `${
+                  metric.pace.in_period === false
+                    ? t("noTargetThisPeriod")
+                    : t("periodDone", {
+                        period: metric.pace.period_label,
+                        done: amount(String(metric.pace.done ?? 0)),
+                        quota: amount(String(metric.pace.quota ?? 0)),
+                      })
+                }${metric.unit ? ` ${metric.unit}` : ""}`,
+                per: t(`perWords_${metric.target_per as Per}`),
+                pct: formatNumber(Math.round(Number(metric.hit_rate ?? 0)), undefined, locale),
+              })}
             >
-              {metric.pace.in_period === false ? "—" : formatCompact(String(metric.pace.done ?? 0))}
+              {metric.pace.in_period === false ? "—" : compact(String(metric.pace.done ?? 0))}
               <span className="gn-metric-target">
                 {" / "}
-                {formatCompact(String(metric.pace.quota ?? Number(metric.target_value) - Number(metric.base_value)))}
-                {` ${PER_SHORT[metric.target_per]}`}
+                {compact(String(metric.pace.quota ?? Number(metric.target_value) - Number(metric.base_value)))}
+                {` ${t(`perShort_${metric.target_per as Per}`)}`}
               </span>
             </span>
           ) : (
             <span
               className="gn-metric-value"
-              title={`${formatAmount(metric.current_value)} / ${formatAmount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}${
-                Number(metric.base_value) === 0 ? "" : ` (from ${formatAmount(metric.base_value)})`
-              }`}
+              title={(() => {
+                const amounts = `${amount(metric.current_value)} / ${amount(metric.target_value)}${metric.unit ? ` ${metric.unit}` : ""}`;
+                return Number(metric.base_value) === 0 ? amounts : t("fromBase", { amounts, base: amount(metric.base_value) });
+              })()}
             >
-              {formatCompact(metric.current_value)}
+              {compact(metric.current_value)}
               <span className="gn-metric-target">
                 {" / "}
-                {formatCompact(metric.target_value)}
+                {compact(metric.target_value)}
                 {metric.unit ? ` ${metric.unit}` : ""}
               </span>
             </span>
           )}
           {actions ? (
             <RowMenu
-              label={`Check in or add to ${metric.name}`}
+              label={t("metricMenu", { name: metric.name })}
               icon={PlusIcon}
               items={[
-                { label: "Check in", onSelect: () => actions.onCheckIn(metric.id) },
-                { label: "Add sub-metric", onSelect: () => actions.onAddMetric(metric.goal, metric.id) },
+                { label: t("checkIn"), onSelect: () => actions.onCheckIn(metric.id) },
+                { label: t("addSubMetric"), onSelect: () => actions.onAddMetric(metric.goal, metric.id) },
               ]}
             />
           ) : (
@@ -385,14 +401,14 @@ function GoalFilterList({
           ) : (
             <span />
           )}
-          {shown && !loading ? <span className="gn-goal-pct">{current === null ? "—" : formatPct(current)}</span> : <span />}
+          {shown && !loading ? <span className="gn-goal-pct">{current === null ? "—" : formatPct(current, locale)}</span> : <span />}
           {actions ? (
             <RowMenu
-              label={`Add to ${goal.title}`}
+              label={t("goalMenu", { name: goal.title })}
               icon={PlusIcon}
               items={[
-                { label: "Add metric", onSelect: () => actions.onAddMetric(goal.id, null) },
-                { label: "Add sub-goal", onSelect: () => actions.onAddGoal(goal.id) },
+                { label: t("addMetric"), onSelect: () => actions.onAddMetric(goal.id, null) },
+                { label: t("addSubGoal"), onSelect: () => actions.onAddGoal(goal.id) },
               ]}
             />
           ) : (
@@ -402,7 +418,7 @@ function GoalFilterList({
             shown={shown}
             name={goal.title}
             disabled={!shown && atLimit}
-            disabledReason={`Up to ${maxGoals} goals can be shown - hide one first`}
+            disabledReason={t("atLimit", { n: maxGoals })}
             onToggle={() => onToggleGoal(goal.id)}
           />
           {shown && !loading && current !== null && (
@@ -414,7 +430,7 @@ function GoalFilterList({
 
         {hasBranches && !isCollapsed && (
           <ul className="gn-branches">
-            {noMetrics && <li className="gn-branch gn-metric-empty">No metrics yet</li>}
+            {noMetrics && <li className="gn-branch gn-metric-empty">{t("noMetrics")}</li>}
             {metricTree.map(renderMetric)}
             {subGoals.map((node) => renderGoal(node, true))}
           </ul>
@@ -424,7 +440,7 @@ function GoalFilterList({
   }
 
   return (
-    <ul className="gn-goal-list" aria-label="Goals">
+    <ul className="gn-goal-list" aria-label={t("goals")}>
       {buildTree(goals).map((node) => renderGoal(node, false))}
     </ul>
   );

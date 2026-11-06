@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { useT } from "platform-core";
+import messages from "./messages";
 import RowMenu, { type RowMenuItem } from "../../components/RowMenu";
 import { CollapseToggle } from "../../components/GoalFilterList";
 import type { useSiblingDrag } from "../../lib/ordering";
@@ -61,6 +63,7 @@ export function CheckInTableRow({
   onDraftChange,
   onDraftSubmit,
 }: CheckInTableRowProps) {
+  const t = useT(messages);
   return (
     <tr
       className={
@@ -75,7 +78,7 @@ export function CheckInTableRow({
           paddingLeft: `${0.6 + row.depth * 1.1}rem`,
           fontWeight: row.kind === "goal" ? 600 : 400,
         }}
-        title={`${row.label}\nDrag to reorder`}
+        title={t("dragToReorder", { label: row.label })}
         {...drag.source}
       >
         <span className="d-flex align-items-center gap-1">
@@ -96,7 +99,7 @@ export function CheckInTableRow({
             {tag}
           </span>
           <RowMenu
-            label={`Add to ${row.label}`}
+            label={t("addTo", { label: row.label })}
             icon={PlusIcon}
             items={menuItems}
           />
@@ -131,7 +134,7 @@ export function CheckInTableRow({
             type="number"
             step="any"
             className="form-control form-control-sm text-end"
-            aria-label={`New check-in for ${row.label}`}
+            aria-label={t("newCheckInFor", { label: row.label })}
             placeholder={draftPlaceholder}
             value={draftValue}
             onChange={(event) => onDraftChange(event.target.value)}

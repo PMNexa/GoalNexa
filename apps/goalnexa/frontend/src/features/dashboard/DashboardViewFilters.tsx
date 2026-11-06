@@ -1,8 +1,11 @@
-import { FormLabel, FormSelect } from "platform-core";
+import { FormLabel, FormSelect, useT } from "platform-core";
 import type { Cycle } from "../../api/cycles";
 import type { TeamOption } from "../../api/dashboard";
-import { SNAP_LABELS, type Snap } from "../../lib/periods";
+import type { Snap } from "../../lib/periods";
 import { ALL_CYCLES, NO_CYCLE } from "./dashboardState";
+import messages from "./messages";
+
+const SNAPS: Snap[] = ["day", "week", "month", "quarter", "year"];
 
 export interface DashboardViewFiltersProps {
   /** The org's cycles - no "Cycle" select without any. */
@@ -22,58 +25,62 @@ export interface DashboardViewFiltersProps {
 
 /** The selects at the top of the dashboard's Filters card: cycle, "Show check-ins by", team. */
 function DashboardViewFilters({ cycles, cycleKey, onCycle, snap, onSnap, teams, teamKey, onTeam }: DashboardViewFiltersProps) {
+  const t = useT(messages);
   return (
     <>
       {cycles.length > 0 && (
         <div className="mb-3">
-          <FormLabel htmlFor="dashboard-cycle">Cycle</FormLabel>
+          <FormLabel htmlFor="dashboard-cycle">{t("cycle")}</FormLabel>
           <FormSelect
             id="dashboard-cycle"
             value={cycleKey}
             onChange={(event) => onCycle(event.target.value)}
           >
-            <option value={ALL_CYCLES}>All goals</option>
+            <option value={ALL_CYCLES}>{t("allGoals")}</option>
             {cycles.map((cycle) => (
               <option key={cycle.id} value={cycle.id}>
-                {cycle.name}
-                {cycle.status === "closed" ? " (closed)" : cycle.status === "planning" ? " (planning)" : ""}
+                {cycle.status === "closed"
+                  ? t("cycleClosed", { name: cycle.name })
+                  : cycle.status === "planning"
+                    ? t("cyclePlanning", { name: cycle.name })
+                    : cycle.name}
               </option>
             ))}
-            <option value={NO_CYCLE}>Not in a cycle</option>
+            <option value={NO_CYCLE}>{t("notInCycle")}</option>
           </FormSelect>
         </div>
       )}
 
       <div className="mb-3">
-        <FormLabel htmlFor="dashboard-snap">Show check-ins by</FormLabel>
+        <FormLabel htmlFor="dashboard-snap">{t("showCheckInsBy")}</FormLabel>
         <FormSelect
           id="dashboard-snap"
           value={snap ?? ""}
           onChange={(event) => onSnap((event.target.value || null) as Snap | null)}
         >
-          <option value="">As logged</option>
-          {(Object.keys(SNAP_LABELS) as Snap[]).map((per) => (
+          <option value="">{t("asLogged")}</option>
+          {SNAPS.map((per) => (
             <option key={per} value={per}>
-              {SNAP_LABELS[per]}
+              {t(`snap_${per}`)}
             </option>
           ))}
         </FormSelect>
         {snap && (
           <small className="form-hint">
-            Lines keep each metric's last reading per {snap}; amounts to add also show as bars per {snap}.
+            {t(`snapHint_${snap}`)}
           </small>
         )}
       </div>
 
       {teams.length > 0 && (
         <div className="mb-3">
-          <FormLabel htmlFor="dashboard-team">Team</FormLabel>
+          <FormLabel htmlFor="dashboard-team">{t("team")}</FormLabel>
           <FormSelect
             id="dashboard-team"
             value={teamKey}
             onChange={(event) => onTeam(event.target.value)}
           >
-            <option value="">All goals</option>
+            <option value="">{t("allGoals")}</option>
             {teams.map((team) => (
               <option key={team.id} value={team.id}>
                 {team.name}
