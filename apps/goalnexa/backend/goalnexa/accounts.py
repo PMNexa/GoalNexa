@@ -70,6 +70,37 @@ def _keep_org_work(user_id) -> None:
             Goal.objects.filter(id=goal.id).update(owner_id=owner)
 
 
+def on_person_converted(sender, placeholder_id, user_id, **kwargs):
+    """A placeholder (platform-org: someone in a team with no account) is
+    now `user_id`: their member copies, other goals and goal memberships
+    become the user's. Where the user already has their own copy of the
+    same template in that team and cycle, the placeholder's is detached
+    and archived (one copy per member), its history kept as ordinary goals."""
+    from goalnexa.rollups import batched, schedule
+    from goalnexa.templates import tree_goals
+
+    with batched():
+        roots = Goal.objects.filter(
+            assignee_id=placeholder_id, template_goal__isnull=False, template_goal__parent__isnull=True
+        ).select_related("template_goal")
+        for root in roots:
+            template_id = root.template_goal.template_id
+            if tree_goals(template_id, root.team_id, root.cycle_id, False, user_id).exists():
+                ids = list(
+                    tree_goals(template_id, root.team_id, root.cycle_id, False, placeholder_id).values_list("id", flat=True)
+                )
+                Metric.objects.filter(goal_id__in=ids).update(template_metric=None)
+                Goal.objects.filter(id__in=ids).update(template_goal=None, status=GoalStatus.ARCHIVED)
+            schedule(template_id, root.cycle_id)
+        Goal.objects.filter(assignee_id=placeholder_id).update(assignee_id=user_id)
+        Goal.objects.filter(owner_id=placeholder_id).update(owner_id=user_id)
+        for member in GoalMember.objects.filter(user_id=placeholder_id):
+            if GoalMember.objects.filter(goal_id=member.goal_id, user_id=user_id).exists():
+                member.delete()
+            else:
+                GoalMember.objects.filter(id=member.id).update(user_id=user_id)
+
+
 def on_org_removed(sender, org_id, **kwargs):
     """An org's goals (with their metrics and check-ins), cycles and goal templates go with it."""
     Goal.objects.filter(org_id=org_id).delete()

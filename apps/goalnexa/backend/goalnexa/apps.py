@@ -26,7 +26,15 @@ class GoalnexaConfig(AppConfig):
             register_usage_provider,
             user_removed,
         )
-        from goalnexa.accounts import export, on_org_removed, on_team_changed, on_team_removed, on_user_removed, usage
+        from goalnexa.accounts import (
+            export,
+            on_org_removed,
+            on_person_converted,
+            on_team_changed,
+            on_team_removed,
+            on_user_removed,
+            usage,
+        )
 
         register_setting(SettingDef(
             "reminders.allowed_schemes", "Reminder services allowed", LIST,
@@ -61,6 +69,11 @@ class GoalnexaConfig(AppConfig):
         org_removed.connect(on_org_removed, dispatch_uid="goalnexa.org_removed")
         team_removed.connect(on_team_removed, dispatch_uid="goalnexa.team_removed")
         team_changed.connect(on_team_changed, dispatch_uid="goalnexa.team_changed")
+        # Older platform-core has no such signal: nothing to convert then.
+        from core_api import system
+
+        if hasattr(system, "person_converted"):
+            system.person_converted.connect(on_person_converted, dispatch_uid="goalnexa.person_converted")
         register_usage_provider(UsageProvider("Goals", usage))
         register_export_provider("goals", export)
         from goalnexa.insights import register_insights

@@ -14,6 +14,7 @@ from decimal import Decimal
 from django.test import TestCase, override_settings
 
 from goalnexa.models import CheckIn, Goal, GoalStatus, Metric
+from platform_org.models import TeamMembership
 from tests.test_tenant_isolation import API, ids, signup
 
 
@@ -626,3 +627,95 @@ class TeamMemberCopyTests(TeamSetup):
         # North's own copy moved up to Sales, still in the template.
         self.assertTrue(Goal.objects.filter(team_id=self.sales["id"], is_rollup=False, assignee_id__isnull=True,
                                             template_goal_id=self.revenue_goal["id"]).exists())
+
+
+class PlaceholderTests(TeamSetup):
+    """Someone in a team with no account yet (P-92, docs/team-templates.md
+    "Placeholders"): Alice adds "Hana" to North; she gets a copy, Dave
+    checks in for her; later she signs up and takes it over."""
+
+    def setUp(self):
+        super().setUp()
+        self.apply(self.north, self.south)
+        self.hana_row = self.ok(self.alice, "team-members", team=self.north["id"], placeholder_name="Hana",
+                                placeholder_email="Hana@example.com")
+        self.hana = self.hana_row["user_id"]
+
+    def assign_hana(self, client=None, expect=201):
+        return self.ok(client or self.dave, f"goal-templates/{self.template['id']}/assign", expect=expect,
+                       team=self.north["id"], users=[self.hana], cycle=self.cycle["id"])
+
+    def hana_metric(self, user_id=None):
+        return Metric.objects.get(template_metric_id=self.mrr["id"], goal__assignee_id=user_id or self.hana,
+                                  goal__cycle_id=self.cycle["id"])
+
+    def test_a_placeholder_is_a_team_member_by_name(self):
+        self.assertTrue(self.hana_row["placeholder"])
+        self.assertEqual((self.hana_row["name"], self.hana_row["email"]), ("Hana", "hana@example.com"))
+        rows = self.erin.get(f"{API}/team-members", {"filter{team}": self.north["id"]}).json()["items"]
+        self.assertEqual({(r["name"], r["placeholder"]) for r in rows}, {("Dave", False), ("Hana", True)})
+        # Only owners/admins add one, and in more teams by id.
+        response = self.post(self.dave, "team-members", team=self.north["id"], placeholder_name="Ivan")
+        self.assertEqual(response.status_code, 403)
+        self.ok(self.alice, "team-members", team=self.south["id"], user_id=self.hana)
+        # A stranger's placeholder id can't be used in another org.
+        other = self.ok(self.bob, "orgs", name="Other")
+        team = self.ok(self.bob, "teams", org=other["id"], name="X")
+        self.assertEqual(self.post(self.bob, "team-members", team=team["id"], user_id=self.hana).status_code, 400)
+        # Renamed everywhere.
+        response = self.client_patch(self.alice, f"team-members/{self.hana_row['id']}", placeholder_name="Hana T.")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["name"], "Hana T.")
+
+    def test_a_placeholder_gets_a_copy_the_lead_checks_in_on(self):
+        self.assign_hana()
+        mine = self.hana_metric()
+        self.check_in(self.dave, mine, 12)
+        self.check_in(self.erin, mine, 1, status=403)
+        board = self.dave.get(f"{API}/goal-templates/{self.template['id']}/board", {"cycle": self.cycle["id"]}).json()
+        north = next(t for t in board["teams"] if t["id"] == self.north["id"])
+        self.assertIn(("Hana", "member"), [(p["name"], p["role"]) for p in north["people"]])
+        self.assertEqual(board["names"][self.hana], "Hana")
+        self.assertEqual(self.total(self.mrr, self.north).current_value, Decimal(12))
+
+    def test_linking_an_account_moves_team_places_and_goals(self):
+        self.assign_hana()
+        self.check_in(self.dave, self.hana_metric(), 12)
+        hana = signup("Hanako")
+        self.join(hana)  # another email than the placeholder's: no automatic link
+        self.assertTrue(Goal.objects.filter(assignee_id=self.hana).exists())
+        convert = f"team-members/{self.hana_row['id']}/convert"
+        self.assertEqual(self.post(self.dave, convert, user_id=hana.user_id).status_code, 403)  # leads don't
+        self.assertEqual(self.post(self.alice, convert, user_id=self.bob.user_id).status_code, 400)  # not a member
+        self.ok(self.alice, convert, expect=200, user_id=hana.user_id)
+        self.assertFalse(Goal.objects.filter(assignee_id=self.hana).exists())
+        metric = self.hana_metric(hana.user_id)
+        self.assertEqual(metric.current_value, Decimal(12))
+        self.assertEqual({str(g.owner_id) for g in Goal.objects.filter(assignee_id=hana.user_id)}, {hana.user_id})
+        self.check_in(hana, metric, 3)  # hers now
+        rows = hana.get(f"{API}/team-members", {"filter{team}": self.north["id"]}).json()["items"]
+        self.assertEqual([(r["name"], r["placeholder"], r["is_me"]) for r in rows if r["is_me"]],
+                         [("Hanako", False, True)])
+        self.assertEqual(self.post(self.alice, convert, user_id=hana.user_id).status_code, 400)  # has an account now
+
+    def test_accepting_an_invitation_to_the_placeholders_email_links_it(self):
+        self.assign_hana()
+        hana = signup("Hana")  # hana@example.com, the placeholder's email
+        self.join(hana)
+        self.assertFalse(Goal.objects.filter(assignee_id=self.hana).exists())
+        self.assertTrue(Goal.objects.filter(assignee_id=hana.user_id, team_id=self.north["id"]).exists())
+
+    def test_linking_someone_who_has_a_copy_already_archives_the_placeholders(self):
+        grace = signup("Grace")
+        self.join(grace)
+        self.ok(self.alice, "team-members", team=self.north["id"], user_id=grace.user_id)
+        self.ok(self.dave, f"goal-templates/{self.template['id']}/assign", team=self.north["id"],
+                users=[grace.user_id, self.hana], cycle=self.cycle["id"])
+        self.ok(self.alice, f"team-members/{self.hana_row['id']}/convert", expect=200, user_id=grace.user_id)
+        kept = Goal.objects.filter(assignee_id=grace.user_id, template_goal__isnull=False)
+        self.assertEqual(kept.count(), 2)
+        self.assertEqual(Goal.objects.filter(assignee_id=grace.user_id, status=GoalStatus.ARCHIVED).count(), 2)
+        self.assertEqual(
+            list(TeamMembership.objects.filter(team_id=self.north["id"], user_id=grace.user_id).values_list("role", flat=True)),
+            ["member"],
+        )

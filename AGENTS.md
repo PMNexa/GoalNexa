@@ -361,6 +361,12 @@ assignee to `tree_goals` (None = the team's own copy). The member checks
 in, the lead sets targets (`can_set_targets` ignores ownership of a
 member copy); a team with member copies is always totalled (its copy +
 theirs). Metrics' `for_me` tells an agent which copy is the user's.
+**Placeholders** (P-92, `docs/team-templates.md` "Placeholders"): someone in a team
+with no account - platform-org's `Placeholder`, whose id stands in for a user id
+(team places, member copies; the lead checks in for them); linked to an account by
+`POST team-members/<id>/convert` or by accepting an invitation to its email, which
+sends `core_api.system.person_converted` - add a receiver for any new data kept
+under a user id.
 Tests: `apps/main/backend/tests/test_team_templates.py`.
 
 **Targets per period** (P-54..P-59; `docs/period-targets.md`): a SUM

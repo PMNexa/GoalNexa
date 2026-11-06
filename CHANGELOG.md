@@ -15,6 +15,7 @@ of you beyond the usual upgrade steps.
 
 ### Added
 
+- Teams: add someone to a team without an account ("+ Someone without an account…" when adding a member on the org chart). They get their own copy on the team board like anyone else, and the team's lead checks in for them. Link them to an account later from the "No account" tag - pick an org member, or invite them and they're linked when they accept.
 - **Team board: down to each member** (P-91): a team's lead can give
   members their own share of the team's goals. In Targets mode every
   member is listed under their team - tick to give them their own copy,
