@@ -8,10 +8,19 @@ from platform_auth.models import User
 
 
 def lookup_users(user_ids) -> dict[str, dict]:
-    return {
-        str(user_id): {"name": name, "email": email}
-        for user_id, name, email in User.objects.filter(id__in=list(user_ids)).values_list("id", "name", "email")
+    """Accounts, plus platform-org's placeholders (people in a team with no
+    account yet) by name only - no email, so nothing is ever mailed to one."""
+    from platform_org.placeholders import lookup
+
+    ids = list(user_ids)
+    found = {
+        str(pid): {"name": row["name"], "email": None, "placeholder": True} for pid, row in lookup(ids).items()
     }
+    found.update(
+        (str(user_id), {"name": name, "email": email})
+        for user_id, name, email in User.objects.filter(id__in=ids).values_list("id", "name", "email")
+    )
+    return found
 
 
 def lifecycle_users(user_ids) -> dict[str, dict]:

@@ -100,6 +100,7 @@ Last updated: 2026-10-26.
 | Goal templates | Done | Done | - | - | Web only | Template goals and metrics carry the check-in setting, inherited like goals; teams' copies follow it |
 | Team board (targets, apply, who plays) | Done | Done | - | - | Web only | Big grid; "Open on the web" from the app |
 | Team board: members' own targets | Done | Done | - | - | Web only | P-91. A member's own copy reaches the apps as an ordinary goal (not tried on a device); assigning stays on the web |
+| Teams: people with no account | Done | Done | - | - | Web only | P-92. Placeholders in teams, the lead checks in for them; linked to an account later (pick a member, or by invitation email) |
 | Team totals (rollups) | Done | Done | Done | Planned | Ported | Read-only, labeled |
 | Cycles: close, scores, roll over | Done | Done | - | - | Web only | |
 | Activity feed | Done | Done | Done | Planned | Ported | |

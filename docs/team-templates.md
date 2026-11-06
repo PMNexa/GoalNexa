@@ -341,3 +341,34 @@ of its members **their own copy** of the team's instance. Asked for
   target blank (= base); totals aren't copied but rebuilt.
 - **Not built yet**: a card layout for phones (the grid scrolls sideways
   instead) and pasting a range from a spreadsheet into the board.
+
+## Placeholders (P-92)
+
+Someone can be in a team before they have an account - asked for ("some
+person is not real account, just a mock person in the team. it can be
+converted to account later").
+
+- platform-org's `Placeholder` (org, name, optional email). Its id stands
+  in for a user id wherever a team member is referenced by bare id
+  (`TeamMembership.user_id`, `Goal.owner_id`/`assignee_id`), so goalnexa
+  needs nothing special: the lead gives them a member copy, checks in for
+  them (`can_set_targets`), and their copy counts in totals.
+- Org owners/admins add one with `POST team-members {team, role,
+  placeholder_name, placeholder_email?}`, add them to more teams by id,
+  rename them with `PATCH team-members/<id>`. Rows carry `placeholder: true`.
+- Names reach goalnexa through main's user directory
+  (`config/user_directory.lookup_users`), with no email - nothing is mailed
+  to a placeholder; reminders and the digest skip them (no settings).
+- **Linking**: `POST team-members/<id>/convert {user_id}` (owners/admins,
+  an active org member) or accepting an org invitation sent to the
+  placeholder's email (`placeholders.convert_by_email`). Team places move
+  (the higher role wins where the user is already in the team), then
+  `core_api.system.person_converted(placeholder_id, user_id, org_id)`:
+  goalnexa moves goals, member copies and goal memberships. Where the
+  user already has their own copy in that team and cycle, the
+  placeholder's is detached and archived. The placeholder row is deleted.
+- Removing a placeholder from every team keeps the row (their copies keep
+  a name on the board).
+- UI: the org chart's "Add to team" dialog ("+ Someone without an
+  account…"), a "No account" tag that opens rename / link / invite.
+- Tests: `PlaceholderTests` in `apps/main/backend/tests/test_team_templates.py`.
