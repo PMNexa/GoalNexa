@@ -122,6 +122,8 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # Activates the request's language (cookie `gn_lang`, then Accept-Language).
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -198,7 +200,17 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en'
+
+# The UI languages (docs/translations.md). The web app keeps the pick in
+# the `gn_lang` cookie, which LocaleMiddleware reads too - so API
+# messages (validation errors, schema labels) come back in the same
+# language with no header to send. No cookie: Accept-Language, else
+# English (agents, ingest, tests). A user's saved choice is
+# platform-auth's `User.language` (one of these codes).
+LANGUAGES = [('en', 'English'), ('vi', 'Tiếng Việt')]
+LANGUAGE_COOKIE_NAME = 'gn_lang'
+LOCALE_PATHS = [BASE_DIR / 'config' / 'locale']  # main's own; each app's locale/ is found by Django
 
 TIME_ZONE = 'UTC'
 
