@@ -132,7 +132,7 @@ data = no badge.
 | F-S6-7 | Targets | **Start** and **Target** per team and metric, **Planned** target on totals; **Save targets**. |
 | F-S6-8 | Add the template to teams | **Add** next to "Doesn't use this template in this cycle.", or tick teams in Targets mode → **Add to N teams**. |
 | F-S6-9 | Edit the template | Click a goal or metric header to edit it in a drawer; **✕** removes it from the template (copies with check-ins are kept as the team's own). "Edit the template" link. |
-| F-S6-10 | Template wizard | **+ New** / **Create the first one**: Template → Goals → Metrics (each check-in is, totals, target is for, counts, progress is, which check-ins count, check-ins are for, start, default target) → Teams → Review → **Create the template**. |
+| F-S6-10 | Template wizard | **+ New** / **Create the first one**: Template → Goals → Metrics (each check-in is, totals, target is for, counts, progress is, check-in period, start, default target) → Teams → Review → **Create the template**. |
 | F-S6-11 | Full screen | **Full screen** / **Exit full screen** (Esc). |
 
 ## S7 Lists, detail and edit pages
@@ -167,7 +167,7 @@ Generic detail page plus:
 
 | ID | Function | Details |
 |---|---|---|
-| F-S9-1 | Metric fields | Name, Description, Unit, Start (base) value, Target value, Current value, Each check-in is (new value / amount to add), Check in every (no schedule / daily / weekly / monthly), Target is for (whole goal / each day...year), Counts (every day / weekdays), Progress is (total / how often hit), One reading per, Check-ins are for, Parent. |
+| F-S9-1 | Metric fields | Name, Description, Unit, Start (base) value, Target value, Current value, Each check-in is (new value / amount to add), Check in every (no schedule / daily / weekly / monthly), Target is for (whole goal / each day...year), Counts (every day / weekdays), Progress is (total / how often hit), One reading per, Check-in period, Parent. |
 | F-S9-2 | Check-ins | **Check ins** tab: list, add, edit, delete. |
 | F-S9-3 | Automatic check-ins | **Create token** / **Rotate token**, copy the URL and `curl` example (token shown once), **Revoke**. |
 

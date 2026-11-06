@@ -143,6 +143,11 @@ Some metrics are reported as "the number so far today": steps 8,000 at
 noon, 10,500 in the evening - the second replaces the first, it isn't
 added. A per-metric setting, **"One reading per: - / day / week / month /
 quarter / year"** (`Metric.one_per`, blank = every check-in counts).
+The forms no longer ask it (2026-10-30): which check-ins in a check-in
+period count follows "Each check-in is" - amounts add up, and the last
+new value wins anyway (ties go to the one saved later). It shows only on
+a metric that already has one, so it can be cleared; the API and agents
+can still set it.
 
 **Every check-in is kept; only the last one in each period counts** (by
 `checked_in_at`, in the goal's zone; two at the same time: the one saved
@@ -198,7 +203,7 @@ setting off couldn't bring the rows back.
 
 ## Check-ins for a period (P-63)
 
-`Metric.snap_to` / `TemplateMetric.snap_to` ("Check-ins are for": any
+`Metric.snap_to` / `TemplateMetric.snap_to` ("Check-in period": any
 time / a day / week / month / quarter / year). A check-in is then for a
 whole period, not a moment: `CheckIn.save` sets `checked_in_at` to the
 period's first day, 00:00 in the goal's zone (`periods.snap_time`), so

@@ -23,6 +23,8 @@ const meta = {
     templateId: templates[0].id,
     onTemplateChange: fn(),
     onNewTemplate: fn(),
+    onNewCycle: fn(),
+    onNewTeam: fn(),
     cycles,
     cycleId: cycles[0].id,
     onCycleChange: fn(),
@@ -77,8 +79,8 @@ export const OverTime: Story = {
 /** Targets: no View switch, no period pickers. */
 export const Targets: Story = { args: { mode: "targets" } };
 
-/** A member: no "+ New" template. */
-export const Member: Story = { args: { onNewTemplate: undefined } };
+/** A member: no "+ New" template or team (owners/admins only); a new cycle, yes. */
+export const Member: Story = { args: { onNewTemplate: undefined, onNewTeam: undefined } };
 
 /** Folded to its first line. */
 export const Folded: Story = { args: { pickersFolded: true } };

@@ -42,7 +42,7 @@ const FIELD_NAMES: Record<string, string> = {
   target_value: "target",
   check_in_every: "schedule",
   aggregation: "check-ins",
-  snap_to: "check-ins are for",
+  snap_to: "check-in period",
 };
 
 const RELATIVE = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });

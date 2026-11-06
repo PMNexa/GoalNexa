@@ -79,7 +79,7 @@ class MetricSerializer(BaseSerializer):
     # read back as `snap_period`. Null = any time, like "" (a generic form's
     # emptied select sends null).
     snap_to = serializers.ChoiceField(
-        label="Check-ins are for", choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_GOAL,
+        label="Check-in period", choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_GOAL,
         help_text="Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period (the organization's time zone), whoever checks in. Changing it moves existing check-ins.",
     )
     snap_period = serializers.CharField(

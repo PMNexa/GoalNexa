@@ -157,8 +157,8 @@ def refresh_metric(metric_id, *, sync_value: bool = True) -> Metric | None:
     if metric is None:
         return None
     check_ins = list(CheckIn.objects.filter(metric_id=metric_id))
-    zone = periods.zone_for(metric.goal) if metric.one_per or metric.target_per else None
-    # One reading per period: only the last check-in of each counts (goalnexa.periods.counted).
+    zone = periods.zone_for(metric.goal) if periods.counted_per(metric) or metric.target_per else None
+    # One reading per period (or a new value per check-in period): only the last of each counts (goalnexa.periods.counted).
     kept, replaced = periods.counted(metric, check_ins, zone)
     latest = kept[-1] if kept else None
     updates = {"last_checked_in_at": latest.checked_in_at if latest else None}

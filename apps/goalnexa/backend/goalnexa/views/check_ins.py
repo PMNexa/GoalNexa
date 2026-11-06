@@ -34,6 +34,7 @@ from core_api.viewsets import BaseViewSet
 from goalnexa.access import visible_goals
 from goalnexa.activity import record, request_source
 from goalnexa.models import ActivityVerb, CheckIn, CheckInSource, Metric
+from goalnexa.periods import counted_per
 from goalnexa.progress import refresh_metric_and_goal
 from goalnexa.rollups import batched
 from goalnexa.serializers import CheckInSerializer
@@ -63,7 +64,7 @@ def check_can_check_in(request, metric) -> None:
 def record_check_in(check_in: CheckIn, verb: str, actor_id) -> None:
     metric = check_in.metric
     extra = {}
-    if metric.one_per and verb != ActivityVerb.CHECK_IN_REMOVED:
+    if counted_per(metric) and verb != ActivityVerb.CHECK_IN_REMOVED:
         # One reading per period: say what it replaced, or that it was replaced.
         from goalnexa.periods import replaced_by
 

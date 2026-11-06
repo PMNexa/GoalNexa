@@ -32,6 +32,7 @@ import { useBoardLayout, useFullscreen } from "./useBoardLayout";
 import { BOARD_CHART_CSS, BoardBarCharts, BoardLineCharts, type ChartSeries } from "../../components/charts/BoardCharts";
 import { DASHBOARD_CSS } from "../../components/dashboardStyles";
 import { fetchCycles, type Cycle } from "../../api/cycles";
+import CreateRecordModal, { type CreateTarget } from "../../components/CreateRecordModal";
 import { fetchOrgs, fetchTeams, type OrgOption, type TeamOption } from "../../api/dashboard";
 import { apiRequest } from "../../api/client";
 import { errorMessage } from "../../api/goalMembers";
@@ -109,6 +110,8 @@ function TeamBoardScreen({
   const [templates, setTemplates] = useState<GoalTemplate[]>([]);
   const [templateId, setTemplateId] = useState<string | null>(initialTemplateId ?? null);
   const [cycles, setCycles] = useState<Cycle[]>([]);
+  // The pickers' "+ New" forms (a cycle, a team).
+  const [creating, setCreating] = useState<CreateTarget | null>(null);
   const [cycleId, setCycleId] = useState<string>(NO_CYCLE);
   const [board, setBoard] = useState<Board | null>(null);
   const [root, setRoot] = useState("");
@@ -440,6 +443,34 @@ function TeamBoardScreen({
     setVersion((v) => v + 1);
   }
 
+  function newTeam() {
+    if (!orgId) return;
+    const under = board?.teams.find((t) => t.id === root);
+    setCreating({
+      endpoint: "/api/v1/teams",
+      title: under ? `New team under ${under.name}` : "New team",
+      preset: { org: orgId, parent: under?.id ?? null },
+    });
+  }
+
+  function created(row: Record<string, unknown>) {
+    const target = creating;
+    setCreating(null);
+    if (!target || !orgId) return;
+    if (target.endpoint === "/api/v1/cycles") {
+      const cycle = row as unknown as Cycle;
+      setCycles((prev) => [...prev, cycle]);
+      setCycleId(cycle.id);
+      drafts.reset();
+      setNotice(`Created the cycle "${cycle.name}".`);
+      return;
+    }
+    // A team: the board lists the org's team tree, the wizard its teams.
+    fetchTeams(accessToken, orgId).then(setOrgTeams).catch((e) => setError(errorMessage(e)));
+    setVersion((v) => v + 1);
+    setNotice(`Created the team "${String(row.name ?? "")}". Tick "Own" in Targets mode to add it to the template.`);
+  }
+
   function wizardDone(templateId: string, created: GoalTemplate | null) {
     setWizard(null);
     if (created) setTemplates((prev) => [...prev, created].sort((a, b) => a.title.localeCompare(b.title)));
@@ -493,6 +524,8 @@ function TeamBoardScreen({
           onNewTemplate={canCreateTemplate && orgId ? () => setWizard({ existing: null }) : undefined}
           cycles={cycles}
           cycleId={cycleId}
+          onNewCycle={orgId ? () => setCreating({ endpoint: "/api/v1/cycles", title: "New cycle", preset: { org_id: orgId } }) : undefined}
+          onNewTeam={canCreateTemplate && orgId ? newTeam : undefined}
           onCycleChange={(id) => {
             setCycleId(id);
             drafts.reset();
@@ -539,6 +572,8 @@ function TeamBoardScreen({
           )}
         </BoardPickers>
       )}
+
+      <CreateRecordModal accessToken={accessToken} target={creating} onCreated={created} onClose={() => setCreating(null)} />
 
       {wizard && orgId && (
         <TemplateWizard

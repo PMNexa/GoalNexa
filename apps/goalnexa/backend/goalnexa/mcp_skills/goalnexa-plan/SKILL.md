@@ -49,8 +49,9 @@ From what the user said, propose:
     calls").
   - A number reported per period ("weekly sales", "monthly revenue") can get
     `snap_to: "week"` (or day/month/...): each check-in is then for a whole
-    period. Often with the same `one_per`, so a correction replaces that
-    period's number. When every metric of the goal is reported that way,
+    period. A `"latest"` metric then keeps the period's last reading (a
+    correction replaces it) with no `one_per`; a `"sum"` one adds every
+    check-in up unless it also gets the same `one_per`. When every metric of the goal is reported that way,
     set `snap_to` on the GOAL instead: its metrics inherit it (`snap_to:
     "goal"`, the default), so do its sub-goals (`snap_to: "parent"`, the
     default) and a sub-metric inherits its parent metric's; a metric can

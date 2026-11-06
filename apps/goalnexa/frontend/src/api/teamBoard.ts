@@ -272,6 +272,8 @@ export function createTemplateMetric(
     progress_by?: "total" | "hit_rate";
     one_per?: TargetPer;
     snap_to?: TargetPer;
+    /** `snap_to`'s moment (`snap_weekday`, `snap_time`, `snap_due`...). */
+    [moment: `snap_${string}`]: unknown;
   },
 ): Promise<{ id: string }> {
   return apiRequest<{ id: string }>("/api/v1/template-metrics", accessToken, { method: "POST", data });

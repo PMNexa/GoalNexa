@@ -48,7 +48,7 @@ class TemplateGoalSerializer(BaseSerializer):
     sub-goals with "parent" (the default)."""
 
     snap_to = serializers.ChoiceField(
-        label="Check-ins are for", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True,
+        label="Check-in period", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True,
         initial=SNAP_TO_PARENT,
         help_text="Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period. Its metrics and sub-goals inherit it unless they pick their own; every team's copy follows it.",
     )
@@ -86,7 +86,7 @@ class TemplateMetricSerializer(BaseSerializer):
     can't change once a team has checked in."""
 
     snap_to = serializers.ChoiceField(
-        label="Check-ins are for", choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True,
+        label="Check-in period", choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True,
         initial=SNAP_TO_GOAL,
         help_text="Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period, whoever checks in. Every team's copy follows it.",
     )

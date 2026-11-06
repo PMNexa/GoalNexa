@@ -178,17 +178,30 @@ def bucket(check_in, per: str, zone: ZoneInfo) -> date:
     return period_start(local_date(check_in.checked_in_at, zone), per)
 
 
+def counted_per(metric) -> str:
+    """The period whose last check-in is the one that counts: `one_per`, else -
+    for a new value (LATEST) - its check-in period (`snap_to`: they share the
+    period's moment, so the one saved last wins). An amount adds up: ""."""
+    from goalnexa.models import MetricAggregation
+
+    one_per = getattr(metric, "one_per", "")
+    if one_per:
+        return one_per
+    return getattr(metric, "snap_to", "") if metric.aggregation == MetricAggregation.LATEST else ""
+
+
 def counted(metric, check_ins, zone: ZoneInfo | None = None) -> tuple[list, set]:
     """(the check-ins that count, oldest first; the ids of the replaced ones).
-    With `one_per` set, only the last check-in of each period counts (by
+    With a `counted_per` period, only the last check-in of each counts (by
     `checked_in_at`, then when it was saved); otherwise every one does."""
     ordered = sorted(check_ins, key=_order)
-    if not getattr(metric, "one_per", ""):
+    per = counted_per(metric)
+    if not per:
         return ordered, set()
     zone = zone or zone_for(metric.goal)
     last: dict[date, object] = {}
     for check_in in ordered:
-        last[bucket(check_in, metric.one_per, zone)] = check_in
+        last[bucket(check_in, per, zone)] = check_in
     kept_ids = {c.id for c in last.values()}
     return [c for c in ordered if c.id in kept_ids], {c.id for c in ordered if c.id not in kept_ids}
 
@@ -353,15 +366,16 @@ def apply_follow(goals: list, metrics: list) -> None:
 
 def replaced_by(check_in, zone: ZoneInfo | None = None):
     """The check-in this one replaced - the latest earlier one in its period -
-    or None (no `one_per`, none earlier, or this one is itself replaced)."""
+    or None (no `counted_per`, none earlier, or this one is itself replaced)."""
     metric = check_in.metric
-    if not metric.one_per or check_in.replaced:
+    per = counted_per(metric)
+    if not per or check_in.replaced:
         return None
     zone = zone or zone_for(metric.goal)
-    period = bucket(check_in, metric.one_per, zone)
+    period = bucket(check_in, per, zone)
     earlier = [
         c for c in type(check_in).objects.filter(metric_id=metric.id).exclude(id=check_in.id)
-        if bucket(c, metric.one_per, zone) == period and _order(c) <= _order(check_in)
+        if bucket(c, per, zone) == period and _order(c) <= _order(check_in)
     ]
     return max(earlier, key=_order) if earlier else None
 

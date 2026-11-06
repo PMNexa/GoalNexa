@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { fn } from "storybook/test";
+import { momentFields } from "../../components/CheckInMomentField/CheckInMomentField.mocks";
 import { inCard } from "../../storybook/decorators";
 import { newMetric, type DraftMetric } from "./templateWizardModel";
 import WizardMetricRow from "./WizardMetricRow";
@@ -50,3 +51,11 @@ export const AmountPerWeek: Story = { args: { metric: perWeek } };
 
 /** A fresh row: every field empty but the start. */
 export const Empty: Story = { args: { metric: newMetric() } };
+
+/** Check-ins for a week, stamped Friday 17:00: "Check-in period" is the moment picker (fields from the template metric schema). */
+export const CheckInsForAWeek: Story = {
+  args: {
+    metric: { ...reading, snapTo: "week", moment: { snap_weekday: "5", snap_time: "17:00" } },
+    momentFields,
+  },
+};

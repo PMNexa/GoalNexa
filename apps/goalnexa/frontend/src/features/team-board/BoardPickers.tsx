@@ -23,11 +23,15 @@ export interface BoardPickersProps {
   cycles: Cycle[];
   cycleId: string;
   onCycleChange: (cycleId: string) => void;
+  /** "+ New" next to Cycle - a cycle of the org. */
+  onNewCycle?: () => void;
   /** The team whose subtree is shown ("" = all teams). */
   root: string;
   onRootChange: (root: string) => void;
   /** The board's teams, sorted by name. */
   teams: BoardTeam[];
+  /** "+ New" next to Teams - a team under the picked one (top level for "All teams"); owners/admins only. */
+  onNewTeam?: () => void;
   /** The mode's period pickers (`RangePicker`, `ShowPicker`, `MomentPicker`), each in its column. */
   children?: ReactNode;
 }
@@ -51,11 +55,14 @@ function BoardPickers({
   cycles,
   cycleId,
   onCycleChange,
+  onNewCycle,
   root,
   onRootChange,
   teams,
+  onNewTeam,
   children,
 }: BoardPickersProps) {
+  const rootName = teams.find((t) => t.id === root)?.name;
   return (
     <Card className="mb-3">
       <CardBody className="py-2 d-flex align-items-center gap-2 flex-wrap">
@@ -99,8 +106,13 @@ function BoardPickers({
                 ))}
               </FormSelect>
             </div>
-            <div className="col-sm-6 col-lg-2">
+            <div className="col-sm-6 col-lg-2 position-relative">
               <FormLabel htmlFor="gn-board-cycle">Cycle</FormLabel>
+              {onNewCycle && (
+                <Button variant="link" className="p-0 border-0 position-absolute top-0 end-0 me-1" onClick={onNewCycle}>
+                  + New
+                </Button>
+              )}
               <FormSelect
                 id="gn-board-cycle"
                 value={cycleId}
@@ -112,8 +124,18 @@ function BoardPickers({
                 <option value={NO_CYCLE}>No cycle</option>
               </FormSelect>
             </div>
-            <div className="col-sm-6 col-lg-2">
+            <div className="col-sm-6 col-lg-2 position-relative">
               <FormLabel htmlFor="gn-board-root">Teams</FormLabel>
+              {onNewTeam && (
+                <Button
+                  variant="link"
+                  className="p-0 border-0 position-absolute top-0 end-0 me-1"
+                  title={rootName ? `New team under ${rootName}` : "New top-level team"}
+                  onClick={onNewTeam}
+                >
+                  + New
+                </Button>
+              )}
               <FormSelect id="gn-board-root" value={root} onChange={(e) => onRootChange(e.target.value)}>
                 <option value="">All teams</option>
                 {teams.map((t) => (

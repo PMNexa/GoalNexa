@@ -12,6 +12,8 @@ of you beyond the usual upgrade steps.
 - Pages load less JavaScript: each page now preloads only the code it uses (the sign-in page about 20 files instead of 70), so the first visit is faster.
 - Tabler (the design system) is served by your own server instead of jsDelivr, and the unused Inter web font is gone: no third-party requests before the page shows, nothing looks different.
 - Team board: "Show by" and the period picker are one control - the picker's tabs are Totals (running totals), Day, Week, Month, Quarter and Year, then click the period.
+- "Check-ins are for" is now called **Check-in period**, and the template wizard picks its moment too (weekday, day, time, due) in the same menu as goal and metric forms.
+- Forms no longer ask "Which check-ins count": in a check-in period, the metric's type decides - the last new value counts (a later one replaces it, and the form says so), amounts add up. Metrics that already have the setting keep it and still show it, so it can be cleared; the API and assistants can still set it. The dashboard draws one point per check-in period.
 
 ### Added
 

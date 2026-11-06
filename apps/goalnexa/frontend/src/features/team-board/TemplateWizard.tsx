@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Button, Checkbox, FormControl, FormLabel, FormSelect, Modal } from "platform-core";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Checkbox, createRequest, createSchemaFields, FormControl, FormLabel, FormSelect, loadSchema, Modal, type CrudField } from "platform-core";
 import type { Cycle } from "../../api/cycles";
 import type { TeamOption } from "../../api/dashboard";
 import { errorMessage } from "../../api/goalMembers";
@@ -12,7 +12,6 @@ import {
 } from "../../api/teamBoard";
 import {
   NO_CYCLE,
-  ONE_PER_LABELS,
   ROLLUP_LABELS,
   SNAP_TO_LABELS,
   TARGET_PER_LABELS,
@@ -24,6 +23,8 @@ import {
   type DraftMetric,
 } from "./templateWizardModel";
 import WizardMetricRow from "./WizardMetricRow";
+
+const MOMENT_KEYS = ["snap_weekday", "snap_quarter_month", "snap_month", "snap_day", "snap_time", "snap_due"];
 
 export interface TemplateWizardProps {
   accessToken: string;
@@ -65,6 +66,24 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
     metrics: new Set(),
     applied: false,
   });
+
+  // The moment fields ("Check-in period"'s day, time, due) come from the template metric schema.
+  const request = useMemo(() => createRequest(accessToken), [accessToken]);
+  const [momentFields, setMomentFields] = useState<Partial<Record<string, CrudField<Record<string, unknown>>>>>({});
+  useEffect(() => {
+    let cancelled = false;
+    loadSchema("/api/v1/template-metrics", request)
+      .then((schema) => {
+        if (cancelled) return;
+        const fields = createSchemaFields<Record<string, unknown>>(schema).filter((f) => MOMENT_KEYS.includes(f.key));
+        setMomentFields(Object.fromEntries(fields.map((f) => [f.key, f])));
+      })
+      // Without the schema the period is still picked; the moment stays the server's default.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [request]);
 
   const name = steps[step];
   const tree = teamTree(teams);
@@ -122,8 +141,10 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
             target_per: metric.targetPer,
             count_days: metric.countDays,
             progress_by: metric.targetPer ? metric.progressBy : "total",
-            one_per: metric.onePer,
+            // Which check-ins count follows the metric type: the last new value, every amount.
+            one_per: "",
             snap_to: metric.snapTo,
+            ...(metric.snapTo ? metric.moment : {}),
           });
           done.metrics.add(metric.key);
         }
@@ -232,6 +253,7 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
                   key={metric.key}
                   goal={goal}
                   metric={metric}
+                  momentFields={momentFields}
                   index={mi}
                   onChange={(change) => updateMetric(goal.key, metric.key, change)}
                   onRemove={() => updateGoal(goal.key, { metrics: goal.metrics.filter((m) => m.key !== metric.key) })}
@@ -312,8 +334,7 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
                     {m.unit && ` (${m.unit})`}: from {m.base}
                     {m.target.trim() ? ` to ${m.target}` : ", each team sets its target"}
                     {m.targetPer ? ` ${TARGET_PER_LABELS[m.targetPer].toLowerCase()}${m.countDays === "weekdays" ? " (weekdays)" : ""}${m.progressBy === "hit_rate" ? ", counted by how often it's hit" : ""}` : ""}
-                    {m.onePer ? ` · ${ONE_PER_LABELS[m.onePer].toLowerCase()} counts` : ""}
-                    {m.snapTo ? ` · check-ins are for ${SNAP_TO_LABELS[m.snapTo].toLowerCase()}` : ""} ·{" "}
+                    {m.snapTo ? ` · check-in period: ${SNAP_TO_LABELS[m.snapTo].toLowerCase()}` : ""} ·{" "}
                     {m.aggregation === "sum" ? "amounts add up" : "readings"} · totals: {ROLLUP_LABELS[m.rollup].toLowerCase()}
                   </li>
                 ))}

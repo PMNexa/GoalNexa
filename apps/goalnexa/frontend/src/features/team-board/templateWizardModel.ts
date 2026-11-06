@@ -17,20 +17,12 @@ export interface DraftMetric {
   targetPer: TargetPer;
   countDays: "all" | "weekdays";
   progressBy: "total" | "hit_rate";
-  onePer: TargetPer;
   snapTo: TargetPer;
+  /** The moment in a `snapTo` period (`snap_weekday`, `snap_time`, `snap_due`...), as the schema's fields - sent only with a period. */
+  moment: Record<string, unknown>;
 }
 
-/** "One reading per": only the last check-in of each period counts. */
-export const ONE_PER_LABELS: Record<TargetPer, string> = {
-  "": "Every check-in counts",
-  day: "Last one each day",
-  week: "Last one each week",
-  month: "Last one each month",
-  quarter: "Last one each quarter",
-  year: "Last one each year",
-};
-/** "Check-ins are for": a check-in's time is snapped to its period. */
+/** "Check-in period": a check-in's time is snapped to its period. */
 export const SNAP_TO_LABELS: Record<TargetPer, string> = {
   "": "Any time",
   day: "A day",
@@ -40,9 +32,9 @@ export const SNAP_TO_LABELS: Record<TargetPer, string> = {
   year: "A year",
 };
 export const PER_ORDER: TargetPer[] = ["", "day", "week", "month", "quarter", "year"];
-/** One reading per period can't be longer than the target's period. */
-export const onePerFits = (onePer: TargetPer, targetPer: TargetPer) =>
-  !onePer || !targetPer || PER_ORDER.indexOf(onePer) <= PER_ORDER.indexOf(targetPer);
+/** A check-in period can't be longer than the target's period. */
+export const periodFits = (per: TargetPer, targetPer: TargetPer) =>
+  !per || !targetPer || PER_ORDER.indexOf(per) <= PER_ORDER.indexOf(targetPer);
 
 export const TARGET_PER_LABELS: Record<TargetPer, string> = {
   "": "The whole goal",
@@ -70,7 +62,7 @@ export const ROLLUP_LABELS: Record<RollupRule, string> = {
 let nextKey = 1;
 export const newMetric = (): DraftMetric => ({
   key: nextKey++, name: "", unit: "", aggregation: "latest", rollup: "sum", base: "0", target: "",
-  targetPer: "", countDays: "all", progressBy: "total", onePer: "", snapTo: "",
+  targetPer: "", countDays: "all", progressBy: "total", snapTo: "", moment: {},
 });
 export const newGoal = (title = ""): DraftGoal => ({ key: nextKey++, title, metrics: [newMetric()] });
 

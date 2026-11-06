@@ -29,7 +29,9 @@ names, notes) stay in the user's own words and language.
    difference; the response's `replaces` is the earlier check-in it
    replaced - say so ("8,000 -> 10,500 today, replaces the earlier one").
    `replaced: true` on the response means a later one in that period
-   already counts (a backdated check-in).
+   already counts (a backdated check-in). A `latest` metric with a
+   `snap_period` works the same with no `one_per`: the period's last
+   reading counts, and `replaces` says which one it replaced.
    A metric whose `snap_period` is set (day/week/...) takes check-ins for
    a whole period: the server sets `checked_in_at` to the period's moment
    (`snap_weekday`/`snap_quarter_month`/`snap_month`/`snap_day`/`snap_time`;

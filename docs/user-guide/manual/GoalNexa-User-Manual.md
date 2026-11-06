@@ -270,7 +270,7 @@ Under it are its **metrics** (current / target and unit), then its
    ![The new goal form](images/newgoal-modal.png){width=45%}
 
    - **Title** - the outcome, e.g. "Run a 10 km race under 50 minutes".
-   - **Check-ins are for** - Inherited (from the parent goal; any time
+   - **Check-in period** - Inherited (from the parent goal; any time
      for a top-level goal), Any time, or a day / week / month / quarter /
      year, with the moment in it (see "When check-ins happen", 4.5).
    - **Description** - why it matters.
@@ -312,7 +312,7 @@ You can also create goals from **Goal tracking > Goals > + New goal**.
      due (chapter 6). Not used when the check-ins are for a period and due
      at its moment (4.5).
    - **Target is for**, **Count days**, **Progress by**, **One reading
-     per**, **Check-ins are for** - quotas per period (4.5).
+     per**, **Check-in period** - quotas per period (4.5).
 4. Click **Create**.
 
 ## 4.3 Sub-goals and sub-metrics
@@ -350,15 +350,14 @@ day") use a metric whose check-ins are **amounts to add**, then set:
 | **Target is for** | Each day / week / month / quarter / year (the target becomes the amount per period) |
 | **Count days** | Every day, or Weekdays only (for daily/weekly targets) |
 | **Progress by** | *The total against every period's target*, or *How often the target is hit* (hit rate) |
-| **One reading per** | Only the last check-in of each period counts (send "the total so far today") |
-| **Check-ins are for** | A check-in counts for a whole day/week/month - its time is set to the period's moment (below) |
+| **Check-in period** | A check-in counts for a whole day/week/month - its time is set to the period's moment (below). Several check-ins in one period: amounts add up; with "the new value", the last one counts |
 
 The tree then shows "done / quota /wk", the chart adds **Per period**
 bars, and the metric's page shows the **hit rate** and **streak**.
 
 ### When check-ins happen
 
-**Check-ins are for** sits right under a goal's title and a metric's
+**Check-in period** sits right under a goal's title and a metric's
 name. Click it: the menu lists the choices, and picking a period opens
 the rest in the same menu - the moment, then **Due at that moment** -
 and **Done** closes it; the field then reads e.g. "Each week · Friday,
@@ -685,7 +684,7 @@ and let GoalNexa add up the totals.
    - **Totals** - how teams add up: *Add up*, *Average*, *Lowest team*
      or *No total*.
    - **Target is for**, **Counts**, **Progress is**, **Which check-ins
-     count**, **Check-ins are for** - for quotas (4.5).
+     count**, **Check-in period** - for quotas (4.5).
    - **Start** and **Default target** - leave the target empty to let
      each team set its own.
 5. **Teams** - pick the **Cycle** and tick the teams that run it.
@@ -1013,8 +1012,8 @@ the console.
 | Target is for | The whole goal / Each day, week, month, quarter, year (quota) |
 | Count days | Every day / Weekdays only |
 | Progress by | Total against every period's target / How often the target is hit |
-| One reading per | Every check-in counts / The last one each period |
-| Check-ins are for | Inherited / Any time / A day, week, month, quarter, year |
+| One reading per | Shown only on a metric that already has it (set before it followed "Each check-in is"): Every check-in counts / The last one each period |
+| Check-in period | Inherited / Any time / A day, week, month, quarter, year |
 | Day of the week, Month of the quarter, Month, Day of the month, Time | The moment in the period (4.5, "When check-ins happen") |
 | Due at that moment | Yes: due and reminded then / No |
 | Parent | Makes it a sub-metric (not counted in the goal's progress) |
