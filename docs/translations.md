@@ -92,12 +92,24 @@ Rules:
 
 ## Backend
 
-- Server messages a user sees (`ApiError` messages, validation errors,
-  model `verbose_name`/`help_text`/choices labels that the schema API
-  sends to generic forms): `gettext_lazy` / `gettext`, with
-  `<app>/locale/vi/LC_MESSAGES/django.po` + its compiled `.mo` committed
-  (the slim image has no gettext tools). Django's and DRF's own messages
-  already ship Vietnamese.
+- Server text a user sees (schema labels, help texts, choice labels and
+  form layouts; `ApiError` and validation messages; System settings,
+  Insights and Status labels) stays plain English in the code and is
+  translated where it's SENT - `core_api.i18n.tr` in the schema API, the
+  exception handler and the system pages - in the request's language
+  (the `gn_lang` cookie, else Accept-Language; none = English). No
+  `gettext_lazy` on models (a `verbose_name` change is a migration).
+- A message built from values: `gettext("... {name} ...").format(name=...)`
+  where it's raised, never an f-string (can't be looked up).
+- `python manage.py collect_ui_strings` (platform-core) writes every such
+  string into its app's `<app>/locale/vi/LC_MESSAGES/django.po`, keeping
+  existing translations; fill the empty `msgstr`s, then compile next to
+  it with `msgfmt -o django.mo django.po` - the `.mo` is committed (the
+  slim image has no gettext tools) and shipped as package data
+  (`locale/**/*` in each pyproject). Django merges all apps' catalogs, so
+  one English string has ONE translation everywhere.
+  `tests/test_translations.py` fails on an untranslated, uncollected or
+  stale string. Django's and DRF's own messages already ship Vietnamese.
 - Emails: in the recipient's `User.language` (P-47, later).
 - MCP tool text and agent skills stay English - the agent answers in the
   user's language (P-23).

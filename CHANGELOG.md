@@ -20,7 +20,9 @@ of you beyond the usual upgrade steps.
 - **Vietnamese** (P-16): the website in English or Tiếng Việt. Pick it
   from the user menu, "My account" or the sign-in page; it's saved on
   your account, so every device follows. Without a pick, the browser's
-  language is used. Dates and numbers follow the language too.
+  language is used. Dates and numbers follow the language too, and so
+  do field names, choices and error messages from the server. Emails are
+  still in English.
 
 - Teams: add someone to a team without an account ("+ Someone without an account…" when adding a member on the org chart). They get their own copy on the team board like anyone else, and the team's lead checks in for them. Link them to an account later from the link icon next to their name - pick an org member, or invite them and they're linked when they accept.
 - **Team board: down to each member** (P-91): a team's lead can give

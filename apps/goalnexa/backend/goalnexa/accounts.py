@@ -10,6 +10,8 @@
   goals stay, unattributed when erasing.
 """
 
+from django.utils.translation import gettext
+
 from goalnexa.models import (
     Activity,
     CheckIn,
@@ -163,7 +165,7 @@ def usage() -> list[dict]:
             f"{source} {sources.get(source, 0)} ({round(sources.get(source, 0) * 100 / total) if total else 0}%)"
             for source in ("web", "mobile", "agent", "ingest")
         )
-        return {"label": f"Check-ins, last {days} days", "value": total, "hint": " · ".join(shares)}
+        return {"label": gettext("Check-ins, last {days} days").format(days=days), "value": total, "hint": " · ".join(shares)}
 
     return [
         {"label": "Goals in progress", "value": live.count()},

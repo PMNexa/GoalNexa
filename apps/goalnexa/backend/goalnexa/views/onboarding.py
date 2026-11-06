@@ -2,6 +2,7 @@
 caller said they'll use GoalNexa on the onboarding wizard (for the admin's
 activation funnel). Only the first answer is kept; `GET` returns it."""
 
+from django.utils.translation import gettext
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -20,6 +21,6 @@ class OnboardingChoiceView(APIView):
     def post(self, request):
         choice = request.data.get("choice")
         if choice not in OnboardingChoice.Choice.values:
-            raise ValidationError({"choice": [f"One of: {', '.join(OnboardingChoice.Choice.values)}."]})
+            raise ValidationError({"choice": [gettext("One of: {choices}.").format(choices=", ".join(OnboardingChoice.Choice.values))]})
         row, _ = OnboardingChoice.objects.get_or_create(user_id=request.user.id, defaults={"choice": choice})
         return Response({"choice": row.choice})

@@ -17,6 +17,7 @@ list of other people's settings to browse, filter or grant roles on.
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
+from django.utils.translation import gettext
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -56,7 +57,7 @@ def _digest_fields(data) -> dict:
     fields = {}
     if "digest" in data:
         if data["digest"] not in DigestFrequency.values:
-            raise ValidationError({"digest": [f"One of: {', '.join(DigestFrequency.values)}."]})
+            raise ValidationError({"digest": [gettext("One of: {choices}.").format(choices=", ".join(DigestFrequency.values))]})
         fields["digest"] = data["digest"]
     for name, low, high in (("digest_weekday", 0, 6), ("digest_hour", 0, 23)):
         if name in data:
@@ -65,7 +66,7 @@ def _digest_fields(data) -> dict:
             except (TypeError, ValueError):
                 value = -1
             if not low <= value <= high:
-                raise ValidationError({name: [f"A whole number from {low} to {high}."]})
+                raise ValidationError({name: [gettext("A whole number from {low} to {high}.").format(low=low, high=high)]})
             fields[name] = value
     if "timezone" in data:
         try:

@@ -1232,6 +1232,19 @@ longer existed, and every error response 500'd on an `ImportError`
 was trying to report. Grep every `settings.py` in the platform for
 `EXCEPTION_HANDLER` if you ever rename that function.
 
+**Translations (English + Vietnamese, P-16; rules, glossary and
+workflow: `docs/translations.md`)**: every visible string goes through a
+co-located catalog (`defineMessages`/`useT` from platform-core's
+`i18n/`), numbers and dates through its formatters. The language is the
+`gn_lang` cookie (server render via main's root loader, Django's
+`LocaleMiddleware` for the API), saved on the account as
+`User.language`. Server text (schema labels, choices, help, errors,
+settings) is translated where it's sent (`core_api.i18n.tr`), from each
+app's `locale/vi` catalog - run `manage.py collect_ui_strings` after
+adding user-visible server text, translate, `msgfmt`; `--check` and
+`tests/test_translations.py` fail on a missing translation. A new screen
+or message ships with its Vietnamese.
+
 ## Repo layout
 
 | Path | What |

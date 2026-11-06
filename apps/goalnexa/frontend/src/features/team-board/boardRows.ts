@@ -6,7 +6,9 @@
 import type { ChartPoint } from "../../components/charts/BoardCharts";
 import type { Board, BoardInstance, BoardMetric, BoardPerson, BoardTeam, BoardTotal, CellNumbers, ShownNumbers } from "../../api/teamBoard";
 import { periodLabel, type Snap } from "../../lib/periods";
-import { PER_LABELS, fmt, shownPct, tipDay, tipTime, type Mode } from "./boardHelpers";
+import { getLocale, translate, translator, type Locale } from "platform-core";
+import { fmt, perLabel, shownPct, tipDay, tipTime, type Mode } from "./boardHelpers";
+import messages from "./messages";
 
 export interface Row {
   key: string;
@@ -80,9 +82,11 @@ export function goalOrder(board: Board): { id: string; title: string; depth: num
  * Under a team's row come its members' rows: the members with a copy of
  * their own - and in Targets mode, for whoever may give them one, every
  * member of a team that has its copy, ticked or not. A team with members'
- * copies shows its total (its copy plus theirs) under each cell.
+ * copies shows its total (its copy plus theirs) under each cell. Labels
+ * are in `locale` (the UI language by default).
  */
-export function buildRows(board: Board, root: string, mode: Mode): { rows: Row[]; notJoined: number } {
+export function buildRows(board: Board, root: string, mode: Mode, locale: Locale = getLocale()): { rows: Row[]; notJoined: number } {
+  const t = translator(messages, locale);
   const children = new Map<string | null, BoardTeam[]>();
   const known = new Set(board.teams.map((t) => t.id));
   for (const team of board.teams) {
@@ -100,13 +104,13 @@ export function buildRows(board: Board, root: string, mode: Mode): { rows: Row[]
     for (const userId of Object.keys(copies)) {
       if (!people.has(userId)) {
         const known = team.people?.find((p) => p.user_id === userId);
-        people.set(userId, known ?? { user_id: userId, role: "member", name: board.names?.[userId] || "Former member" });
+        people.set(userId, known ?? { user_id: userId, role: "member", name: board.names?.[userId] || t("formerMember") });
       }
     }
     return [...people.values()].map((person) => ({
       key: `member-${team.id}-${person.user_id}`,
       kind: "instance",
-      label: person.name || board.names?.[person.user_id] || "Member",
+      label: person.name || board.names?.[person.user_id] || t("member"),
       depth,
       team,
       person,
@@ -148,7 +152,7 @@ export function buildRows(board: Board, root: string, mode: Mode): { rows: Row[]
   };
   const rows: Row[] = [];
   if (!root && (targets || board.totals.org)) {
-    rows.push({ key: "org", kind: "org", label: "Whole organization", depth: 0, total: board.totals.org, ticked: totalFor.has("org") });
+    rows.push({ key: "org", kind: "org", label: t("wholeOrganization"), depth: 0, total: board.totals.org, ticked: totalFor.has("org") });
   }
   const start = root ? board.teams.filter((t) => t.id === root) : children.get(null) ?? [];
   for (const team of start) rows.push(...visit(team, root ? 0 : 1));
@@ -184,7 +188,7 @@ export function boardBlocks(rows: Row[]): BoardBlock[] {
     if (own) blocks.push({ key: row.key, label: row.label, depth: row.depth, metrics: own, canCheckIn: !!row.instance?.can_check_in });
     const total = (row.kind !== "instance" || row.withTotal) && row.total ? row.total.metrics : null;
     if (total) {
-      blocks.push({ key: `${row.key}-total`, label: row.label, sub: "Total", depth: row.depth, metrics: total });
+      blocks.push({ key: `${row.key}-total`, label: row.label, sub: translate(messages, "total"), depth: row.depth, metrics: total });
     }
   }
   return blocks;
@@ -224,21 +228,23 @@ export function chartPoint(numbers: CellNumbers, metric: BoardMetric, showing: b
 
 /** The hover details of an "Over time" cell. */
 export function periodTipLines(block: BoardBlock, metric: BoardMetric, cell: ShownNumbers | null, label: string, editable: boolean): string[] {
-  const lines = [`${block.label}${block.sub ? " · total" : ""} · ${metric.name}`];
-  if (!cell) return [...lines, "Not totalled"];
-  lines.push(cell.start === cell.last ? label : `${label} (${tipDay.format(new Date(`${cell.start}T00:00`))} – ${tipDay.format(new Date(`${cell.last}T00:00`))})`);
+  const lines = [`${block.label}${block.sub ? translate(messages, "tipTotal") : ""} · ${metric.name}`];
+  if (!cell) return [...lines, translate(messages, "tipNotTotalled")];
+  lines.push(cell.start === cell.last ? label : `${label} (${tipDay(new Date(`${cell.start}T00:00`))} – ${tipDay(new Date(`${cell.last}T00:00`))})`);
   const unit = metric.unit ? ` ${metric.unit}` : "";
-  if (cell.value === null) lines.push("No check-in");
+  if (cell.value === null) lines.push(translate(messages, "tipNoCheckIn"));
   else {
     const pct = shownPct(cell, block.metrics[metric.id], metric);
     lines.push(`${fmt(cell.value)}${cell.quota !== null ? ` / ${fmt(cell.quota)}` : ""}${unit}${pct !== null ? ` · ${Math.round(pct)}%` : ""}`);
   }
   if (cell.count && cell.last_at) {
-    const last = tipTime.format(new Date(cell.last_at));
-    lines.push(cell.count === 1 ? `1 check-in, ${last}` : `${cell.count} check-ins, last ${last}`);
+    const last = tipTime(new Date(cell.last_at));
+    lines.push(
+      cell.count === 1 ? translate(messages, "tipOneCheckIn", { last }) : translate(messages, "tipCheckIns", { n: fmt(cell.count), last }),
+    );
   }
-  if (editable) lines.push(cell.value === null ? "Click to add" : "Click to change");
-  else if (block.sub) lines.push("Calculated from the teams");
-  else if (block.canCheckIn && metric.one_per) lines.push(`Counts one check-in ${PER_LABELS[metric.one_per]} - check in from Check in`);
+  if (editable) lines.push(translate(messages, cell.value === null ? "tipClickToAdd" : "tipClickToChange"));
+  else if (block.sub) lines.push(translate(messages, "tipCalculated"));
+  else if (block.canCheckIn && metric.one_per) lines.push(translate(messages, "tipOnePer", { per: perLabel(metric.one_per) }));
   return lines;
 }

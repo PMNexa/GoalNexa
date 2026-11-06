@@ -15,6 +15,7 @@ maps it to `update` on cycles. A closed cycle can't be edited or reopened.
 from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import get_object_or_404
+from django.utils.translation import gettext
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -70,16 +71,16 @@ class CycleViewSet(BaseViewSet):
         for item in request.data.get("decisions") or []:
             goal_id = str(item.get("goal", ""))
             if goal_id not in visible_ids:
-                raise ValidationError({"decisions": [f"Not a goal of this cycle: {goal_id}"]})
+                raise ValidationError({"decisions": [gettext("Not a goal of this cycle: {id}").format(id=goal_id)]})
             act = item.get("action", "done")
             if act not in ACTIONS:
-                raise ValidationError({"decisions": [f"Unknown action: {act}"]})
+                raise ValidationError({"decisions": [gettext("Unknown action: {action}").format(action=act)]})
             score = item.get("score")
             if score is not None:
                 try:
                     score = Decimal(str(score))
                 except InvalidOperation:
-                    raise ValidationError({"decisions": [f"Not a score: {score}"]}) from None
+                    raise ValidationError({"decisions": [gettext("Not a score: {score}").format(score=score)]}) from None
                 if not Decimal(0) <= score <= Decimal(1):
                     raise ValidationError({"decisions": ["A score is between 0 and 1."]})
             decisions[goal_id] = {"action": act, "score": score, "reflection": str(item.get("reflection") or "")}

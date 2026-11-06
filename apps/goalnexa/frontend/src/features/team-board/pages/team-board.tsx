@@ -1,10 +1,11 @@
-import { useResourcePath, type LinkComponentProps } from "platform-core";
+import { localeFromMatches, translator, useResourcePath, type LinkComponentProps } from "platform-core";
 import { Link as RouterLink, useOutletContext, useSearchParams } from "react-router";
 import TeamBoardScreen from "../TeamBoardScreen";
+import messages from "../messages";
 
 // oxlint-disable-next-line react/only-export-components
-export function meta() {
-  return [{ title: "Team board" }];
+export function meta({ matches }: { matches?: readonly unknown[] }) {
+  return [{ title: translator(messages, localeFromMatches(matches))("pageTitle") }];
 }
 
 /** The edit drawer's links (related rows) are relative mount paths - same as platform-core's `crud-detail.tsx`. */

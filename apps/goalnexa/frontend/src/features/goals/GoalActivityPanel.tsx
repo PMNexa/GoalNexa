@@ -1,8 +1,9 @@
 import { useEffect, useState, type SubmitEvent } from "react";
-import { Button, Card, CardBody, CardHeader, CardTitle } from "platform-core";
+import { Button, Card, CardBody, CardHeader, CardTitle, formatDateTime, formatRelative, useT, type Translate } from "platform-core";
 import { errorMessage, fetchGoal, fetchOrgPeople, type OrgPerson } from "../../api/goalMembers";
 import { addComment, deleteComment, fetchActivities, fetchComments, type Activity, type GoalComment } from "../../api/feed";
 import type { Goal } from "../../api/goals";
+import messages from "./GoalActivityPanel.messages";
 
 export interface GoalActivityPanelProps {
   accessToken: string;
@@ -19,95 +20,79 @@ interface Loaded {
 
 type Entry = { kind: "activity"; at: number; item: Activity } | { kind: "comment"; at: number; item: GoalComment };
 
-const LABELS: Record<string, string> = {
-  not_started: "not started",
-  in_progress: "in progress",
-  completed: "completed",
-  archived: "archived",
-  on_track: "on track",
-  at_risk: "at risk",
-  off_track: "off track",
-  achieved: "achieved",
-  unknown: "unknown",
-  public: "public",
-  private: "private",
-  latest: "readings",
-  sum: "amounts to add",
-  "": "none",
-};
-const FIELD_NAMES: Record<string, string> = {
-  target_date: "target date",
-  org_id: "organization",
-  base_value: "start",
-  target_value: "target",
-  check_in_every: "schedule",
-  aggregation: "check-ins",
-  snap_to: "check-in period",
-};
+type T = Translate<(typeof messages)["en"]>;
+type Key = keyof (typeof messages)["en"] & string;
 
-const RELATIVE = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-const STEPS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ["year", 365 * 86400],
-  ["month", 30 * 86400],
-  ["week", 7 * 86400],
-  ["day", 86400],
-  ["hour", 3600],
-  ["minute", 60],
-];
-
-function ago(iso: string): string {
-  const seconds = (Date.parse(iso) - Date.now()) / 1000;
-  for (const [unit, size] of STEPS) if (Math.abs(seconds) >= size) return RELATIVE.format(Math.round(seconds / size), unit);
-  return "just now";
+function has(key: string): key is Key {
+  return key in messages.en;
 }
 
-function label(value: unknown): string {
-  if (value === null || value === undefined) return "none";
+function ago(iso: string, t: T): string {
+  const at = Date.parse(iso);
+  if (Math.abs(at - Date.now()) < 60_000) return t("justNow");
+  return formatRelative(at, new Date(), t.locale);
+}
+
+/** An API value as shown (a status, health, outcome, ...); anything else as is. */
+function label(value: unknown, t: T): string {
+  if (value === null || value === undefined || value === "") return t("none");
   const text = String(value);
-  return LABELS[text] ?? text;
+  const key = `label_${text}`;
+  return has(key) ? t(key) : text;
 }
 
-function describeChanges(changes: unknown): string {
+function describeChanges(changes: unknown, t: T): string {
   if (!changes || typeof changes !== "object") return "";
   return Object.entries(changes as Record<string, [unknown, unknown]>)
     .filter(([field]) => field !== "goal" && field !== "cycle" && field !== "parent")
     .map(([field, [from, to]]) => {
-      const say = (value: unknown) => (field === "snap_to" ? (value ? `a ${value}` : "any time") : label(value));
-      return `${FIELD_NAMES[field] ?? field} ${say(from)} → ${say(to)}`;
+      const snap = (value: unknown) => {
+        if (!value) return t("snapAny");
+        const key = `snap_${String(value)}`;
+        return has(key) ? t(key) : t("snapOther", { value: String(value) });
+      };
+      const say = (value: unknown) => (field === "snap_to" ? snap(value) : label(value, t));
+      const name = `field_${field}`;
+      return t("change", { field: has(name) ? t(name) : field, from: say(from), to: say(to) });
     })
     .join(", ");
 }
 
 /** What happened, as the rest of a sentence after the actor's name. */
-function describe(activity: Activity): string {
+function describe(activity: Activity, t: T): string {
   const d = activity.data;
-  const metric = `"${String(d.metric_name ?? "a metric")}"`;
+  const metric = `"${d.metric_name ? String(d.metric_name) : t("aMetric")}"`;
   const amount = `${String(d.value ?? "")}${d.unit ? ` ${String(d.unit)}` : ""}`;
-  const via = d.source === "agent" ? " (AI agent)" : d.source === "mobile" ? " (phone app)" : "";
+  const via = d.source === "agent" ? t("viaAgent") : d.source === "mobile" ? t("viaMobile") : "";
   switch (activity.verb) {
     case "goal_created":
-      return d.rolled_from ? `rolled the goal over into ${String(d.cycle ?? "the next cycle")}` : "created the goal";
+      return d.rolled_from ? t("rolledOverInto", { cycle: d.cycle ? String(d.cycle) : t("nextCycle") }) : t("created");
     case "goal_changed":
-      return `changed ${describeChanges(d.changes) || "the goal"}`;
+      return t("goalChanged", { what: describeChanges(d.changes, t) || t("theGoal") });
     case "metric_added":
-      return `added metric ${metric}`;
+      return t("metricAdded", { metric });
     case "metric_changed":
-      return `changed ${metric}: ${describeChanges(d.changes) || "details"}`;
+      return t("metricChanged", { metric, what: describeChanges(d.changes, t) || t("details") });
     case "metric_removed":
-      return `removed metric ${metric}`;
+      return t("metricRemoved", { metric });
     case "checked_in":
       // One reading per period: a check-in replaces the period's earlier one (or was itself replaced by a later one).
-      if (d.replaces !== undefined) return `checked in ${amount} on ${metric}, replacing ${String(d.replaces)}${via}`;
-      if (d.replaced) return `checked in ${amount} on ${metric} - a later one in its period counts instead${via}`;
-      return (d.adds ? `added ${amount} to ${metric}` : `checked in ${amount} on ${metric}`) + via;
+      if (d.replaces !== undefined) return t("checkedInReplacing", { amount, metric, old: String(d.replaces), via });
+      if (d.replaced) return t("checkedInReplaced", { amount, metric, via });
+      return t(d.adds ? "added" : "checkedIn", { amount, metric, via });
     case "check_in_changed":
-      return `edited a check-in on ${metric} (now ${amount})`;
+      return t("checkInChanged", { metric, amount });
     case "check_in_removed":
-      return `removed a check-in of ${amount} on ${metric}`;
+      return t("checkInRemoved", { metric, amount });
     case "health_changed":
-      return `health went from ${label(d.from)} to ${label(d.to)}`;
+      return t("healthChanged", { from: label(d.from, t), to: label(d.to, t) });
     case "scored":
-      return `scored ${String(d.score)} (${label(d.outcome)}) in ${String(d.cycle ?? "the cycle")}${d.rolled_to ? ", rolled over" : ""}`;
+      return t("scored", {
+        score: String(d.score),
+        outcome: label(d.outcome, t),
+        cycle: d.cycle ? String(d.cycle) : t("theCycle"),
+        rolled: d.rolled_to ? t("rolledOver") : "",
+      });
     default:
       return activity.verb;
   }
@@ -121,6 +106,7 @@ function describe(activity: Activity): string {
  * ever has you. Under a goal's page and in the dashboard's goal drawer.
  */
 function GoalActivityPanel({ accessToken, goalId }: GoalActivityPanelProps) {
+  const t = useT(messages);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [version, setVersion] = useState(0);
   const [draft, setDraft] = useState("");
@@ -149,12 +135,12 @@ function GoalActivityPanel({ accessToken, goalId }: GoalActivityPanelProps) {
   function actorName(activity: Activity | GoalComment): string {
     const id = "author_id" in activity ? activity.author_id : activity.actor_id;
     if (id === null) {
-      if ("verb" in activity && activity.verb === "checked_in") return "Ingest URL";
+      if ("verb" in activity && activity.verb === "checked_in") return t("ingest");
       return "GoalNexa";
     }
-    if (id === loaded?.me) return "You";
+    if (id === loaded?.me) return t("you");
     const person = loaded?.people.get(id);
-    return person?.name ?? person?.email ?? "Someone";
+    return person?.name ?? person?.email ?? t("someone");
   }
 
   async function act(run: () => Promise<unknown>) {
@@ -190,21 +176,21 @@ function GoalActivityPanel({ accessToken, goalId }: GoalActivityPanelProps) {
   return (
     <Card className="mt-3">
       <CardHeader>
-        <CardTitle>Activity</CardTitle>
+        <CardTitle>{t("title")}</CardTitle>
       </CardHeader>
       <CardBody>
         <form onSubmit={handleComment} className="mb-3">
           <textarea
             className="form-control"
             rows={2}
-            placeholder="Write a comment…"
-            aria-label="Comment"
+            placeholder={t("placeholder")}
+            aria-label={t("commentLabel")}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
           />
           <div className="mt-2">
             <Button type="submit" variant="primary" disabled={busy || !draft.trim()}>
-              Comment
+              {t("comment")}
             </Button>
           </div>
         </form>
@@ -214,9 +200,9 @@ function GoalActivityPanel({ accessToken, goalId }: GoalActivityPanelProps) {
           </div>
         )}
         {loaded === null ? (
-          !error && <div className="text-secondary">Loading…</div>
+          !error && <div className="text-secondary">{t("loading")}</div>
         ) : entries.length === 0 ? (
-          <div className="text-secondary">Nothing yet.</div>
+          <div className="text-secondary">{t("empty")}</div>
         ) : (
           <ul className="list-unstyled mb-0">
             {entries.map((entry) => (
@@ -225,8 +211,8 @@ function GoalActivityPanel({ accessToken, goalId }: GoalActivityPanelProps) {
                   <>
                     <div className="d-flex align-items-baseline gap-2">
                       <strong>{actorName(entry.item)}</strong>
-                      <span className="text-secondary small" title={new Date(entry.at).toLocaleString()}>
-                        {ago(entry.item.created_at)}
+                      <span className="text-secondary small" title={formatDateTime(entry.at, undefined, t.locale)}>
+                        {ago(entry.item.created_at, t)}
                       </span>
                       {entry.item.author_id === loaded.me && (
                         <button
@@ -235,7 +221,7 @@ function GoalActivityPanel({ accessToken, goalId }: GoalActivityPanelProps) {
                           disabled={busy}
                           onClick={() => void act(() => deleteComment(accessToken, entry.item.id))}
                         >
-                          Delete
+                          {t("delete")}
                         </button>
                       )}
                     </div>
@@ -243,9 +229,9 @@ function GoalActivityPanel({ accessToken, goalId }: GoalActivityPanelProps) {
                   </>
                 ) : (
                   <div className="small">
-                    <strong>{actorName(entry.item)}</strong> {describe(entry.item)}{" "}
-                    <span className="text-secondary" title={new Date(entry.at).toLocaleString()}>
-                      · {ago(entry.item.created_at)}
+                    <strong>{actorName(entry.item)}</strong> {describe(entry.item, t)}{" "}
+                    <span className="text-secondary" title={formatDateTime(entry.at, undefined, t.locale)}>
+                      · {ago(entry.item.created_at, t)}
                     </span>
                   </div>
                 )}

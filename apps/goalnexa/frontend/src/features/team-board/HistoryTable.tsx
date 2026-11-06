@@ -1,9 +1,10 @@
 import { Fragment, useRef, useState } from "react";
-import { FormControl } from "platform-core";
+import { FormControl, useT } from "platform-core";
 import type { Board, BoardMetric, CellNumbers, ShownNumbers } from "../../api/teamBoard";
 import type { Snap } from "../../lib/periods";
 import { fmt, heat, periodEditable, shownPct } from "./boardHelpers";
 import { historyStarts, periodTipLines, goalOrder, type BoardBlock } from "./boardRows";
+import messages from "./messages";
 
 /** The floating details under a hovered "Over time" cell. */
 export interface PeriodTip {
@@ -34,6 +35,7 @@ export interface HistoryTableProps {
  * A team's cell the caller may check in on is edited in place.
  */
 function HistoryTable({ board, blocks, per, busy, tip: periodTip, onTip, onSavePeriod }: HistoryTableProps) {
+  const t = useT(messages);
   // The cell being typed into.
   const [periodEdit, setPeriodEdit] = useState<{ key: string; value: string } | null>(null);
   // Esc drops the typed number - the input's blur then mustn't save it.
@@ -66,8 +68,8 @@ function HistoryTable({ board, blocks, per, busy, tip: periodTip, onTip, onSaveP
     <table className="gn-board gn-history">
       <thead>
         <tr>
-          <th className="gn-team">Team · goal · metric</th>
-          {starts.length ? starts.map((start) => <th key={start} className="gn-num">{label(start)}</th>) : <th>No check-ins in these periods.</th>}
+          <th className="gn-team">{t("historyHead")}</th>
+          {starts.length ? starts.map((start) => <th key={start} className="gn-num">{label(start)}</th>) : <th>{t("noHistory")}</th>}
         </tr>
       </thead>
       <tbody>

@@ -5,7 +5,9 @@
 import type { KeyboardEvent } from "react";
 import type { Cycle } from "../../api/cycles";
 import type { BoardMetric, CellNumbers, ShownNumbers } from "../../api/teamBoard";
+import { formatDateTime, formatNumber, translate } from "platform-core";
 import { midPeriod, nextPeriodStart, periodLabel, periodStart, type Snap } from "../../lib/periods";
+import messages from "./messages";
 
 /** A template goal or metric opened from a column header, to edit. */
 export interface EditTarget {
@@ -14,17 +16,16 @@ export interface EditTarget {
 }
 
 export type Mode = "checkin" | "targets" | "history";
-export const MODES: { value: Mode; label: string }[] = [
-  { value: "checkin", label: "Check in" },
-  { value: "targets", label: "Targets" },
-  { value: "history", label: "Over time" },
-];
+/** The Mode switch's options, in the UI language. */
+export function modeOptions(): { value: Mode; label: string }[] {
+  return (["checkin", "targets", "history"] as const).map((value) => ({ value, label: translate(messages, `mode_${value}`) }));
+}
 /** Check in and Over time show the board as a table or as charts (remembered per browser). */
 export type View = "table" | "chart";
-export const VIEWS: { value: View; label: string }[] = [
-  { value: "table", label: "Table" },
-  { value: "chart", label: "Chart" },
-];
+/** The View switch's options, in the UI language. */
+export function viewOptions(): { value: View; label: string }[] {
+  return (["table", "chart"] as const).map((value) => ({ value, label: translate(messages, `view_${value}`) }));
+}
 export const VIEW_KEY = "goalnexa:board-view";
 /** "Over time": how many periods it shows, up to the picked day. */
 export const HISTORY_COUNT: Record<Snap, number> = { day: 14, week: 12, month: 12, quarter: 8, year: 5 };
@@ -62,9 +63,9 @@ export function stickyTop(): number {
 export const SHOW_KEY = "goalnexa:board-show";
 export const PICKERS_KEY = "goalnexa:board-pickers-folded";
 
-const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+/** A number in the UI language (up to 2 decimals); "—" for none. */
 export function fmt(value: number | null | undefined): string {
-  return value === null || value === undefined ? "—" : numberFormat.format(value);
+  return value === null || value === undefined ? "—" : formatNumber(value, { maximumFractionDigits: 2 });
 }
 
 export function heat(progress: number | null | undefined): string {
@@ -91,28 +92,24 @@ export function shownPct(shown: ShownNumbers, numbers: CellNumbers, metric: Boar
   return null;
 }
 
-/** "total today": the board's placeholder for a metric with one reading per period. */
-export const ONE_PER_WORDS: Record<string, string> = {
-  day: "today",
-  week: "this week",
-  month: "this month",
-  quarter: "this quarter",
-  year: "this year",
-};
+const PERIODS = ["day", "week", "month", "quarter", "year"] as const;
+const isPeriod = (per: string): per is Snap => (PERIODS as readonly string[]).includes(per);
 
-export const PER_LABELS: Record<string, string> = {
-  day: "per day",
-  week: "per week",
-  month: "per month",
-  quarter: "per quarter",
-  year: "per year",
-};
+/** "today", "this week"... - "total today", the board's placeholder for a metric with one reading per period. */
+export function onePerWords(per: string): string {
+  return isPeriod(per) ? translate(messages, `onePer_${per}`) : per;
+}
+
+/** "per day", "per week"... */
+export function perLabel(per: string): string {
+  return isPeriod(per) ? translate(messages, `per_${per}`) : per;
+}
 
 /** "Today 6/10" for a target per period, or why there's no target right now. */
 export function periodLine(numbers: CellNumbers): string | null {
   if (!numbers.target_per) return null;
   const pace = numbers.pace;
-  if (!pace || pace.in_period === false) return "No target this period";
+  if (!pace || pace.in_period === false) return translate(messages, "noTargetThisPeriod");
   const label = (pace.period_label ?? "").replace(/^./, (c) => c.toUpperCase());
   return `${label} ${fmt(pace.done)}/${fmt(pace.quota)}`;
 }
@@ -121,17 +118,19 @@ export function periodLine(numbers: CellNumbers): string | null {
 export function periodSummary(numbers: CellNumbers, progressBy: string): string {
   if (progressBy === "hit_rate") {
     const rate = numbers.hit_rate === null ? "—" : `${Math.round(numbers.hit_rate)}%`;
-    const streak = numbers.streak ? ` · ${numbers.streak} in a row` : "";
-    return `${rate} hit${streak}`;
+    const streak = numbers.streak ? translate(messages, "inARow", { n: fmt(numbers.streak) }) : "";
+    return `${translate(messages, "hitRate", { rate })}${streak}`;
   }
-  return `Total ${fmt(numbers.current_value)}/${fmt(numbers.cumulative_target)}`;
+  return translate(messages, "totalSummary", { current: fmt(numbers.current_value), target: fmt(numbers.cumulative_target) });
 }
 
 /** A running total's pace: what's needed per day (or week) to land on target. */
 export function paceLine(numbers: CellNumbers): string | null {
   const pace = numbers.pace;
   if (!pace || numbers.target_per || pace.per_day === undefined) return null;
-  return pace.per_week !== undefined ? `≈ ${fmt(pace.per_week)}/week to go` : `≈ ${fmt(pace.per_day)}/day to go`;
+  return pace.per_week !== undefined
+    ? translate(messages, "pacePerWeek", { n: fmt(pace.per_week) })
+    : translate(messages, "pacePerDay", { n: fmt(pace.per_day) });
 }
 
 /** Now, as a `datetime-local` value (local time, minutes). */
@@ -176,8 +175,14 @@ export function periodCheckInAt(cell: ShownNumbers, per: Snap, reading: boolean)
   return new Date(midPeriod(start, per)).toISOString();
 }
 
-export const tipTime = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-export const tipDay = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+/** "Oct 6, 3:05 PM" - an Over time cell's last check-in, in the UI language. */
+export function tipTime(value: Date | number | string): string {
+  return formatDateTime(value, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+/** "Oct 6", in the UI language. */
+export function tipDay(value: Date | number | string): string {
+  return formatDateTime(value, { month: "short", day: "numeric" });
+}
 
 function today(): string {
   return nowLocal().slice(0, 10);
@@ -192,8 +197,14 @@ export function defaultCycle(cycles: Cycle[]): string {
 
 export const isNumber = (value: string) => value.trim() !== "" && Number.isFinite(Number(value));
 
-export const updateTime = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
-export const updateDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+/** A "Last update" on the board's day: just its time. */
+export function updateTime(value: Date | number | string): string {
+  return formatDateTime(value, { hour: "numeric", minute: "2-digit" });
+}
+/** A "Last update" on another day: day and time. */
+export function updateDate(value: Date | number | string): string {
+  return formatDateTime(value, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
 
 /** Enter moves down the column, like a spreadsheet. */
 export function onCellKey(event: KeyboardEvent<HTMLInputElement>) {

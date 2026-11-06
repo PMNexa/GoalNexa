@@ -1,15 +1,15 @@
 import { Fragment } from "react";
-import { Checkbox, FormControl } from "platform-core";
+import { Checkbox, FormControl, formatDate, useLocale, useT } from "platform-core";
 import type { Board, BoardMetric, CellNumbers, ShownNumbers } from "../../api/teamBoard";
 import { periodLabel, periodStart, type Snap } from "../../lib/periods";
 import {
-  ONE_PER_WORDS,
-  PER_LABELS,
   fmt,
   heat,
   isNumber,
   onCellKey,
+  onePerWords,
   paceLine,
+  perLabel,
   periodLine,
   periodSummary,
   shownLabel,
@@ -22,10 +22,11 @@ import {
 import type { Column, Row } from "./boardRows";
 import { ClockIcon } from "./boardIcons";
 import type { BoardDrafts } from "./useBoardDrafts";
+import messages, { type BoardT } from "./messages";
 
 /** A cell in a shown period: its value (and target), then which period. */
-function shownBlock(shown: ShownNumbers | null | undefined, numbers: CellNumbers, metric: BoardMetric, per: Snap) {
-  if (!shown) return <>—<span className="gn-sub">not totalled</span></>;
+function shownBlock(t: BoardT, shown: ShownNumbers | null | undefined, numbers: CellNumbers, metric: BoardMetric, per: Snap) {
+  if (!shown) return <>—<span className="gn-sub">{t("notTotalled")}</span></>;
   const target =
     shown.quota !== null ? shown.quota
     : metric.aggregation === "latest" && !numbers.target_per && numbers.target_value !== numbers.base_value ? numbers.target_value
@@ -36,7 +37,7 @@ function shownBlock(shown: ShownNumbers | null | undefined, numbers: CellNumbers
       {shown.value === null ? "—" : fmt(shown.value)}
       {target !== null && <> / {fmt(target)}</>}
       <span className="gn-sub">
-        {shown.value === null ? "no check-in · " : ""}
+        {shown.value === null ? t("noCheckInSep") : ""}
         {shownLabel(shown, per)}
         {pct !== null ? ` · ${Math.round(pct)}%` : ""}
       </span>
@@ -45,16 +46,16 @@ function shownBlock(shown: ShownNumbers | null | undefined, numbers: CellNumbers
 }
 
 /** A team's own row with a total (ticked with sub-teams, or with members' copies): the total, as a line under its own numbers. */
-function totalLine(row: Row, column: Column) {
+function totalLine(t: BoardT, row: Row, column: Column) {
   if (!row.withTotal) return null;
   const numbers = row.total?.metrics[column.metric.id];
-  if (!numbers) return <span className="gn-sub gn-total-line">Total -</span>;
+  if (!numbers) return <span className="gn-sub gn-total-line">{t("totalDash")}</span>;
   const title = row.memberCount
-    ? `The total of this team's own numbers${row.parent ? ", its members' and every team below it" : " and its members'"}`
-    : "The total of this team and every team below it";
+    ? t(row.parent ? "totalTitleMembersParent" : "totalTitleMembers")
+    : t("totalTitleTeams");
   return (
     <span className="gn-sub gn-total-line" title={title}>
-      Total{" "}
+      {t("total")}{" "}
       {numbers.target_per && numbers.target_value !== numbers.base_value
         ? periodLine(numbers)
         : `${fmt(numbers.current_value)} / ${fmt(numbers.target_value)}`}
@@ -67,7 +68,7 @@ function totalLine(row: Row, column: Column) {
  * After a goal's last metric: when the team last checked in on that goal on
  * the board's day ("Checked in at"), or - on a total - how many of its teams did.
  */
-function updateCell(row: Row, column: Column) {
+function updateCell(t: BoardT, row: Row, column: Column) {
   if (!column.last) return null;
   const goalId = column.metric.template_goal;
   const key = `${column.metric.id}-update`;
@@ -75,20 +76,20 @@ function updateCell(row: Row, column: Column) {
     const counts = row.total?.updated?.[goalId];
     return (
       <td key={key} className="gn-cell gn-update">
-        {counts && counts.teams > 0 ? `${counts.updated}/${counts.teams} teams` : "—"}
+        {counts && counts.teams > 0 ? t("teamsUpdated", { updated: counts.updated, teams: counts.teams }) : "—"}
       </td>
     );
   }
   const update = row.instance?.last_update?.[goalId];
   return (
     <td key={key} className={`gn-cell gn-update${update && !update.on_day ? " text-secondary" : ""}`}>
-      {update?.on_day ? updateTime.format(Date.parse(update.on_day)) : "—"}
+      {update?.on_day ? updateTime(Date.parse(update.on_day)) : "—"}
       {update && !update.on_day && (
-        <span className="gn-sub">{update.last ? `last ${updateDate.format(Date.parse(update.last))}` : "no check-ins yet"}</span>
+        <span className="gn-sub">{update.last ? t("lastAt", { date: updateDate(Date.parse(update.last)) }) : t("noCheckInsYet")}</span>
       )}
       {row.withTotal && row.total?.updated?.[goalId] && (
         <span className="gn-sub gn-total-line">
-          {row.total.updated[goalId].updated}/{row.total.updated[goalId].teams} {row.memberCount ? "updated" : "teams"}
+          {t(row.memberCount ? "updatedCount" : "teamsUpdated", { updated: row.total.updated[goalId].updated, teams: row.total.updated[goalId].teams })}
         </span>
       )}
     </td>
@@ -153,9 +154,11 @@ function BoardTable({
   onEdit,
   onRemove,
 }: BoardTableProps) {
+  const t = useT(messages);
+  const locale = useLocale();
   // One "Last update" column per goal; it's for the day of "Checked in at".
   const updateColumns = columns.filter((column) => column.last).length;
-  const dayLabel = when ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(when)) : "today";
+  const dayLabel = when ? formatDate(new Date(when), { month: "short", day: "numeric" }, locale) : t("today");
 
   function totalCell(row: Row, column: Column) {
     const numbers = row.total?.metrics[column.metric.id];
@@ -169,7 +172,7 @@ function BoardTable({
       const pct = numbers.shown ? shownPct(numbers.shown, numbers, column.metric) : null;
       return (
         <td key={column.metric.id} className={`gn-cell gn-num ${heat(pct)}`}>
-          {shownBlock(numbers.shown, numbers, column.metric, show as Snap)}
+          {shownBlock(t, numbers.shown, numbers, column.metric, show as Snap)}
         </td>
       );
     }
@@ -186,12 +189,12 @@ function BoardTable({
         {numbers.progress !== null && <span className="gn-sub">{Math.round(numbers.progress)}%</span>}
         {editable ? (
           <span className="gn-sub">
-            Planned{" "}
+            {t("planned")}{" "}
             <FormControl
               className={draft !== undefined ? "gn-dirty" : undefined}
               inputMode="decimal"
               data-col={`${column.metric.id}-plan`}
-              aria-label={`Planned target, ${column.metric.name}, ${row.label}`}
+              aria-label={t("plannedAria", { metric: column.metric.name, row: row.label })}
               value={draft ?? (planned === null || planned === undefined ? "" : String(planned))}
               placeholder={teams !== undefined ? fmt(teams) : ""}
               onChange={(e) => drafts.editTarget(numbers.id, "planned_target", e.target.value)}
@@ -199,11 +202,11 @@ function BoardTable({
             />
           </span>
         ) : (
-          planned !== null && planned !== undefined && <span className="gn-sub">⚑ planned {fmt(planned)}</span>
+          planned !== null && planned !== undefined && <span className="gn-sub">{t("plannedValue", { value: fmt(planned) })}</span>
         )}
         {gap !== null && (
           <span className={`gn-sub${gap < 0 ? " gn-gap-neg" : ""}`}>
-            teams {fmt(teams)} · gap {gap > 0 ? "+" : ""}{fmt(gap)}
+            {t("teamsGap", { teams: fmt(teams), gap: `${gap > 0 ? "+" : ""}${fmt(gap)}` })}
           </span>
         )}
       </td>
@@ -229,8 +232,8 @@ function BoardTable({
           inputMode="decimal"
           data-col={column.metric.id}
           aria-label={`${column.metric.name}, ${row.label}`}
-          placeholder={replaces ? `total ${ONE_PER_WORDS[onePer]}` : aggregation === "sum" ? "+ amount" : "new value"}
-          title={replaces ? `Replaces the earlier check-in ${ONE_PER_WORDS[onePer]}` : undefined}
+          placeholder={replaces ? t("totalWhen", { when: onePerWords(onePer) }) : aggregation === "sum" ? t("plusAmount") : t("newValue")}
+          title={replaces ? t("replacesTitle", { when: onePerWords(onePer) }) : undefined}
           value={value}
           onChange={(e) => drafts.setValue(numbers.id, e.target.value)}
           onKeyDown={onCellKey}
@@ -238,8 +241,8 @@ function BoardTable({
         <button
           type="button"
           className="gn-icon-btn"
-          title={noteOpen ? "Hide the note" : "Add a note"}
-          aria-label={`Note, ${column.metric.name}, ${row.label}`}
+          title={noteOpen ? t("hideNote") : t("addNote")}
+          aria-label={t("noteAria", { metric: column.metric.name, row: row.label })}
           aria-pressed={noteOpen}
           onClick={() => drafts.toggleNote(numbers.id)}
         >
@@ -248,8 +251,8 @@ function BoardTable({
         {noteOpen && (
           <FormControl
             className="gn-note"
-            placeholder="Note"
-            aria-label={`Note for ${column.metric.name}, ${row.label}`}
+            placeholder={t("note")}
+            aria-label={t("noteForAria", { metric: column.metric.name, row: row.label })}
             value={drafts.notes.get(numbers.id) ?? ""}
             onChange={(e) => drafts.setNote(numbers.id, e.target.value)}
           />
@@ -257,8 +260,8 @@ function BoardTable({
         {value && isNumber(value) && preview !== null && <span className="gn-sub">→ {fmt(preview)}</span>}
         {column.metric.snap_to && when && (
           // Check-ins for a period: this one goes to the period around "Checked in at".
-          <span className="gn-sub" title="Check-ins for this metric are for a whole period">
-            for {periodLabel(periodStart(new Date(when).getTime(), column.metric.snap_to), column.metric.snap_to)}
+          <span className="gn-sub" title={t("snapHint")}>
+            {t("forPeriod", { period: periodLabel(periodStart(new Date(when).getTime(), column.metric.snap_to), column.metric.snap_to) })}
           </span>
         )}
       </>
@@ -276,14 +279,14 @@ function BoardTable({
       const pct = numbers.shown ? shownPct(numbers.shown, numbers, column.metric) : null;
       return (
         <td key={column.metric.id} className={`gn-cell gn-num ${heat(pct)}`}>
-          {shownBlock(numbers.shown, numbers, column.metric, show as Snap)}
+          {shownBlock(t, numbers.shown, numbers, column.metric, show as Snap)}
           {due && (
-            <span className="text-warning ms-1" title="Check-in due">
+            <span className="text-warning ms-1" title={t("checkInDue")}>
               {ClockIcon}
             </span>
           )}
           {instance.can_check_in && checkInInput(numbers, column, row)}
-          {totalLine(row, column)}
+          {totalLine(t, row, column)}
         </td>
       );
     }
@@ -291,24 +294,24 @@ function BoardTable({
       <td key={column.metric.id} className={`gn-cell gn-num ${mode === "checkin" ? heat(numbers.progress) : ""}`}>
         {mode === "targets" && instance.can_set_targets ? (
           <>
-            <span className="gn-sub">Start</span>
+            <span className="gn-sub">{t("start")}</span>
             <FormControl
               className={draft?.base_value !== undefined ? "gn-dirty" : undefined}
               inputMode="decimal"
               data-col={`${column.metric.id}-base`}
-              aria-label={`Start, ${column.metric.name}, ${row.label}`}
+              aria-label={t("startAria", { metric: column.metric.name, row: row.label })}
               value={draft?.base_value ?? String(numbers.base_value)}
               onChange={(e) => drafts.editTarget(numbers.id, "base_value", e.target.value)}
               onKeyDown={onCellKey}
             />
-            <span className="gn-sub">Target{numbers.target_per ? ` ${PER_LABELS[numbers.target_per]}` : ""}</span>
+            <span className="gn-sub">{numbers.target_per ? t("targetPer", { per: perLabel(numbers.target_per) }) : t("target")}</span>
             <FormControl
               className={draft?.target_value !== undefined ? "gn-dirty" : undefined}
               inputMode="decimal"
               data-col={`${column.metric.id}-target`}
-              aria-label={`Target, ${column.metric.name}, ${row.label}`}
+              aria-label={t("targetAria", { metric: column.metric.name, row: row.label })}
               value={draft?.target_value ?? (tracked ? "" : String(numbers.target_value))}
-              placeholder="needs a target"
+              placeholder={t("needsTargetPlaceholder")}
               onChange={(e) => drafts.editTarget(numbers.id, "target_value", e.target.value)}
               onKeyDown={onCellKey}
             />
@@ -318,8 +321,8 @@ function BoardTable({
             {tracked ? (
               <>
                 {fmt(numbers.current_value)}
-                <span className="badge bg-warning-lt gn-badge" title="No target yet - it doesn't count toward the totals">
-                  needs target
+                <span className="badge bg-warning-lt gn-badge" title={t("needsTargetTitle")}>
+                  {t("needsTarget")}
                 </span>
               </>
             ) : numbers.target_per ? (
@@ -328,7 +331,7 @@ function BoardTable({
               <>{fmt(numbers.current_value)} / {fmt(numbers.target_value)}</>
             )}
             {due && (
-              <span className="text-warning ms-1" title="Check-in due">
+              <span className="text-warning ms-1" title={t("checkInDue")}>
                 {ClockIcon}
               </span>
             )}
@@ -340,7 +343,7 @@ function BoardTable({
             {mode === "checkin" && instance.can_check_in && checkInInput(numbers, column, row)}
           </>
         )}
-        {totalLine(row, column)}
+        {totalLine(t, row, column)}
       </td>
     );
   }
@@ -353,12 +356,12 @@ function BoardTable({
     return [
       <td key="own" className="gn-pick gn-pick-own">
         {owns === null ? (
-          <span className="text-secondary" title="The whole organization is the sum of its teams">-</span>
+          <span className="text-secondary" title={t("orgSumTitle")}>-</span>
         ) : (
           <Checkbox
             disabled={busy || !allowed}
             checked={owns}
-            aria-label={row.person ? `${row.label} has their own targets` : `${row.label} has its own targets`}
+            aria-label={t(row.person ? "ownAriaPerson" : "ownAriaTeam", { name: row.label })}
             onChange={(checked) =>
               checked ? onJoin(row) : onLeave(row)
             }
@@ -367,13 +370,13 @@ function BoardTable({
       </td>,
       <td key="total" className="gn-pick gn-pick-total">
         {row.person ? (
-          <span className="text-secondary" title="Added into the team's total">-</span>
+          <span className="text-secondary" title={t("addedIntoTeam")}>-</span>
         ) : (
         <Checkbox
           disabled={busy || leaf || !!row.memberCount || !board.can_manage}
           checked={!!row.memberCount || (!leaf && !!row.ticked)}
-          title={row.memberCount ? "Always added up: members have targets of their own" : leaf ? "No teams below to add up" : undefined}
-          aria-label={`Add up ${row.kind === "org" ? "the whole organization" : row.label}`}
+          title={row.memberCount ? t("alwaysAddedUp") : leaf ? t("noTeamsBelow") : undefined}
+          aria-label={t("addUpAria", { name: row.kind === "org" ? t("wholeOrgLower") : row.label })}
           onChange={(checked) => onToggleTotal(row.kind === "org" ? "org" : row.team!.id, checked)}
         />
         )}
@@ -385,50 +388,46 @@ function BoardTable({
     const span = Math.max(columns.length + updateColumns, 1);
     if (row.kind === "group") return <td colSpan={span}></td>;
     if (row.kind !== "instance") {
-      if (row.total) return columns.flatMap((column) => [totalCell(row, column), updateCell(row, column)]);
+      if (row.total) return columns.flatMap((column) => [totalCell(row, column), updateCell(t, row, column)]);
       return (
         <td colSpan={span} className="text-secondary fw-normal">
-          {row.ticked
-            ? "Added up once a team below uses the template."
-            : board.can_manage
-              ? "Not added up - tick Total to add up the teams below."
-              : "Not added up."}
+          {row.ticked ? t("addedUpOnce") : board.can_manage ? t("notAddedUpTick") : t("notAddedUp")}
         </td>
       );
     }
     if (row.missing && row.person) {
       return (
         <td colSpan={span} className="text-secondary">
-          Counts in the team's numbers - tick Own to give {row.label} targets of their own.
+          {t("memberMissing", { name: row.label })}
         </td>
       );
     }
     if (row.missing) {
       return (
         <td colSpan={span} className="text-secondary">
-          {board.can_manage ? `Not in this template - tick Own to add ${row.label}.` : "Doesn't use this template in this cycle."}
+          {board.can_manage ? t("teamMissingManage", { name: row.label }) : t("teamMissing")}
         </td>
       );
     }
     if (row.instance && !row.instance.visible) {
       return (
         <td colSpan={Math.max(columns.length + updateColumns, 1)} className="text-secondary">
-          Only this team can see its numbers. They still count in the totals.
+          {t("hiddenTeam")}
         </td>
       );
     }
-    return columns.flatMap((column) => [instanceCell(row, column), updateCell(row, column)]);
+    return columns.flatMap((column) => [instanceCell(row, column), updateCell(t, row, column)]);
   }
 
   /** The small "×" after a header's name: remove that goal or metric from the template. */
   function removeButton(target: EditTarget, name: string) {
-    const kind = target.endpoint === "/api/v1/template-metrics" ? "metric" : "goal";
+    const metric = target.endpoint === "/api/v1/template-metrics";
     return (
       <button
         type="button"
         className="gn-head-remove"
-        title={`Remove this ${kind} from the template`}
-        aria-label={`Remove ${kind} ${name}`}
+        title={t(metric ? "removeMetricTitle" : "removeGoalTitle")}
+        aria-label={t(metric ? "removeMetricAria" : "removeGoalAria", { name })}
         onClick={() => onRemove({ ...target, name })}
       >
         ✕
@@ -441,18 +440,18 @@ function BoardTable({
       <thead>
         <tr>
           <th className="gn-team" rowSpan={2}>
-            Team
+            {t("team")}
             {templateHref && (
-              <a className="gn-sub" href={templateHref(templateId)}>Edit the template</a>
+              <a className="gn-sub" href={templateHref(templateId)}>{t("editTemplate")}</a>
             )}
           </th>
           {picking && (
             <>
-              <th className="gn-pick gn-pick-own" rowSpan={2} title="The team runs the template: it has its own targets and check-ins">
-                Own
+              <th className="gn-pick gn-pick-own" rowSpan={2} title={t("ownHeadTitle")}>
+                {t("own")}
               </th>
-              <th className="gn-pick gn-pick-total" rowSpan={2} title="Add up the teams below into a total">
-                Total
+              <th className="gn-pick gn-pick-total" rowSpan={2} title={t("totalHeadTitle")}>
+                {t("total")}
               </th>
             </>
           )}
@@ -467,7 +466,7 @@ function BoardTable({
                   <button
                     type="button"
                     className="gn-head-btn"
-                    title="Edit this goal of the template"
+                    title={t("editGoalTitle")}
                     onClick={() => onEdit({ endpoint: "/api/v1/template-goals", id: column.metric.template_goal })}
                   >
                     {column.goalTitle}
@@ -489,7 +488,7 @@ function BoardTable({
                 <button
                   type="button"
                   className="gn-head-btn"
-                  title="Edit this metric of the template"
+                  title={t("editMetricTitle")}
                   onClick={() => onEdit({ endpoint: "/api/v1/template-metrics", id: column.metric.id })}
                 >
                   {column.metric.name}
@@ -500,14 +499,14 @@ function BoardTable({
               {column.metric.unit && <span className="text-secondary"> ({column.metric.unit})</span>}
               {board.can_manage && removeButton({ endpoint: "/api/v1/template-metrics", id: column.metric.id }, column.metric.name)}
               <span className="gn-sub">
-                {column.metric.target_per ? `${PER_LABELS[column.metric.target_per]}${column.metric.count_days === "weekdays" ? " (weekdays)" : ""} · ` : ""}
-                {column.metric.rollup === "none" ? "not totalled" : `total: ${column.metric.rollup}`}
+                {column.metric.target_per ? `${perLabel(column.metric.target_per)}${column.metric.count_days === "weekdays" ? t("weekdays") : ""} · ` : ""}
+                {column.metric.rollup === "none" ? t("notTotalled") : t(`rollup_${column.metric.rollup}`)}
               </span>
             </th>
             {column.last && (
               <th className="gn-update">
-                Last update
-                <span className="gn-sub">on {dayLabel}</span>
+                {t("lastUpdate")}
+                <span className="gn-sub">{t("onDay", { day: dayLabel })}</span>
               </th>
             )}
             </Fragment>
@@ -526,11 +525,11 @@ function BoardTable({
               ) : (
                 row.label
               )}
-              {(row.kind === "org" || row.kind === "total") && row.ticked && <span className="gn-sub">Total</span>}
+              {(row.kind === "org" || row.kind === "total") && row.ticked && <span className="gn-sub">{t("total")}</span>}
               {row.person && (
-                <span className="gn-sub">{row.missing ? (row.person.role === "lead" ? "Lead" : "Member") : "Own targets"}</span>
+                <span className="gn-sub">{row.missing ? t(row.person.role === "lead" ? "lead" : "member") : t("ownTargets")}</span>
               )}
-              {row.instance?.visibility === "team" && <span className="gn-sub">Team only</span>}
+              {row.instance?.visibility === "team" && <span className="gn-sub">{t("teamOnly")}</span>}
             </th>
             {picking && pickCells(row)}
             {rowCells(row)}

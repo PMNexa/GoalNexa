@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { Button, Card, CardBody, FormControl, FormLabel, FormSelect, SegmentedControl } from "platform-core";
+import { Button, Card, CardBody, FormControl, FormLabel, FormSelect, SegmentedControl, useT } from "platform-core";
 import PeriodPicker from "../../components/PeriodPicker";
 import type { Cycle } from "../../api/cycles";
 import type { BoardTeam, GoalTemplate } from "../../api/teamBoard";
 import type { Snap } from "../../lib/periods";
-import { MAX_HISTORY, MODES, NO_CYCLE, VIEWS, type Mode, type View } from "./boardHelpers";
+import { MAX_HISTORY, NO_CYCLE, modeOptions, viewOptions, type Mode, type View } from "./boardHelpers";
+import messages from "./messages";
 import { ChevronIcon } from "./boardIcons";
 
 export interface BoardPickersProps {
@@ -62,7 +63,8 @@ function BoardPickers({
   onNewTeam,
   children,
 }: BoardPickersProps) {
-  const rootName = teams.find((t) => t.id === root)?.name;
+  const t = useT(messages);
+  const rootName = teams.find((team) => team.id === root)?.name;
   return (
     <Card className="mb-3">
       <CardBody className="py-2 d-flex align-items-center gap-2 flex-wrap">
@@ -71,27 +73,27 @@ function BoardPickers({
           className="btn btn-ghost-secondary btn-sm gn-fold-btn"
           aria-expanded={!pickersFolded}
           aria-controls="gn-board-pickers"
-          title={pickersFolded ? "Show the pickers" : "Hide the pickers"}
+          title={pickersFolded ? t("showPickers") : t("hidePickers")}
           onClick={() => onFoldedChange(!pickersFolded)}
         >
           {ChevronIcon(!pickersFolded)}
-          Filters
+          {t("filters")}
         </button>
         <div className="ms-auto d-flex gap-2 flex-wrap">
           {mode !== "targets" && (
-            <SegmentedControl label="View" variant="secondary" options={VIEWS} value={view} onChange={onViewChange} />
+            <SegmentedControl label={t("view")} variant="secondary" options={viewOptions()} value={view} onChange={onViewChange} />
           )}
-          <SegmentedControl label="Mode" options={MODES} value={mode} onChange={onModeChange} />
+          <SegmentedControl label={t("mode")} options={modeOptions()} value={mode} onChange={onModeChange} />
         </div>
       </CardBody>
       {!pickersFolded && (
         <CardBody className="border-top">
           <div id="gn-board-pickers" className="row g-2 align-items-start">
             <div className="col-sm-6 col-lg-3 position-relative">
-              <FormLabel htmlFor="gn-board-template">Goal template</FormLabel>
+              <FormLabel htmlFor="gn-board-template">{t("goalTemplate")}</FormLabel>
               {onNewTemplate && (
                 <Button variant="link" className="p-0 border-0 position-absolute top-0 end-0 me-1" onClick={onNewTemplate}>
-                  + New
+                  {t("newButton")}
                 </Button>
               )}
               <FormSelect
@@ -100,17 +102,17 @@ function BoardPickers({
                 onChange={(e) => onTemplateChange(e.target.value)}
                 disabled={templates.length === 0}
               >
-                {templates.length === 0 && <option value="">No templates yet</option>}
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>{t.title}</option>
+                {templates.length === 0 && <option value="">{t("noTemplatesYet")}</option>}
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>{template.title}</option>
                 ))}
               </FormSelect>
             </div>
             <div className="col-sm-6 col-lg-2 position-relative">
-              <FormLabel htmlFor="gn-board-cycle">Cycle</FormLabel>
+              <FormLabel htmlFor="gn-board-cycle">{t("cycle")}</FormLabel>
               {onNewCycle && (
                 <Button variant="link" className="p-0 border-0 position-absolute top-0 end-0 me-1" onClick={onNewCycle}>
-                  + New
+                  {t("newButton")}
                 </Button>
               )}
               <FormSelect
@@ -119,27 +121,27 @@ function BoardPickers({
                 onChange={(e) => onCycleChange(e.target.value)}
               >
                 {cycles.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}{c.status === "closed" ? " (closed)" : ""}</option>
+                  <option key={c.id} value={c.id}>{c.status === "closed" ? t("cycleClosed", { name: c.name }) : c.name}</option>
                 ))}
-                <option value={NO_CYCLE}>No cycle</option>
+                <option value={NO_CYCLE}>{t("noCycle")}</option>
               </FormSelect>
             </div>
             <div className="col-sm-6 col-lg-2 position-relative">
-              <FormLabel htmlFor="gn-board-root">Teams</FormLabel>
+              <FormLabel htmlFor="gn-board-root">{t("teams")}</FormLabel>
               {onNewTeam && (
                 <Button
                   variant="link"
                   className="p-0 border-0 position-absolute top-0 end-0 me-1"
-                  title={rootName ? `New team under ${rootName}` : "New top-level team"}
+                  title={rootName ? t("newTeamUnderHint", { name: rootName }) : t("newTopTeam")}
                   onClick={onNewTeam}
                 >
-                  + New
+                  {t("newButton")}
                 </Button>
               )}
               <FormSelect id="gn-board-root" value={root} onChange={(e) => onRootChange(e.target.value)}>
-                <option value="">All teams</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                <option value="">{t("allTeams")}</option>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>{team.name}</option>
                 ))}
               </FormSelect>
             </div>
@@ -169,20 +171,22 @@ export function RangePicker({
   onPerChange: (per: Snap) => void;
   onChange: (first: number, last: number) => void;
 }) {
+  const t = useT(messages);
   return (
     <>
-      <FormLabel htmlFor="gn-board-when">Periods</FormLabel>
+      <FormLabel htmlFor="gn-board-when">{t("periods")}</FormLabel>
       <PeriodPicker id="gn-board-when" range per={per} onPerChange={onPerChange} from={from} to={to} onChange={onChange} />
-      {capped && <div className="form-hint">Up to {MAX_HISTORY} at a time - the latest shown.</div>}
+      {capped && <div className="form-hint">{t("upTo", { n: MAX_HISTORY })}</div>}
     </>
   );
 }
 
 /** "Checked in at": the moment running totals are shown at (and new check-ins stamped). */
 export function MomentPicker({ when, onChange }: { when: string; onChange: (when: string) => void }) {
+  const t = useT(messages);
   return (
     <>
-      <FormLabel htmlFor="gn-board-when">Checked in at</FormLabel>
+      <FormLabel htmlFor="gn-board-when">{t("checkedInAt")}</FormLabel>
       <FormControl id="gn-board-when" type="datetime-local" value={when} onChange={(e) => onChange(e.target.value)} />
     </>
   );
@@ -203,16 +207,17 @@ export function ShowPicker({
   /** A period picked: its first day, and the kind of period it was picked in. */
   onPick: (last: number, per: Snap) => void;
 }) {
+  const t = useT(messages);
   const per = show || "week";
   return (
     <>
-      <FormLabel htmlFor="gn-board-show">Show by</FormLabel>
+      <FormLabel htmlFor="gn-board-show">{t("showBy")}</FormLabel>
       <PeriodPicker
         id="gn-board-show"
         per={per}
         onPerChange={onShowChange}
-        noneTab="Totals"
-        noneText="Running totals"
+        noneTab={t("totalsTab")}
+        noneText={t("runningTotals")}
         none={!show}
         onNone={() => onShowChange("")}
         from={picked}

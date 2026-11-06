@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, CardBody, CrudDetailScreen, Drawer, type LinkComponent } from "platform-core";
+import { Button, Card, CardBody, CrudDetailScreen, Drawer, useLocale, useT, type LinkComponent } from "platform-core";
 import TemplateWizard from "./TemplateWizard";
 import BoardPickers, { MomentPicker, RangePicker, ShowPicker } from "./BoardPickers";
 import BoardTable from "./BoardTable";
@@ -56,6 +56,7 @@ import {
 import { getCurrentOrg, PERSONAL_ORG, subscribeCurrentOrg } from "../../lib/currentOrg";
 import { readStored, writeStored } from "../../lib/storedState";
 import { periodStart, type Snap } from "../../lib/periods";
+import messages from "./messages";
 
 export interface TeamBoardScreenProps {
   accessToken: string;
@@ -91,6 +92,9 @@ function TeamBoardScreen({
   linkComponent,
   resourcePath,
 }: TeamBoardScreenProps) {
+  const t = useT(messages);
+  // Row labels ("Whole organization", "Total") are built in the UI language - rebuilt on a switch.
+  const locale = useLocale();
   const [editing, setEditing] = useState<EditTarget | null>(null);
   // Full screen: the board's card (grid and save bar) through the browser's Fullscreen API; Esc leaves.
   const boardRef = useRef<HTMLDivElement>(null);
@@ -239,8 +243,8 @@ function TeamBoardScreen({
   // Targets mode, managers and team leads: each row's "Own" and "Total" ticks, as two columns.
   const picking = mode === "targets" && (!!board?.can_manage || !!board?.teams.some((t) => t.can_assign));
   const { rows, notJoined } = useMemo(
-    () => (board ? buildRows(board, root, mode) : { rows: [], notJoined: 0 }),
-    [board, root, mode],
+    () => (board ? buildRows(board, root, mode, locale) : { rows: [], notJoined: 0 }),
+    [board, root, mode, locale],
   );
 
   function pickTemplate(id: string) {
@@ -259,7 +263,7 @@ function TeamBoardScreen({
     setNotice(null);
     if (mode === "checkin") {
       const bad = dirtyCheckIns.find(([, v]) => !isNumber(v));
-      if (bad) return setError("Every check-in needs a number.");
+      if (bad) return setError(t("errEveryCheckInNumber"));
       const at = new Date(when).toISOString();
       setBusy(true);
       try {
@@ -272,7 +276,7 @@ function TeamBoardScreen({
             checked_in_at: at,
           })),
         );
-        setNotice(`Saved ${dirtyCheckIns.length} check-in${dirtyCheckIns.length === 1 ? "" : "s"}.`);
+        setNotice(t("savedCheckIns", { n: dirtyCheckIns.length }));
         drafts.reset();
         setVersion((v) => v + 1);
       } catch (e) {
@@ -288,12 +292,12 @@ function TeamBoardScreen({
       for (const field of ["base_value", "target_value"] as const) {
         const value = change[field];
         if (value === undefined) continue;
-        if (!isNumber(value)) return setError("Base and target need numbers.");
+        if (!isNumber(value)) return setError(t("errBaseTargetNumbers"));
         item[field] = value.trim();
       }
       if (change.planned_target !== undefined) {
         const value = change.planned_target ?? "";
-        if (value.trim() !== "" && !isNumber(value)) return setError("A planned target needs a number - or leave it empty.");
+        if (value.trim() !== "" && !isNumber(value)) return setError(t("errPlannedNumber"));
         item.planned_target = value.trim() === "" ? null : value.trim();
       }
       items.push(item);
@@ -301,7 +305,7 @@ function TeamBoardScreen({
     setBusy(true);
     try {
       await saveTargets(accessToken, board.template.id, items);
-      setNotice("Targets saved.");
+      setNotice(t("targetsSaved"));
       drafts.reset();
       setVersion((v) => v + 1);
     } catch (e) {
@@ -321,10 +325,10 @@ function TeamBoardScreen({
     try {
       if (row.person) {
         await assignMembers(accessToken, board.template.id, row.team.id, [row.person.user_id], cycle);
-        setNotice(`${row.label} has targets of their own now. Set them in their row.`);
+        setNotice(t("memberJoined", { name: row.label }));
       } else {
         await applyTemplate(accessToken, board.template.id, [row.team.id], cycle);
-        setNotice(`Added ${row.team.name} to the template. Set its targets in its row.`);
+        setNotice(t("teamJoined", { name: row.team.name }));
       }
       setVersion((v) => v + 1);
     } catch (e) {
@@ -349,8 +353,8 @@ function TeamBoardScreen({
         : await leaveTemplate(accessToken, board.template.id, [team.id], cycle);
       setNotice(
         result.detached.length
-          ? `Took ${name} out of the template - ${leaving.person ? "their" : "its"} goals and check-ins stay, as ${name}'s own.`
-          : `Took ${name} out of the template.`,
+          ? t(leaving.person ? "leftDetachedMember" : "leftDetachedTeam", { name })
+          : t("left", { name }),
       );
       setLeaving(null);
       setVersion((v) => v + 1);
@@ -402,7 +406,7 @@ function TeamBoardScreen({
   async function savePeriod(metric: BoardMetric, numbers: CellNumbers, cell: ShownNumbers, per: Snap, typed: string) {
     const text = typed.trim();
     if (text === "" || (cell.value !== null && Number(text) === cell.value)) return;
-    if (!isNumber(text)) return setError("A check-in needs a number.");
+    if (!isNumber(text)) return setError(t("errCheckInNumber"));
     const reading = metric.aggregation === "latest" || metric.one_per === per;
     const value = reading ? Number(text) : Number(text) - (cell.value ?? 0);
     setError(null);
@@ -410,7 +414,7 @@ function TeamBoardScreen({
     setBusy(true);
     try {
       await saveCheckIns(accessToken, [{ metric: numbers.id, value: String(value), checked_in_at: periodCheckInAt(cell, per, reading) }]);
-      setNotice(reading ? `Saved ${fmt(value)}.` : `Checked in ${value > 0 ? "+" : ""}${fmt(value)}.`);
+      setNotice(reading ? t("savedValue", { value: fmt(value) }) : t("checkedInDelta", { value: `${value > 0 ? "+" : ""}${fmt(value)}` }));
       setVersion((v) => v + 1);
     } catch (e) {
       setError(errorMessage(e));
@@ -428,7 +432,7 @@ function TeamBoardScreen({
     setRemoveBusy(true);
     try {
       await apiRequest(`${removing.endpoint}/${removing.id}`, accessToken, { method: "DELETE" });
-      setNotice(`Removed "${removing.name}" from the template.`);
+      setNotice(t("removedFromTemplate", { name: removing.name }));
       setRemoving(null);
       setVersion((v) => v + 1);
     } catch (e) {
@@ -448,7 +452,7 @@ function TeamBoardScreen({
     const under = board?.teams.find((t) => t.id === root);
     setCreating({
       endpoint: "/api/v1/teams",
-      title: under ? `New team under ${under.name}` : "New team",
+      title: under ? t("newTeamUnder", { name: under.name }) : t("newTeam"),
       preset: { org: orgId, parent: under?.id ?? null },
     });
   }
@@ -462,13 +466,13 @@ function TeamBoardScreen({
       setCycles((prev) => [...prev, cycle]);
       setCycleId(cycle.id);
       drafts.reset();
-      setNotice(`Created the cycle "${cycle.name}".`);
+      setNotice(t("cycleCreated", { name: cycle.name }));
       return;
     }
     // A team: the board lists the org's team tree, the wizard its teams.
     fetchTeams(accessToken, orgId).then(setOrgTeams).catch((e) => setError(errorMessage(e)));
     setVersion((v) => v + 1);
-    setNotice(`Created the team "${String(row.name ?? "")}". Tick "Own" in Targets mode to add it to the template.`);
+    setNotice(t("teamCreated", { name: String(row.name ?? "") }));
   }
 
   function wizardDone(templateId: string, created: GoalTemplate | null) {
@@ -476,7 +480,7 @@ function TeamBoardScreen({
     if (created) setTemplates((prev) => [...prev, created].sort((a, b) => a.title.localeCompare(b.title)));
     pickTemplate(templateId);
     setVersion((v) => v + 1);
-    setNotice(created ? `Created "${created.title}".` : "The template is set up.");
+    setNotice(created ? t("templateCreated", { title: created.title }) : t("templateSetUp"));
   }
 
   return (
@@ -496,14 +500,14 @@ function TeamBoardScreen({
       )}
       <div className="d-flex flex-wrap align-items-end gap-3 mb-3">
         <div>
-          <h2 className="page-title mb-1">Team board</h2>
-          <div className="text-secondary small">One goal system, every team: check in, set targets, see the totals.</div>
+          <h2 className="page-title mb-1">{t("title")}</h2>
+          <div className="text-secondary small">{t("subtitle")}</div>
         </div>
       </div>
 
       {orgs !== null && orgs.length === 0 && (
         <Card>
-          <CardBody>Teams live in an organization - create one first, then its teams.</CardBody>
+          <CardBody>{t("noOrgs")}</CardBody>
         </Card>
       )}
 
@@ -524,7 +528,7 @@ function TeamBoardScreen({
           onNewTemplate={canCreateTemplate && orgId ? () => setWizard({ existing: null }) : undefined}
           cycles={cycles}
           cycleId={cycleId}
-          onNewCycle={orgId ? () => setCreating({ endpoint: "/api/v1/cycles", title: "New cycle", preset: { org_id: orgId } }) : undefined}
+          onNewCycle={orgId ? () => setCreating({ endpoint: "/api/v1/cycles", title: t("newCycle"), preset: { org_id: orgId } }) : undefined}
           onNewTeam={canCreateTemplate && orgId ? newTeam : undefined}
           onCycleChange={(id) => {
             setCycleId(id);
@@ -594,17 +598,17 @@ function TeamBoardScreen({
       {orgs !== null && orgs.length > 0 && templates.length === 0 && (
         <Card>
           <CardBody>
-            No goal templates in this organization yet.{" "}
+            {t("noTemplates")}{" "}
             {canCreateTemplate ? (
               <Button
                 variant="link"
                 className="p-0 align-baseline"
                 onClick={() => setWizard({ existing: null })}
               >
-                Create the first one
+                {t("createFirst")}
               </Button>
             ) : (
-              "An owner or admin of the organization creates them."
+              t("ownersCreate")
             )}
           </CardBody>
         </Card>
@@ -616,31 +620,30 @@ function TeamBoardScreen({
           <CardBody className="p-0">
             {board.teams.length === 0 ? (
               <div className="p-3">
-                This organization has no teams yet - create them under Organizations → Teams, then add this template to
-                them here (Targets).
+                {t("noTeams")}
               </div>
             ) : columns.length === 0 ? (
               <div className="p-4 text-center">
                 <p className="mb-3">
-                  {board.goals.length === 0 ? "This template has no goals or metrics yet." : "This template has no metrics yet."}
+                  {board.goals.length === 0 ? t("noGoalsOrMetrics") : t("noMetrics")}
                 </p>
                 {canCreateTemplate && board.goals.length === 0 ? (
-                  <Button variant="primary" onClick={() => setWizard({ existing: template })}>Set it up</Button>
+                  <Button variant="primary" onClick={() => setWizard({ existing: template })}>{t("setItUp")}</Button>
                 ) : (
-                  templateHref && <a href={templateHref(template.id)}>Add them on the template's page</a>
+                  templateHref && <a href={templateHref(template.id)}>{t("addOnTemplatePage")}</a>
                 )}
               </div>
             ) : (
               <>
               {mode === "checkin" && notJoined > 0 && (
                 <div className="px-3 py-2 small text-secondary border-bottom">
-                  {notJoined} team{notJoined === 1 ? " doesn't" : "s don't"} use this template in this cycle.{" "}
+                  {t("notJoined", { n: notJoined })}{" "}
                   {board.can_manage ? (
                     <Button variant="link" className="p-0 align-baseline small" onClick={() => { setMode("targets"); drafts.reset(); }}>
-                      Add them in Targets
+                      {t("addInTargets")}
                     </Button>
                   ) : (
-                    "An owner or admin adds teams in Targets."
+                    t("ownerAddsTeams")
                   )}
                 </div>
               )}
@@ -687,20 +690,18 @@ function TeamBoardScreen({
           </CardBody>
           <div className="card-footer d-flex flex-wrap gap-2 align-items-center">
             <Button variant="secondary" outline onClick={toggleFullscreen} aria-pressed={fullscreen}
-              title={fullscreen ? "Leave full screen (Esc)" : "Show the board on the whole screen"}>
-              {fullscreen ? "Exit full screen" : "⛶ Full screen"}
+              title={fullscreen ? t("leaveFullscreenHint") : t("fullscreenHint")}>
+              {fullscreen ? t("exitFullscreen") : t("fullscreen")}
             </Button>
             {mode !== "history" && !charting && (<>
             <span className="text-secondary small ms-auto">
-              {dirtyCount > 0 ? `${dirtyCount} unsaved change${dirtyCount === 1 ? "" : "s"}` : "Totals are calculated from the teams."}
+              {dirtyCount > 0 ? t("unsaved", { n: dirtyCount }) : t("totalsCalculated")}
             </span>
             {dirtyCount > 0 && (
-              <Button variant="link" onClick={drafts.reset} disabled={busy}>Discard</Button>
+              <Button variant="link" onClick={drafts.reset} disabled={busy}>{t("discard")}</Button>
             )}
             <Button variant="primary" onClick={() => void save()} disabled={busy || dirtyCount === 0}>
-              {mode === "checkin"
-                ? `Save ${dirtyCount || ""} check-in${dirtyCount === 1 ? "" : "s"}`
-                : "Save targets"}
+              {mode === "checkin" ? t("saveCheckIns", { n: dirtyCount }) : t("saveTargets")}
             </Button>
             </>)}
           </div>
@@ -712,7 +713,7 @@ function TeamBoardScreen({
       {/* A column header's goal or metric, edited in place; the board reloads on close (every team's copy follows). */}
       <Drawer
         open={editing !== null}
-        title={editing?.endpoint === "/api/v1/template-metrics" ? "Template metric" : "Template goal"}
+        title={editing?.endpoint === "/api/v1/template-metrics" ? t("drawerTemplateMetric") : t("drawerTemplateGoal")}
         onClose={closeEditing}
       >
         {editing && (

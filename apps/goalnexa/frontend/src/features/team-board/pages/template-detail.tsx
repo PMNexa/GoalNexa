@@ -1,11 +1,12 @@
-import { CrudDetailScreen, useResourcePath, type LinkComponentProps } from "platform-core";
+import { CrudDetailScreen, localeFromMatches, translator, useResourcePath, useT, type LinkComponentProps } from "platform-core";
 import { Link as RouterLink, useLocation, useNavigate, useOutletContext, useParams } from "react-router";
 import { useRoutePath } from "../../../lib/routePath";
 import { TEAM_BOARD_ROUTE_ID } from "../routes";
+import messages from "../messages";
 
 // oxlint-disable-next-line react/only-export-components
-export function meta() {
-  return [{ title: "Goal template" }];
+export function meta({ matches }: { matches?: readonly unknown[] }) {
+  return [{ title: translator(messages, localeFromMatches(matches))("templatePageTitle") }];
 }
 
 function CrudLink({ to, className, children, ...rest }: LinkComponentProps) {
@@ -23,6 +24,7 @@ function CrudLink({ to, className, children, ...rest }: LinkComponentProps) {
  * it to work - the team board, where it's added to teams.
  */
 export default function TemplateDetailRoute() {
+  const t = useT(messages);
   const accessToken = useOutletContext<string>();
   const { id = "" } = useParams();
   const navigate = useNavigate();
@@ -35,12 +37,9 @@ export default function TemplateDetailRoute() {
     <div key={id}>
       {board && (
         <div className="alert alert-info d-flex flex-wrap align-items-center gap-2">
-          <span>
-            Every team using this template follows its goals and metrics - a change here reaches all of them. Each
-            team sets its own targets.
-          </span>
+          <span>{t("templateDetailInfo")}</span>
           <RouterLink className="btn btn-sm btn-primary ms-auto" to={`/${board}?template=${id}`}>
-            Open the team board
+            {t("openBoard")}
           </RouterLink>
         </div>
       )}

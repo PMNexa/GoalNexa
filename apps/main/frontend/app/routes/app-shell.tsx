@@ -136,6 +136,7 @@ export default function AppShellLayout() {
 
   return (
     <AppShell
+      brand="GoalNexa"
       navItems={nav}
       currentPath={location.pathname}
       linkComponent={ShellLink}

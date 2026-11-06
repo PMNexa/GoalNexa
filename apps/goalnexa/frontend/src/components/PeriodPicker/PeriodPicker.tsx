@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { formatDate, formatNumber, useLocale, useT } from "platform-core";
+import { formatDate, formatNumber, useLocale, useT, type Locale } from "platform-core";
 import messages from "./PeriodPicker.messages";
-import { nextPeriodStart, periodLabel, periodStart, SNAP_LABELS, type Snap } from "../../lib/periods";
+import { nextPeriodStart, periodLabel, periodStart, SNAP_LABELS, snapLabel, type Snap } from "../../lib/periods";
 
 export interface PeriodPickerProps {
   id?: string;
@@ -58,8 +58,8 @@ function addMonths(t: number, months: number): number {
 }
 
 /** The label of one period or a range of them. */
-export function periodRangeLabel(from: number, to: number, per: Snap): string {
-  return from === to ? periodLabel(to, per) : `${periodLabel(from, per)} – ${periodLabel(to, per)}`;
+export function periodRangeLabel(from: number, to: number, per: Snap, locale?: Locale): string {
+  return from === to ? periodLabel(to, per, locale) : `${periodLabel(from, per, locale)} – ${periodLabel(to, per, locale)}`;
 }
 
 /**
@@ -182,7 +182,7 @@ function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, m
                       disabled={week > last}
                       onClick={() => pick(week)}
                       onMouseEnter={() => setHover(week)}
-                      aria-label={periodLabel(week, "week")}
+                      aria-label={periodLabel(week, "week", locale)}
                     >
                       {new Date(d).getDate()}
                     </button>
@@ -230,7 +230,7 @@ function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, m
         aria-expanded={open}
         onClick={toggle}
       >
-        {none ? noneText ?? noneTab : range ? periodRangeLabel(from, to, per) : periodLabel(to, per)}
+        {none ? noneText ?? noneTab : range ? periodRangeLabel(from, to, per, locale) : periodLabel(to, per, locale)}
       </button>
       {open && (
         <div className="gn-pp-menu" role="dialog" aria-label={range ? t("pickRange") : t("pickPeriod")}>
@@ -259,7 +259,7 @@ function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, m
                     onPerChange(kind);
                   }}
                 >
-                  {SNAP_LABELS[kind]}
+                  {snapLabel(kind, locale)}
                 </button>
               ))}
             </div>
@@ -275,7 +275,7 @@ function PeriodPicker({ id, per, onPerChange, pers, range, from, to, onChange, m
             {range
               ? anchor === null
                 ? t("rangeHint")
-                : t("rangeFrom", { period: periodLabel(anchor, per) })
+                : t("rangeFrom", { period: periodLabel(anchor, per, locale) })
               : t(`pick_${per}`)}
           </div>
           </>)}

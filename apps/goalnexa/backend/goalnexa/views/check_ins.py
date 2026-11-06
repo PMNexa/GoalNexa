@@ -22,6 +22,7 @@ check-in it already made - a retried request never logs twice.
 
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
+from django.utils.translation import gettext
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.decorators import action
@@ -185,13 +186,13 @@ class CheckInViewSet(BaseViewSet):
     def bulk(self, request):
         items = request.data.get("items")
         if not isinstance(items, list) or not items or len(items) > MAX_BULK:
-            raise ValidationError({"items": [f"A list of 1 to {MAX_BULK} check-ins."]})
+            raise ValidationError({"items": [gettext("A list of 1 to {count} check-ins.").format(count=MAX_BULK)]})
         source = request_source(request)
         created = []
         with transaction.atomic(), batched():
             for index, item in enumerate(items):
                 if not isinstance(item, dict) or not item.get("metric"):
-                    raise ValidationError({"items": [f"Item {index + 1}: a metric is required."]})
+                    raise ValidationError({"items": [gettext("Item {number}: a metric is required.").format(number=index + 1)]})
                 metric = get_object_or_404(Metric.objects.filter(visible_goals(request, "goal__")), id=item["metric"])
                 check_can_check_in(request, metric)
                 serializer = self.get_serializer(data={k: v for k, v in item.items() if k not in ("metric", "client_ref")})

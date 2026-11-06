@@ -29,6 +29,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.utils.translation import gettext, gettext_noop
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import serializers
@@ -215,7 +216,7 @@ class GoalTemplateViewSet(BaseViewSet):
         cycle = self._cycle(template, request.data.get("cycle"), open_only=True)
         per_tree = TemplateGoal.objects.filter(template=template).count()
         current = Goal.objects.filter(org_id=template.org_id, is_rollup=False).exclude(status=GoalStatus.ARCHIVED).count()
-        check_org_limit(template.org_id, "max_goals", current + per_tree * len(team_ids) - 1, "goals")
+        check_org_limit(template.org_id, "max_goals", current + per_tree * len(team_ids) - 1, gettext_noop("goals"))
         with transaction.atomic():
             roots = apply_template(template, [known[str(t)] for t in team_ids], cycle, request.user.id)
         for root in roots:
@@ -288,7 +289,7 @@ class GoalTemplateViewSet(BaseViewSet):
             raise ValidationError({"team": ["The team doesn't use this template in that cycle - add it first."]})
         per_tree = TemplateGoal.objects.filter(template=template).count()
         current = Goal.objects.filter(org_id=template.org_id, is_rollup=False).exclude(status=GoalStatus.ARCHIVED).count()
-        check_org_limit(template.org_id, "max_goals", current + per_tree * len(user_ids) - 1, "goals")
+        check_org_limit(template.org_id, "max_goals", current + per_tree * len(user_ids) - 1, gettext_noop("goals"))
         with transaction.atomic():
             roots = assign_members(template, team, user_ids, cycle)
         for root in roots:
@@ -608,7 +609,7 @@ class GoalTemplateViewSet(BaseViewSet):
         template = self.get_object()
         items = request.data.get("items")
         if not isinstance(items, list) or not items or len(items) > MAX_TARGETS:
-            raise ValidationError({"items": [f"A list of 1 to {MAX_TARGETS} changes."]})
+            raise ValidationError({"items": [gettext("A list of 1 to {count} changes.").format(count=MAX_TARGETS)]})
         ids = [str(item.get("metric") or "") if isinstance(item, dict) else "" for item in items]
         metrics = {
             str(m.id): m

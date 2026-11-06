@@ -1,0 +1,259 @@
+# host: the API's user-visible texts. Written by `manage.py collect_ui_strings`;
+# fill in msgstr, then `msgfmt -o django.mo django.po`.
+msgid ""
+msgstr ""
+"Project-Id-Version: host\n"
+"Language: vi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: main/backend/config/insights.py:191
+msgid "Accounts created in the last {days} days"
+msgstr "Tài khoản được tạo trong {days} ngày qua"
+
+#: insight section activation
+msgid "Activation"
+msgstr "Kích hoạt"
+
+#: main/backend/config/insights.py:341
+#: main/backend/config/insights.py:342
+msgid "All time"
+msgstr "Mọi thời gian"
+
+#: main/backend/config/insights.py:344
+msgid "Average cycle score"
+msgstr "Điểm chu kỳ trung bình"
+
+#: main/backend/config/insights.py:197
+msgid "By how they said they'd use it"
+msgstr "Theo cách họ cho biết sẽ sử dụng"
+
+#: main/backend/config/insights.py:195
+msgid "By where they came from"
+msgstr "Theo nguồn đến"
+
+#: main/backend/config/insights.py:338
+msgid "Counts as"
+msgstr "Được tính khi"
+
+#: main/backend/config/insights.py:258
+#: main/backend/config/insights.py:260
+msgid "Days"
+msgstr "Số ngày"
+
+#: main/backend/config/insights.py:353
+#: main/backend/config/insights.py:355
+msgid "Events"
+msgstr "Sự kiện"
+
+#: main/backend/config/insights.py:338
+msgid "Feature"
+msgstr "Tính năng"
+
+#: insight section adoption
+msgid "Feature adoption"
+msgstr "Mức độ dùng tính năng"
+
+#: main/backend/config/insights.py:349
+msgid "Followed by a check-in within 7 days"
+msgstr "Có check-in trong vòng 7 ngày sau đó"
+
+#: main/backend/config/insights.py:193
+msgid "From previous step"
+msgstr "So với bước trước"
+
+#: main/backend/config/insights.py:340
+msgid "Goal outcomes"
+msgstr "Kết quả mục tiêu"
+
+#: main/backend/config/settings.py:474
+msgid "GOALNEXA_EXTENSION_SETTINGS must be a JSON object"
+msgstr "GOALNEXA_EXTENSION_SETTINGS phải là một đối tượng JSON"
+
+#: main/backend/config/insights.py:341
+msgid "Goals achieved"
+msgstr "Mục tiêu đã đạt"
+
+#: main/backend/config/insights.py:342
+msgid "Goals archived (abandoned)"
+msgstr "Mục tiêu đã lưu trữ (bỏ dở)"
+
+#: main/backend/config/insights.py:343
+msgid "Goals scored at cycle close"
+msgstr "Mục tiêu được chấm điểm khi đóng chu kỳ"
+
+#: insight section activation
+msgid "How far new accounts get, how long each step takes, by where they came from and what they chose at onboarding."
+msgstr "Tài khoản mới đi được bao xa, mỗi bước mất bao lâu, theo nguồn đến và lựa chọn của họ khi bắt đầu sử dụng."
+
+#: main/backend/config/insights.py:343
+msgid "In this range"
+msgstr "Trong khoảng này"
+
+#: main/backend/config/insights.py:258
+msgid "Last active"
+msgstr "Hoạt động lần cuối"
+
+#: main/backend/config/insights.py:260
+msgid "Last activity"
+msgstr "Hoạt động gần nhất"
+
+#: main/backend/config/insights.py:357
+msgid "Limit"
+msgstr "Giới hạn"
+
+#: main/backend/config/insights.py:193
+msgid "Median time from sign-up"
+msgstr "Thời gian trung vị từ khi đăng ký"
+
+#: main/backend/config/insights.py:350
+msgid "Median time to check in"
+msgstr "Thời gian trung vị đến khi check-in"
+
+#: main/backend/config/insights.py:260
+msgid "Members"
+msgstr "Thành viên"
+
+#: main/backend/config/insights.py:352
+msgid "Most active organizations"
+msgstr "Tổ chức hoạt động nhiều nhất"
+
+#: main/backend/config/insights.py:354
+msgid "Most active people"
+msgstr "Người hoạt động nhiều nhất"
+
+#: main/backend/config/insights.py:352
+#: main/backend/config/insights.py:354
+msgid "No goal activity in this range."
+msgstr "Không có hoạt động mục tiêu nào trong khoảng này."
+
+#: main/backend/config/insights.py:254
+msgid "No sign-ups in these weeks."
+msgstr "Không có lượt đăng ký nào trong các tuần này."
+
+#: main/backend/config/insights.py:257
+msgid "Nobody."
+msgstr "Không có ai."
+
+#: main/backend/config/insights.py:356
+msgid "None - or no limits are set."
+msgstr "Không có - hoặc chưa đặt giới hạn nào."
+
+#: main/backend/config/insights.py:259
+msgid "None."
+msgstr "Không có."
+
+#: main/backend/config/insights.py:338
+msgid "Of active"
+msgstr "Trên số đang hoạt động"
+
+#: insight section retention
+msgid "Of each week's sign-ups, the share active in each later week; people and organizations gone quiet."
+msgstr "Trong số lượt đăng ký mỗi tuần, tỷ lệ còn hoạt động ở từng tuần sau đó; người và tổ chức đã ngừng hoạt động."
+
+#: main/backend/config/insights.py:192
+msgid "Of sign-ups"
+msgstr "Trên số lượt đăng ký"
+
+#: main/backend/config/insights.py:337
+msgid "Of the {count} people active in this range, how many use…"
+msgstr "Trong {count} người hoạt động trong khoảng này, bao nhiêu người dùng…"
+
+#: main/backend/config/insights.py:197
+msgid "Onboarding"
+msgstr "Bắt đầu sử dụng"
+
+#: main/backend/config/insights.py:260
+#: main/backend/config/insights.py:353
+#: main/backend/config/insights.py:357
+msgid "Organization"
+msgstr "Tổ chức"
+
+#: main/backend/config/insights.py:252
+msgid "Organizations gone quiet"
+msgstr "Tổ chức ngừng hoạt động"
+
+#: main/backend/config/insights.py:259
+msgid "Organizations gone quiet ({days}+ days without goal activity)"
+msgstr "Tổ chức ngừng hoạt động ({days}+ ngày không có hoạt động mục tiêu)"
+
+#: main/backend/config/insights.py:356
+msgid "Organizations near a limit (80%+)"
+msgstr "Tổ chức gần chạm giới hạn (80%+)"
+
+#: main/backend/config/insights.py:353
+msgid "People"
+msgstr "Người"
+
+#: main/backend/config/insights.py:257
+msgid "People gone quiet ({days}+ days, most recent first)"
+msgstr "Người ngừng hoạt động ({days}+ ngày, gần nhất trước)"
+
+#: main/backend/config/insights.py:251
+msgid "Quiet {days}+ days"
+msgstr "Không hoạt động {days}+ ngày"
+
+#: main/backend/config/insights.py:250
+msgid "Quiet {low}-{high} days"
+msgstr "Không hoạt động {low}-{high} ngày"
+
+#: main/backend/config/insights.py:347
+msgid "Reminders"
+msgstr "Nhắc nhở"
+
+#: main/backend/config/insights.py:348
+msgid "Reminders sent"
+msgstr "Nhắc nhở đã gửi"
+
+#: insight section retention
+msgid "Retention"
+msgstr "Giữ chân người dùng"
+
+#: main/backend/config/insights.py:345
+msgid "Scored {outcome}"
+msgstr "Kết quả: {outcome}"
+
+#: main/backend/config/insights.py:189
+msgid "Sign-ups"
+msgstr "Lượt đăng ký"
+
+#: main/backend/config/insights.py:155
+msgid "Sign-ups in this range"
+msgstr "Lượt đăng ký trong khoảng này"
+
+#: main/backend/config/insights.py:195
+msgid "Source"
+msgstr "Nguồn"
+
+#: main/backend/config/insights.py:192
+msgid "Step"
+msgstr "Bước"
+
+#: main/backend/config/insights.py:357
+msgid "Used"
+msgstr "Đã dùng"
+
+#: main/backend/config/insights.py:258
+#: main/backend/config/insights.py:355
+msgid "User"
+msgstr "Người dùng"
+
+#: main/backend/config/insights.py:192
+#: main/backend/config/insights.py:255
+#: main/backend/config/insights.py:338
+msgid "Users"
+msgstr "Người dùng"
+
+#: main/backend/config/insights.py:255
+msgid "Week of"
+msgstr "Tuần bắt đầu"
+
+#: main/backend/config/insights.py:254
+msgid "Weekly sign-up cohorts: % active N weeks later"
+msgstr "Nhóm đăng ký theo tuần: % còn hoạt động sau N tuần"
+
+#: insight section adoption
+msgid "Which features active people use, how goals end, how reminders land, and who's most active."
+msgstr "Người đang hoạt động dùng tính năng nào, mục tiêu kết thúc ra sao, nhắc nhở hiệu quả thế nào, và ai hoạt động nhiều nhất."

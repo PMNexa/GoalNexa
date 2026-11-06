@@ -10,6 +10,7 @@ import uuid
 
 from django.db import transaction
 from django.db.models import Max
+from django.utils.translation import gettext
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.decorators import action
@@ -78,7 +79,7 @@ class ReorderMixin:
         except ValueError:
             raise ValidationError({"ids": ["Unknown id."]}) from None
         if len(ids) > MAX_REORDER or len(set(ids)) != len(ids):
-            raise ValidationError({"ids": [f"Up to {MAX_REORDER} distinct ids."]})
+            raise ValidationError({"ids": [gettext("Up to {count} distinct ids.").format(count=MAX_REORDER)]})
         rows = list(self.filter_queryset(self.get_queryset()).filter(id__in=ids))
         if len(rows) != len(ids):
             raise ValidationError({"ids": ["Unknown id."]})

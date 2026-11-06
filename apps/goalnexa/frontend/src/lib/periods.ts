@@ -1,6 +1,8 @@
+import { formatDate, translator, type Locale } from "platform-core";
 import type { CheckIn } from "../api/checkIns";
 import type { Metric, TargetPer } from "../api/metrics";
 import type { ProgressPoint, ValuePoint } from "./progress";
+import messages from "./periods.messages";
 
 /**
  * Periods on the client (the backend's `goalnexa.periods` keeps the stored
@@ -11,13 +13,22 @@ import type { ProgressPoint, ValuePoint } from "./progress";
  */
 export type Snap = Exclude<TargetPer, "">;
 
-export const SNAP_LABELS: Record<Snap, string> = {
-  day: "Day",
-  week: "Week",
-  month: "Month",
-  quarter: "Quarter",
-  year: "Year",
-};
+const SNAPS: Snap[] = ["day", "week", "month", "quarter", "year"];
+
+/** A period kind's name ("Week"), in `locale` (default: the UI language). */
+export function snapLabel(per: Snap, locale?: Locale): string {
+  return translator(messages, locale)(`snap_${per}`);
+}
+
+/**
+ * The period kinds (in order) and their names, in the UI language at the
+ * time each is read - inside a component prefer `snapLabel(per, useLocale())`,
+ * which re-renders on a switch.
+ */
+export const SNAP_LABELS: Record<Snap, string> = Object.defineProperties(
+  {} as Record<Snap, string>,
+  Object.fromEntries(SNAPS.map((per) => [per, { get: () => snapLabel(per), enumerable: true }])),
+);
 
 /** Local midnight of the first day of `t`'s period, epoch ms. */
 export function periodStart(t: number, per: Snap): number {
@@ -48,11 +59,13 @@ const LABELS: Record<Snap, Intl.DateTimeFormatOptions> = {
   year: { year: "numeric" },
 };
 
-export function periodLabel(start: number, per: Snap): string {
+/** "Oct 5", "Week of Oct 5", "Oct 2026", "Q3 2026", "2026" - in `locale` (default: the UI language). */
+export function periodLabel(start: number, per: Snap, locale?: Locale): string {
+  const t = translator(messages, locale);
   const date = new Date(start);
-  if (per === "quarter") return `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
-  const text = new Intl.DateTimeFormat(undefined, LABELS[per]).format(date);
-  return per === "week" ? `Week of ${text}` : text;
+  if (per === "quarter") return t("quarter", { q: Math.floor(date.getMonth() / 3) + 1, year: date.getFullYear() });
+  const text = formatDate(date, LABELS[per], t.locale);
+  return per === "week" ? t("weekOf", { date: text }) : text;
 }
 
 const RANK: Record<Snap, number> = { day: 1, week: 2, month: 3, quarter: 4, year: 5 };
@@ -96,11 +109,11 @@ export function midPeriod(start: number, per: Snap): number {
 }
 
 /** The `count` latest periods up to the one around `now`, newest first. */
-export function recentPeriods(per: Snap, now: number, count = 12): { start: number; label: string }[] {
+export function recentPeriods(per: Snap, now: number, count = 12, locale?: Locale): { start: number; label: string }[] {
   const periods: { start: number; label: string }[] = [];
   let start = periodStart(now, per);
   for (let i = 0; i < count; i += 1) {
-    periods.push({ start, label: periodLabel(start, per) });
+    periods.push({ start, label: periodLabel(start, per, locale) });
     start = periodStart(start - 1, per);
   }
   return periods;
@@ -117,7 +130,7 @@ export interface PeriodBar {
  * first check-in (or `from`) to now - empty periods as 0 - at most `limit`
  * of the latest.
  */
-export function periodBars(metric: Metric, checkIns: CheckIn[], per: Snap, now: number, limit = 31, from?: number): PeriodBar[] {
+export function periodBars(metric: Metric, checkIns: CheckIn[], per: Snap, now: number, limit = 31, from?: number, locale?: Locale): PeriodBar[] {
   // A weekday target per day has no target on weekends - no bar for them.
   const skipWeekends = per === "day" && metric.target_per === "day" && metric.count_days === "weekdays";
   // A replaced check-in (one reading per period) doesn't count - the server marks it.
@@ -132,7 +145,7 @@ export function periodBars(metric: Metric, checkIns: CheckIn[], per: Snap, now: 
   for (let start = periodStart(first, per); start <= now; start = nextPeriodStart(start, per)) {
     const weekday = new Date(start).getDay();
     if (skipWeekends && (weekday === 0 || weekday === 6)) continue;
-    bars.push({ start, label: periodLabel(start, per), value: sums.get(start) ?? 0 });
+    bars.push({ start, label: periodLabel(start, per, locale), value: sums.get(start) ?? 0 });
   }
   return bars.slice(-limit);
 }
