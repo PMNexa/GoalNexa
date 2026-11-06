@@ -1,13 +1,13 @@
-import { Button, FormControl, FormLabel, FormSelect } from "platform-core";
+import { Button, FormControl, FormLabel, FormSelect, type CrudField } from "platform-core";
+import CheckInMomentField from "../../components/CheckInMomentField";
 import type { RollupRule } from "../../api/teamBoard";
 import type { TargetPer } from "../../api/metrics";
 import {
-  ONE_PER_LABELS,
   PER_ORDER,
   ROLLUP_LABELS,
   SNAP_TO_LABELS,
   TARGET_PER_LABELS,
-  onePerFits,
+  periodFits,
   type DraftMetric,
 } from "./templateWizardModel";
 
@@ -19,15 +19,28 @@ export interface WizardMetricRowProps {
   index: number;
   onChange: (change: Partial<DraftMetric>) => void;
   onRemove: () => void;
+  /** The template metric schema's moment fields (`snap_weekday`, `snap_time`, ...), by key; without them only the period is picked. */
+  momentFields?: Partial<Record<string, CrudField<Record<string, unknown>>>>;
 }
 
 /**
  * One metric in the template wizard's Metrics step: name and unit, how a
  * check-in counts and how teams add up, a target per period (amounts only),
- * which check-ins count and what they're for, the default start and target.
+ * the check-in period (and its moment), the default start and target.
  */
-function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove }: WizardMetricRowProps) {
+function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove, momentFields = {} }: WizardMetricRowProps) {
   const id = `tw-${goal.key}-${metric.key}`;
+  // "Check-in period" offers only the periods that fit the target's. Which check-ins in it count
+  // follows "Each check-in is": the last new value, or every amount added up.
+  const snapField: CrudField<Record<string, unknown>> = {
+    key: "snap_to",
+    label: "Check-in period",
+    type: "select",
+    options: PER_ORDER.filter((per) => periodFits(per, metric.targetPer)).map((per) => ({
+      value: per,
+      label: SNAP_TO_LABELS[per],
+    })),
+  };
   return (
     <div className="row g-2 align-items-end mb-2 pb-2 border-bottom">
       <div className="col-md-4">
@@ -70,11 +83,7 @@ function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove }: Wizard
             <FormSelect id={`${id}-per`} value={metric.targetPer}
               onChange={(e) => {
                 const targetPer = e.target.value as TargetPer;
-                onChange({
-                  targetPer,
-                  ...(onePerFits(metric.onePer, targetPer) ? {} : { onePer: "" as TargetPer }),
-                  ...(onePerFits(metric.snapTo, targetPer) ? {} : { snapTo: "" as TargetPer }),
-                });
+                onChange({ targetPer, ...(periodFits(metric.snapTo, targetPer) ? {} : { snapTo: "" as TargetPer }) });
               }}>
               {(Object.keys(TARGET_PER_LABELS) as TargetPer[]).map((per) => (
                 <option key={per} value={per}>{TARGET_PER_LABELS[per]}</option>
@@ -110,25 +119,15 @@ function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove }: Wizard
         </>
       )}
       <div className="col-md-4">
-        <FormLabel htmlFor={`${id}-one`}>Which check-ins count</FormLabel>
-        <FormSelect id={`${id}-one`} value={metric.onePer}
-          onChange={(e) => {
-            const onePer = e.target.value as TargetPer;
-            onChange({ onePer, ...(onePerFits(metric.snapTo, onePer) ? {} : { snapTo: "" as TargetPer }) });
-          }}>
-          {PER_ORDER.filter((per) => onePerFits(per, metric.targetPer)).map((per) => (
-            <option key={per} value={per}>{ONE_PER_LABELS[per]}</option>
-          ))}
-        </FormSelect>
-      </div>
-      <div className="col-md-4">
-        <FormLabel htmlFor={`${id}-snap`}>Check-ins are for</FormLabel>
-        <FormSelect id={`${id}-snap`} value={metric.snapTo}
-          onChange={(e) => onChange({ snapTo: e.target.value as TargetPer })}>
-          {PER_ORDER.filter((per) => onePerFits(per, metric.targetPer) && onePerFits(per, metric.onePer)).map((per) => (
-            <option key={per} value={per}>{SNAP_TO_LABELS[per]}</option>
-          ))}
-        </FormSelect>
+        <CheckInMomentField
+          id={`${id}-snap`}
+          field={snapField}
+          fields={momentFields}
+          values={{ snap_to: metric.snapTo, ...metric.moment }}
+          onChange={(key, value) =>
+            onChange(key === "snap_to" ? { snapTo: value as TargetPer } : { moment: { ...metric.moment, [key]: value } })
+          }
+        />
       </div>
       <div className="col-md-3">
         <FormLabel htmlFor={`${id}-base`}>Start</FormLabel>

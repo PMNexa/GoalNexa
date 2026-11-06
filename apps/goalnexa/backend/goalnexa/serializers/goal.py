@@ -42,7 +42,7 @@ class GoalSerializer(BaseSerializer):
     # effect, read back as `snap_period`. Null = any time, like "" (a
     # generic form's emptied select sends null).
     snap_to = serializers.ChoiceField(
-        label="Check-ins are for", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_PARENT,
+        label="Check-in period", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_PARENT,
         help_text="Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period (the organization's time zone). Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins.",
     )
     snap_due = snap_due_field()

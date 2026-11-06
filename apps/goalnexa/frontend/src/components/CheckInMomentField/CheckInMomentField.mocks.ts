@@ -13,7 +13,7 @@ const opts = (pairs: [string | number, string][]) => pairs.map(([value, label]) 
 
 export const snapToField: Field = {
   key: "snap_to",
-  label: "Check-ins are for",
+  label: "Check-in period",
   type: "select",
   helpText: "A check-in for a period is stamped at its moment, whenever it's sent.",
   defaultValue: "goal",

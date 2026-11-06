@@ -35,7 +35,7 @@ function optionLabel(field: CrudField<Values> | undefined, value: unknown): stri
 }
 
 /**
- * "Check-ins are for" as one picker (layout widget "check-in-moment"): a
+ * "Check-in period" as one picker (layout widget "check-in-moment"): a
  * button with the setting in words, opening a menu where the period is
  * picked first, then - for a period - the moment in it (weekday, month of
  * the quarter, month, day, time) and whether it's due then. Values are the

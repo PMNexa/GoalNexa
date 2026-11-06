@@ -42,12 +42,32 @@ export const wauMetric: Metric = {
   one_per: "week",
 };
 
+/** Weekly active users with no `one_per`: a new value for a week - the week's last one counts all the same (`countedPer`). */
+export const wauNewValueMetric: Metric = {
+  ...wauMetric,
+  id: "06000000-0000-7000-8000-0000000000a3",
+  aggregation: "latest",
+  one_per: "",
+};
+
+/** This week's reading on it, stamped at the week's moment (Monday 00:00). */
+const monday = new Date();
+monday.setHours(0, 0, 0, 0);
+monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+export const wauThisWeek: CheckIn = {
+  ...checkIns[0],
+  id: "07000000-0000-7000-8000-0000000a0002",
+  metric: wauNewValueMetric.id,
+  value: "1240",
+  checked_in_at: monday.toISOString(),
+};
+
 /**
  * The form's "this period's check-in" lookup (`filter{checked_in_at.lt}`,
- * which the shared handlers don't understand): Steps has one today.
+ * which the shared handlers don't understand): Steps has one today, the new-value WAU one this week.
  */
 export const periodCheckInHandler = http.get("*/api/v1/check-ins", ({ request }) => {
   const metric = new URL(request.url).searchParams.get("filter{metric}");
-  const items = metric === stepsMetric.id ? [stepsToday] : [];
+  const items = metric === stepsMetric.id ? [stepsToday] : metric === wauNewValueMetric.id ? [wauThisWeek] : [];
   return HttpResponse.json({ items, total: items.length, page: 1, page_size: 1 });
 });

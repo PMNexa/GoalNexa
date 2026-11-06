@@ -791,7 +791,7 @@ that resource - pages, drawers, `CreateRecordModal`; a screen's
 `serializers/layouts.py` (goal, metric, template goal, template metric);
 `tests/test_form_layouts.py` checks they name editable fields. An entry
 with `widget` is drawn by a component main registers in `root.tsx`
-(`registerFieldWidget`): "Check-ins are for" and its moment fields are one
+(`registerFieldWidget`): "Check-in period" and its moment fields are one
 picker, goalnexa-frontend's `CheckInMomentField` (period first, then the
 moment, in one dropdown). Mechanics:
 platform-core's AGENTS.md "Form layout, field errors".

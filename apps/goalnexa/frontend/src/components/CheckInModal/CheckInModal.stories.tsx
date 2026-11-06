@@ -4,7 +4,7 @@ import { fn, userEvent, within } from "storybook/test";
 import { handlers } from "../../storybook/handlers";
 import { ACCESS_TOKEN, goals, metrics } from "../../storybook/fixtures";
 import CheckInModal from "./CheckInModal";
-import { periodCheckInHandler, stepsMetric, wauMetric } from "./CheckInModal.mocks";
+import { periodCheckInHandler, stepsMetric, wauMetric, wauNewValueMetric } from "./CheckInModal.mocks";
 
 const meta = {
   title: "Components/CheckInModal",
@@ -32,6 +32,9 @@ export const OnePerDay: Story = { args: { metric: stepsMetric, goalTitle: "Walk 
 
 /** Check-ins for a week (`snap_to`/`snap_period`): "For" picks the week instead of a time. */
 export const ForAWeek: Story = { args: { metric: wauMetric, goalTitle: goals[0].title } };
+
+/** A new value for a week with no `one_per`: the week's last reading counts anyway, so it's prefilled and "Replaces this week's 1,240". */
+export const ForAWeekNewValue: Story = { args: { metric: wauNewValueMetric, goalTitle: goals[0].title } };
 
 /** Saving failed: the server's message under the form, which stays open. */
 export const SaveError: Story = {

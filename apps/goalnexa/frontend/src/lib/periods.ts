@@ -58,12 +58,22 @@ export function periodLabel(start: number, per: Snap): string {
 const RANK: Record<Snap, number> = { day: 1, week: 2, month: 3, quarter: 4, year: 5 };
 
 /**
+ * The period whose last check-in is the one that counts: its one reading
+ * per period, else - for a new value - its check-in period (they share the
+ * period's moment, so the one saved last wins). An amount adds up: null.
+ */
+export function countedPer(metric: Metric): Snap | null {
+  return (metric.one_per || (metric.aggregation !== "sum" && metric.snap_period) || null) as Snap | null;
+}
+
+/**
  * The period a metric's series is snapped to: the dashboard's "Show
  * check-ins by", but never finer than the metric's own one reading per
- * period (a coarser pick still wins). Null = every check-in.
+ * period or its check-in period (a coarser pick still wins) - their
+ * check-ins share one moment, so they'd stack on one spot. Null = every check-in.
  */
 export function metricSnap(snap: Snap | null, metric: Metric): Snap | null {
-  const own = metric.one_per || null;
+  const own = (metric.one_per || metric.snap_period || null) as Snap | null;
   if (!own) return snap;
   if (!snap) return own;
   return RANK[snap] >= RANK[own] ? snap : own;

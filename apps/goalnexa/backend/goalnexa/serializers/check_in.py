@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from core_api.serializers import BaseSerializer
 from goalnexa.models import CheckIn
+from goalnexa.periods import counted_per
 
 
 class CheckInSerializer(BaseSerializer):
@@ -34,7 +35,7 @@ class CheckInSerializer(BaseSerializer):
         """A single check-in (not a list) of a metric with one reading per
         period also says which one it replaced: `replaces`."""
         data = super().to_representation(instance)
-        if not isinstance(self.parent, serializers.ListSerializer) and getattr(instance, "metric_id", None) and instance.metric.one_per:
+        if not isinstance(self.parent, serializers.ListSerializer) and getattr(instance, "metric_id", None) and counted_per(instance.metric):
             from goalnexa.periods import replaced_by
 
             instance.refresh_from_db(fields=["replaced"])

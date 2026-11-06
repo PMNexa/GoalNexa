@@ -29,9 +29,13 @@ def snap_moment(off: list[str]) -> list:
     ]
 
 
+# Which check-ins in a period count follows "Each check-in is": the last
+# new value wins (ties go to the latest made), every amount adds up - so
+# `one_per` isn't asked. It shows only on a metric that already has one,
+# so it can still be cleared.
 CHECK_INS = {
     "title": "Check-ins",
-    "fields": ["aggregation", "one_per", "check_in_every"],
+    "fields": ["aggregation", {"name": "one_per", "show_if": {"field": "one_per", "not_in": [""]}}, "check_in_every"],
 }
 
 GOAL_LAYOUT = [

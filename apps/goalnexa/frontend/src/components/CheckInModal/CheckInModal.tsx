@@ -3,7 +3,7 @@ import { Button, FormControl, FormLabel, FormSelect, Modal } from "platform-core
 import { apiRequest } from "../../api/client";
 import type { CheckIn } from "../../api/checkIns";
 import type { Metric } from "../../api/metrics";
-import { midPeriod, nextPeriodStart, periodStart, recentPeriods, type Snap } from "../../lib/periods";
+import { countedPer, midPeriod, nextPeriodStart, periodStart, recentPeriods, type Snap } from "../../lib/periods";
 
 const THIS_PERIOD: Record<Snap, string> = {
   day: "today",
@@ -30,6 +30,7 @@ const shortDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "num
 function usePeriodCheckIn(
   accessToken: string,
   metric: Metric,
+  per: Snap | null,
   t: number,
   onLoaded: (checkIn: CheckIn | null) => void,
 ): CheckIn | null | undefined {
@@ -37,7 +38,6 @@ function usePeriodCheckIn(
   useEffect(() => {
     loadedRef.current = onLoaded;
   });
-  const per = metric.one_per || null;
   const start = per ? periodStart(t, per) : 0;
   const [found, setFound] = useState<{ start: number; checkIn: CheckIn | null } | null>(null);
   useEffect(() => {
@@ -127,15 +127,15 @@ function CheckInForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const adds = metric.aggregation === "sum";
-  // One reading per period: this check-in replaces the period's earlier one.
-  const per = metric.one_per || null;
+  // The period's last check-in counts (one reading per period, or a new value for a period): this one replaces the earlier.
+  const per = countedPer(metric);
   // Check-ins for a whole period - the metric's own, or its goal's.
   const snap = metric.snap_period ?? "";
   const [openedAt] = useState(() => Date.now());
   const at = when ? new Date(when).getTime() : openedAt;
   // The first period's check-in fills the field in, if it's still empty.
   const prefilled = useRef(false);
-  const existing = usePeriodCheckIn(accessToken, metric, at, (checkIn) => {
+  const existing = usePeriodCheckIn(accessToken, metric, per, at, (checkIn) => {
     if (checkIn && !prefilled.current) setValue((current) => (current === "" ? String(Number(checkIn.value)) : current));
     prefilled.current = true;
   });

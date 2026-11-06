@@ -452,6 +452,24 @@ class SnapToTests(TestCase):
         self.assertEqual(second["replaces"]["value"], "300.00")  # same snapped time: the later saved wins
         self.assertEqual(self.alice.get(f"{API}/metrics/{metric['id']}").json()["current_value"], "450.00")
 
+    def test_without_one_reading_per_the_metric_type_decides(self):
+        """No `one_per`: in a check-in period the last new value counts (it
+        replaces the earlier), while amounts add up (`periods.counted_per`)."""
+        reading = self.ok(self.alice, "metrics", goal=self.goal["id"], name="Weight", target_value=70, base_value=80, snap_to="week")
+        first = self.ok(self.alice, "check-ins", metric=reading["id"], value=79, checked_in_at="2026-10-06T09:00:00+07:00")
+        second = self.ok(self.alice, "check-ins", metric=reading["id"], value=78, checked_in_at="2026-10-08T09:00:00+07:00")
+        self.assertEqual(second["replaces"]["id"], first["id"])
+        self.assertEqual(self.alice.get(f"{API}/metrics/{reading['id']}").json()["current_value"], "78.00")
+        self.assertTrue(self.alice.get(f"{API}/check-ins/{first['id']}").json()["replaced"])
+        amount = self.ok(self.alice, "metrics", goal=self.goal["id"], name="Calls", aggregation="sum", target_value=100, snap_to="week")
+        self.ok(self.alice, "check-ins", metric=amount["id"], value=10, checked_in_at="2026-10-06T09:00:00+07:00")
+        added = self.ok(self.alice, "check-ins", metric=amount["id"], value=15, checked_in_at="2026-10-08T09:00:00+07:00")
+        self.assertNotIn("replaces", added)
+        self.assertEqual(self.alice.get(f"{API}/metrics/{amount['id']}").json()["current_value"], "25.00")
+        # Back to any time: nothing is replaced any more.
+        self.alice.patch(f"{API}/metrics/{reading['id']}", {"snap_to": ""}, format="json")
+        self.assertFalse(self.alice.get(f"{API}/check-ins/{first['id']}").json()["replaced"])
+
 
 @override_settings(AUTH_FIRST_RUN_SETUP=False)
 class GoalSnapToTests(TestCase):

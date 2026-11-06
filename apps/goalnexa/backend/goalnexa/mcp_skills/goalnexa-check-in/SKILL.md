@@ -100,7 +100,8 @@ their own words.
    metrics, so it differs from this one's; mention its `health` if it's
    `at_risk` or `off_track`. A metric with a target per period: lead with
    this period from `pace` ("6/10 today - 4 to go"), then its `hit_rate` and
-   `streak` or its total. A `one_per` metric: the response's `replaces` is the
+   `streak` or its total. A `one_per` metric (or a `"latest"` one with a
+   `snap_period` - the period's last reading counts): the response's `replaces` is the
    check-in it replaced - say "8,000 → 10,500 today (replaces the earlier
    one)"; `replaced: true` means a later check-in in that period still counts,
    so this one doesn't - tell the user. For several updates in one message,
