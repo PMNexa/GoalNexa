@@ -133,7 +133,7 @@ function HistoryTable({ board, blocks, per, busy, tip: periodTip, onTip, onSaveP
                               </td>
                             );
                           }
-                          const tip = () => periodTipLines(block, metric, cell, label(start), editable);
+                          const tip = () => periodTipLines(block, metric, cell, label(start), editable, per);
                           const startEdit = () => {
                             periodCancel.current = false;
                             onTip(null);

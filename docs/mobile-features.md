@@ -74,7 +74,7 @@ Last updated: 2026-10-22.
 | Attributed to the phone app (source "mobile") | Done | Done | Planned | P-69 | `X-GoalNexa-Client: mobile` on every request |
 | Says what it replaced (one reading per period) | Done | Built | Planned | P-75 | From the response's `replaces` |
 | Backdate (pick the date and time) | Done | Done | Planned | P-75 | No future dates |
-| Says which period it went to (`snap_to`) | Done | Done | Planned | P-75 | "for the week of Oct 5", in the phone's time zone |
+| Says which period it went to (`snap_to`) | Done | Done | Planned | P-75, P-93 | "for the week of Oct 5", in the phone's time zone. P-93: periods run from the moment before (`GET today`'s `check_in_period`); a backdated check-in should send `period` - then raise `apps.min_android_version` |
 | Check in from a notification | Planned | Planned | Planned | P-74 | |
 
 ## Organizations

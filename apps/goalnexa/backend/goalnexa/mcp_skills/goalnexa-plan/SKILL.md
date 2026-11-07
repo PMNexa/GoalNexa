@@ -47,26 +47,28 @@ From what the user said, propose:
     period counts, so a later report replaces the earlier one. It can't be
     longer than a `target_per`. Not for amounts logged as they happen ("3 more
     calls").
-  - A number reported per period ("weekly sales", "monthly revenue") can get
-    `snap_to: "week"` (or day/month/...): each check-in is then for a whole
-    period. A `"latest"` metric then keeps the period's last reading (a
+  - Every goal and metric has a **frequency** - how often check-ins happen:
+    `snap_to` `"day"`/`"week"`/`"month"`/`"quarter"`/`"year"` at a moment, or
+    `""` = any time. Each check-in moves to the latest moment at or before
+    it, a period runs from one moment to the next, and each moment is when a
+    check-in is due and reminded. A number reported per period ("weekly
+    sales", "monthly revenue") gets `snap_to: "week"` (or day/month/...). A `"latest"` metric then keeps the period's last reading (a
     correction replaces it) with no `one_per`; a `"sum"` one adds every
     check-in up unless it also gets the same `one_per`. When every metric of the goal is reported that way,
     set `snap_to` on the GOAL instead: its metrics inherit it (`snap_to:
     "goal"`, the default), so do its sub-goals (`snap_to: "parent"`, the
     default) and a sub-metric inherits its parent metric's; a metric can
     still pick its own (`""` = any time).
-  - With a period, ask WHEN in it the number is reported and set the
+  - With a frequency, ask WHEN the number is reported and set the
     moment: `snap_weekday` (1 = Monday ... 7), `snap_quarter_month` (1-3),
     `snap_month` (1-12), `snap_day` (1-31, past the month's end = its last
     day), `snap_time` (`"HH:MM"`, 30-minute steps) - e.g. weekly sales on
-    Friday 17:00 (`snap_weekday: 5, snap_time: "17:00"`). Check-ins are dated
-    at that moment, and with `snap_due` (on by default) it's when the
-    period's check-in is due and reminded.
-  - Without a period, suggest a schedule from the last check-in,
-    `check_in_every`: `"daily"`, `"weekly"`, `"monthly"`, `"quarterly"` or
-    `"yearly"` (default none). An overdue metric is flagged on the dashboard and
-    reminded, if the user has reminders set up (step 4).
+    Friday 17:00 (`snap_weekday: 5, snap_time: "17:00"`): a check-in on Monday
+    is then for the week from the Friday before. Each moment is when a
+    check-in is due; an overdue metric is flagged on the dashboard and
+    reminded, if the user has reminders set up (step 4). A target per period
+    (`target_per`) counts in the same moment-to-moment periods. Don't set
+    `check_in_every` (the old schedule, replaced by the frequency).
 
 Before creating anything, check for duplicates: `goals_list` with
 `filter: {"title.icontains": "<keyword>"}`. If there's a close match, ask

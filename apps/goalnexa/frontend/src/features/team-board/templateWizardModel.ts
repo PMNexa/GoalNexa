@@ -20,16 +20,16 @@ export interface DraftMetric {
   countDays: "all" | "weekdays";
   progressBy: "total" | "hit_rate";
   snapTo: TargetPer;
-  /** The moment in a `snapTo` period (`snap_weekday`, `snap_time`, `snap_due`...), as the schema's fields - sent only with a period. */
+  /** The moment of a `snapTo` frequency (`snap_weekday`, `snap_time`...), as the schema's fields - sent only with a period. */
   moment: Record<string, unknown>;
 }
 
-/** "Check-in period": a check-in's time is snapped to its period ("Any time", "A week"...), in the UI language. */
+/** The frequency: a check-in moves to the moment before it ("Any time", "Weekly"...), in the UI language. */
 export function snapToLabel(per: TargetPer): string {
   return translate(messages, per ? (`snap_${per}` as const) : "snap_any");
 }
 export const PER_ORDER: TargetPer[] = ["", "day", "week", "month", "quarter", "year"];
-/** A check-in period can't be longer than the target's period. */
+/** A frequency can't be longer than the target's period. */
 export const periodFits = (per: TargetPer, targetPer: TargetPer) =>
   !per || !targetPer || PER_ORDER.indexOf(per) <= PER_ORDER.indexOf(targetPer);
 

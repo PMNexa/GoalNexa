@@ -10,6 +10,11 @@ export default defineMessages({
     snap_year: "Year",
     weekOf: "Week of {date}",
     quarter: "Q{q} {year}",
+    from_day: "Day from {date}",
+    from_week: "Week from {date}",
+    from_month: "Month from {date}",
+    from_quarter: "Quarter from {date}",
+    from_year: "Year from {date}",
   },
   vi: {
     snap_day: "Ngày",
@@ -19,5 +24,10 @@ export default defineMessages({
     snap_year: "Năm",
     weekOf: "Tuần từ {date}",
     quarter: "Quý {q}/{year}",
+    from_day: "Ngày từ {date}",
+    from_week: "Tuần từ {date}",
+    from_month: "Tháng từ {date}",
+    from_quarter: "Quý từ {date}",
+    from_year: "Năm từ {date}",
   },
 });

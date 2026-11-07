@@ -97,8 +97,8 @@ TOOLS = [
             "A goal template's team board for one cycle: the template's goals and metrics, the team tree, each "
             "team's instance (its metrics' base, target, current value, `metric` ids to check in or set targets "
             "on, and whether the caller may) and the totals. `show` (day/week/month/quarter/year) adds each "
-            "cell's numbers in the period around `at` (`shown`: the amount done or last reading, and the "
-            "period's target); with `periods` (1-60) also the periods before it (`history`, oldest first; "
+            "cell's numbers in each metric's own period running at `at` - from one moment of its frequency to "
+            "the next (`shown`: the amount done or last reading, the period's target, `opens`/`closes`); with `periods` (1-60) also the periods before it (`history`, oldest first; "
             "`value` null = no check-in)."
         ),
         "inputSchema": _schema({

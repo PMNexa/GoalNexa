@@ -1,7 +1,7 @@
 import type { Goal, GoalHealth } from "../api/goals";
 import type { Metric } from "../api/metrics";
 import type { CheckIn, CheckInSource } from "../api/checkIns";
-import { periodStart } from "./periods";
+import { momentStart } from "./periods";
 
 /**
  * A goal's progress = the mean of its ROOT metrics' progress (see
@@ -98,7 +98,7 @@ function replayer(metric: Metric): (checkIn: CheckIn) => number {
   if (per) {
     const byPeriod = new Map<number, number>();
     return (checkIn) => {
-      byPeriod.set(periodStart(Date.parse(checkIn.checked_in_at), per), Number(checkIn.value));
+      byPeriod.set(momentStart(Date.parse(checkIn.checked_in_at), per, metric), Number(checkIn.value));
       let total = base;
       for (const value of byPeriod.values()) total += value;
       return total;

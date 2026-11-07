@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 
 from goalnexa.access import visible_goals
 from goalnexa.models import Goal, GoalHealth, GoalStatus, Metric
-from goalnexa.periods import pace_hint, zone_for
+from goalnexa.periods import pace_hint, period_bounds, period_key, zone_for
 from goalnexa.progress import metric_pct
 from goalnexa.teams import can_check_in
 
@@ -42,8 +42,17 @@ def _goal(goal: Goal, app_url: str) -> dict:
     }
 
 
+def _check_in_period(metric: Metric, zone) -> dict | None:
+    """With a frequency: the period a check-in made now goes to (P-93)."""
+    if not metric.snap_to:
+        return None
+    opens, closes = period_bounds(period_key(timezone.now(), metric.snap_to, metric, zone), metric.snap_to, metric, zone)
+    return {"opens": opens.isoformat(), "closes": closes.isoformat()}
+
+
 def _metric(metric: Metric, zones: dict) -> dict:
     pct = metric_pct(metric.current_value, metric)
+    zone = zone_for(metric.goal, zones)
     return {
         "id": str(metric.id),
         "name": metric.name,
@@ -58,10 +67,11 @@ def _metric(metric: Metric, zones: dict) -> dict:
         "target_per": metric.target_per,
         "one_per": metric.one_per,
         "snap_to": metric.snap_to,
+        "check_in_period": _check_in_period(metric, zone),
         "period_value": _number(metric.period_value),
         "hit_rate": _number(metric.hit_rate),
         "streak": metric.streak,
-        "pace": pace_hint(metric, metric.goal, zone=zone_for(metric.goal, zones)),
+        "pace": pace_hint(metric, metric.goal, zone=zone),
         # Where the goal belongs, so an app showing every goal can tag it.
         "goal": {
             "id": str(metric.goal_id),

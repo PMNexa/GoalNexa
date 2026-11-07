@@ -18,6 +18,8 @@ const CSS = `.gn-moment .gn-mo-anchor { position: relative; }
 /** The periods with a moment; any other `snap_to` value (inherited, any time) has none. */
 const PERIODS = ["day", "week", "month", "quarter", "year"];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+/** The fields that make up the frequency - a change to any moves check-ins. */
+const MOMENT_KEYS = ["snap_to", "snap_weekday", "snap_quarter_month", "snap_month", "snap_day", "snap_time"];
 
 type Values = Record<string, unknown>;
 
@@ -45,11 +47,12 @@ function optionLabel(field: CrudField<Values> | undefined, value: unknown): stri
 }
 
 /**
- * "Check-in period" as one picker (layout widget "check-in-moment"): a
+ * The frequency as one picker (layout widget "check-in-moment"): a
  * button with the setting in words, opening a menu where the period is
- * picked first, then - for a period - the moment in it (weekday, month of
- * the quarter, month, day, time) and whether it's due then. Values are the
- * schema's own (`snap_to` and the `SnapMoment` fields), sent as picked.
+ * picked first (the frequency, or inherited), then - for one - its moment
+ * (weekday, month of the quarter, month, day, time). Editing, "Move existing
+ * check-ins" (`resnap`) sits under it. Values are the schema's own
+ * (`snap_to`, the `SnapMoment` fields, `resnap`), sent as picked.
  */
 export default function CheckInMomentField({ id, field, fields, values, onChange, errors }: FieldWidgetProps) {
   const t = useT(messages);
@@ -83,19 +86,26 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
   const month = valueOf(values, fields.snap_month, "snap_month", 1);
   const day = Number(valueOf(values, fields.snap_day, "snap_day", 1));
   const time = String(valueOf(values, fields.snap_time, "snap_time", "00:00"));
-  const due = same(valueOf(values, fields.snap_due, "snap_due", true), true);
   const set = onChange;
+  // "Move existing check-ins" (`resnap`, editing only): on by default once the frequency changes.
+  const editing = values.id !== undefined && values.id !== null && values.id !== "";
+  const current = JSON.stringify(MOMENT_KEYS.map((key) => values[key] ?? null));
+  // The saved setting: taken when the record (its id) arrives, so a form that loads it later still compares right.
+  const [saved, setSaved] = useState({ id: values.id, setting: current });
+  if (saved.id !== values.id) setSaved({ id: values.id, setting: current });
+  const changed = saved.id === values.id && current !== saved.setting;
+  const resnap = values.resnap === undefined || values.resnap === null ? changed : Boolean(values.resnap);
 
+  /** "Weekly on Friday at 17:00" - the frequency in words. */
   function summary(): string {
     if (!hasMoment) return optionLabel(field, per);
-    const parts: string[] = [];
-    if (per === "week" && fields.snap_weekday) parts.push(weekdayName(weekday, "long", locale));
-    if (per === "quarter" && fields.snap_quarter_month) parts.push(t("quarterMonth", { n: Number(quarterMonth) }));
-    if (per === "year" && fields.snap_month) parts.push(t("monthDay", { month: monthName(month, "long", locale), day }));
-    else if ((per === "month" || per === "quarter") && fields.snap_day) parts.push(t("dayN", { day }));
-    if (fields.snap_time) parts.push(time);
-    const moment = parts.join(", ");
-    return `${t(`each_${per as "day"}`)}${moment ? ` · ${moment}` : ""}${fields.snap_due && due ? ` · ${t("dueThen")}` : ""}`;
+    return t(`sum_${per as "day"}`, {
+      time,
+      weekday: weekdayName(weekday, "long", locale),
+      day,
+      month: t("quarterMonth", { n: Number(quarterMonth) }),
+      date: t("monthDay", { month: monthName(month, "long", locale), day }),
+    });
   }
 
   function pickPer(value: unknown) {
@@ -232,17 +242,7 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
                     </select>
                   </>
                 )}
-                {fields.snap_due && (
-                  <label className="form-check mt-3 mb-0">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={due}
-                      onChange={(event) => set("snap_due", event.target.checked)}
-                    />
-                    <span className="form-check-label">{t("due")}</span>
-                  </label>
-                )}
+                <div className="gn-mo-hint mt-3">{t("rule")}</div>
                 <div className="gn-mo-foot">
                   <button type="button" className="btn btn-primary btn-sm" onClick={() => setOpen(false)}>
                     {t("done")}
@@ -253,6 +253,17 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
           </div>
         )}
       </div>
+      {fields.resnap && editing && !locked && (
+        <label className="form-check mt-2 mb-0" title={t("resnapHint")}>
+          <input
+            type="checkbox"
+            className="form-check-input"
+            checked={resnap}
+            onChange={(event) => set("resnap", event.target.checked)}
+          />
+          <span className="form-check-label">{t("resnap")}</span>
+        </label>
+      )}
       {locked ? (
         <small className="form-hint">
           {values.template_metric ? t("lockedMetric") : t("lockedGoal")}

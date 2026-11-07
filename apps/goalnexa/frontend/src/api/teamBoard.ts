@@ -38,7 +38,13 @@ export interface BoardMetric {
   count_days: "all" | "weekdays";
   progress_by: "total" | "hit_rate";
   one_per: TargetPer;
+  /** Its frequency in effect (P-93), and the moment (`SnapMoment`). */
   snap_to: TargetPer;
+  snap_weekday?: number;
+  snap_quarter_month?: number;
+  snap_month?: number;
+  snap_day?: number;
+  snap_time?: string;
 }
 
 /** A team's member, who can be given a copy of their own (`Board.members`). */
@@ -91,9 +97,14 @@ export interface CellNumbers {
  * comes from its teams' by the metric's rule (null: not totalled).
  */
 export interface ShownNumbers {
-  /** The period's first and last day, "YYYY-MM-DD". */
+  /** The period's key - the first day of the calendar period its moment is in - and its last day, "YYYY-MM-DD". */
   start: string;
   last: string;
+  /** Its first day (its moment's), "YYYY-MM-DD" - each metric counts in its own periods (P-93). */
+  first?: string;
+  /** When it opens and closes (ISO): one moment of the metric's frequency and the next. */
+  opens?: string;
+  closes?: string;
   value: number | null;
   quota: number | null;
   /** The check-ins that count in it (0: none - `value` is null then). */
@@ -272,7 +283,7 @@ export function createTemplateMetric(
     progress_by?: "total" | "hit_rate";
     one_per?: TargetPer;
     snap_to?: TargetPer;
-    /** `snap_to`'s moment (`snap_weekday`, `snap_time`, `snap_due`...). */
+    /** `snap_to`'s moment (`snap_weekday`, `snap_time`...). */
     [moment: `snap_${string}`]: unknown;
   },
 ): Promise<{ id: string }> {

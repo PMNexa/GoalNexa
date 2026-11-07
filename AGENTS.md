@@ -413,7 +413,17 @@ same setting and inheritance (`TemplateGoal.snap_to_parent`,
 `TemplateMetric.snap_to_goal`); template rows keep their OWN choice and a
 team's copy gets the one in effect (`templates.template_settings`,
 checked against each metric's target by `check_template_settings` before
-the push). Tests:
+the push). **Frequency** (P-93, `docs/period-targets.md` "Frequency"):
+that setting is the frequency, and it's the schedule (`snap_due` is
+read-only, `check_in_every` only on old rows). A check-in moves to the
+LATEST moment at or before it, and every period - quotas, one reading per
+period, the board (each metric's own periods: `opens`/`closes`), the
+dashboard (`lib/periods.ts` `momentStart`) - runs from one moment to the
+next (`periods.period_key`). Never bucket a frequency metric's check-ins
+by calendar period (`period_start`) again. `CheckIn.entered_at` keeps the
+time as given so `resnap` (write-only on goals/metrics: move or leave
+check-ins on a change, or re-snap on demand) never slides them; a
+check-in may name its `period` instead of a time. Tests:
 `tests/test_period_targets.py`.
 
 **System administration** (platform-core's `platform_system` app behind

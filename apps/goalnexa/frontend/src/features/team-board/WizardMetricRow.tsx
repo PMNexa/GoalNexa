@@ -28,12 +28,12 @@ export interface WizardMetricRowProps {
 /**
  * One metric in the template wizard's Metrics step: name and unit, how a
  * check-in counts and how teams add up, a target per period (amounts only),
- * the check-in period (and its moment), the default start and target.
+ * the frequency (and its moment), the default start and target.
  */
 function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove, momentFields = {} }: WizardMetricRowProps) {
   const t = useT(messages);
   const id = `tw-${goal.key}-${metric.key}`;
-  // "Check-in period" offers only the periods that fit the target's. Which check-ins in it count
+  // "Frequency" offers only the ones that fit the target's period. Which check-ins in a period count
   // follows "Each check-in is": the last new value, or every amount added up.
   const snapField: CrudField<Record<string, unknown>> = {
     key: "snap_to",

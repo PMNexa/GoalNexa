@@ -5,7 +5,7 @@
  */
 import type { ChartPoint } from "../../components/charts/BoardCharts";
 import type { Board, BoardInstance, BoardMetric, BoardPerson, BoardTeam, BoardTotal, CellNumbers, ShownNumbers } from "../../api/teamBoard";
-import { periodLabel, type Snap } from "../../lib/periods";
+import { momentLabel, periodLabel, type Snap } from "../../lib/periods";
 import { getLocale, translate, translator, type Locale } from "platform-core";
 import { fmt, perLabel, shownPct, tipDay, tipTime, type Mode } from "./boardHelpers";
 import messages from "./messages";
@@ -198,7 +198,11 @@ export function boardBlocks(rows: Row[]): BoardBlock[] {
 export function historyStarts(blocks: BoardBlock[], per: Snap) {
   const sample = blocks.flatMap((b) => Object.values(b.metrics)).find((n) => n.history?.length && n.history.every(Boolean));
   const starts = sample?.history?.map((h) => h!.start) ?? [];
+  // Each metric counts in its own periods (P-93): a column is named by the sample's, a cell's tip by its own.
+  const opens = new Map((sample?.history ?? []).map((h) => [h!.start, h!.opens]));
   const label = (start: string) => {
+    const at = opens.get(start);
+    if (at) return momentLabel(Date.parse(at), per);
     const [y, m, d] = start.split("-").map(Number);
     return periodLabel(new Date(y, m - 1, d).getTime(), per);
   };
@@ -227,10 +231,12 @@ export function chartPoint(numbers: CellNumbers, metric: BoardMetric, showing: b
 }
 
 /** The hover details of an "Over time" cell. */
-export function periodTipLines(block: BoardBlock, metric: BoardMetric, cell: ShownNumbers | null, label: string, editable: boolean): string[] {
+export function periodTipLines(block: BoardBlock, metric: BoardMetric, cell: ShownNumbers | null, label: string, editable: boolean, per?: Snap): string[] {
   const lines = [`${block.label}${block.sub ? translate(messages, "tipTotal") : ""} · ${metric.name}`];
   if (!cell) return [...lines, translate(messages, "tipNotTotalled")];
-  lines.push(cell.start === cell.last ? label : `${label} (${tipDay(new Date(`${cell.start}T00:00`))} – ${tipDay(new Date(`${cell.last}T00:00`))})`);
+  const own = cell.opens && per ? momentLabel(Date.parse(cell.opens), per) : label;
+  const first = cell.first ?? cell.start;
+  lines.push(first === cell.last ? own : `${own} (${tipDay(new Date(`${first}T00:00`))} – ${tipDay(new Date(`${cell.last}T00:00`))})`);
   const unit = metric.unit ? ` ${metric.unit}` : "";
   if (cell.value === null) lines.push(translate(messages, "tipNoCheckIn"));
   else {

@@ -201,7 +201,7 @@ setting off couldn't bring the rows back.
   only when the reading period equals the quota period (then the
   period's value is the one being replaced).
 
-## Check-ins for a period (P-63)
+## Check-ins for a period (P-63) - superseded by P-93 below
 
 `Metric.snap_to` / `TemplateMetric.snap_to` ("Check-in period": any
 time / a day / week / month / quarter / year). A check-in is then for a
@@ -277,3 +277,61 @@ inheriting sub-metrics (`metric_follow_plan`). Template instance and total
 goals never inherit (`snap_to_parent=False`); their metrics take the
 template metric's whole setting (locked).
 
+
+## Frequency: the moment before (P-93)
+
+The check-in setting is now called the **frequency** (`snap_to`: any time,
+daily, weekly, monthly, quarterly, yearly, or inherited) and it replaces
+three knobs: the period, "due at that moment" (`snap_due`) and "check in
+every" (`check_in_every`).
+
+- **Snapping**: a check-in moves to the LATEST moment at or before it
+  (`periods.snap_time` -> `period_key`), no longer to its calendar
+  period's moment (which could be later). Weekly on Friday 17:00: a
+  Monday check-in goes to the Friday before.
+- **Periods run moment to moment**: Friday 17:00 -> Friday 17:00. A period
+  is keyed by the first day of the calendar period its moment is in
+  (`period_key`, `day_key`); `period_days` gives its days (the moment's
+  day to the day before the next moment's), `period_bounds` its
+  opens/closes. Quotas (`compute`, `current_quota`), one reading per
+  period (`counted`, `replaced_by`), the board's "Show by" / "Over time"
+  (`shown`, `shown_series` - each metric's own periods, with
+  `opens`/`closes`/`first`/`last`), `pace_hint` (`closes`) and the
+  end-of-period nudge (`reminders.short_of_quota`: within 6 h of
+  `closes`) all use them. A target period coarser than the frequency
+  (weekly quota, daily at 09:00) opens on the calendar period's first day
+  at the frequency's time (Monday 09:00); with no frequency, periods are
+  calendar ones - so metrics on the default moment (first day 00:00)
+  behave exactly as before. `lib/periods.ts` mirrors it in the browser
+  (`momentStart`, `nextMomentStart`, `momentIn`, `momentLabel`).
+- **Old stamps don't move**: a stamp from the old rule already sits on its
+  period's moment, which keys to that same period now.
+- **Schedule**: `check_in_due_at` = the moment after the latest check-in's
+  (`due_moment`), whenever there's a frequency; `snap_due` is read-only in
+  the API (true with a frequency - the migration set it), kept for older
+  code and apps. `check_in_every` still works for a metric without a
+  frequency that has one, and forms show it only then (like `one_per`).
+- **The time as given**: `CheckIn.entered_at` keeps it (set in
+  `CheckIn.save` when the time snaps; null for any time and for check-ins
+  from before). `periods.resnap` re-snaps from it, so changing the
+  frequency twice doesn't slide check-ins back a period each time, and
+  switching to any time puts them back. Without it (older rows) it starts
+  from the stamp - or from `created_at` when the stamp is later (dated
+  forward by the old rule): best effort.
+- **`resnap`** (write-only on goals and metrics): when the frequency
+  changes, existing check-ins move (the default; `false` leaves them);
+  `true` with no change re-snaps them anyway - for a goal, every metric
+  whose frequency comes from it (`periods.inheriting_metrics`). The form
+  shows it as "Move existing check-ins" under the frequency picker
+  (`CheckInMomentField`), ticked once the frequency changes.
+- **`period`** (write-only on check-ins): any day of the period the
+  check-in is for, instead of `checked_in_at` - it goes to that period's
+  moment (`periods.period_moment`). For apps and assistants ("last week's
+  number"); the website sends a time inside the period.
+- `GET today` adds `check_in_period` (`opens`/`closes` of the period a
+  check-in now would go to); the board's template metrics carry the
+  frequency in effect and its moment (`templates.template_settings`).
+- Old app versions send a time in the middle of a calendar period; for a
+  metric with a non-default moment that can land a period early. The
+  hosted release raises `apps.min_android_version` with the app that
+  sends `period`.

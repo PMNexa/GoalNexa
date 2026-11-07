@@ -21,8 +21,11 @@ from goalnexa.activity import changes, record, snapshot
 from core_api.system import check_org_limit
 from goalnexa.models import ActivityVerb, CheckIn, Cycle, CycleStatus, Goal, GoalStatus, GoalVisibility, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
-from goalnexa.periods import ANY_TIME, NEW_SETTINGS, SNAP_FIELDS, apply_follow, follow_plan, pace_pct, period_name, snap_settings, zone_for
-from goalnexa.progress import metric_pct, metric_readings, project_value, refresh_goal, root_metrics, target_datetime
+from goalnexa.periods import (
+    ANY_TIME, NEW_SETTINGS, SNAP_FIELDS, apply_follow, follow_plan, inheriting_metrics, pace_pct, period_name, resnap, settled,
+    snap_settings, zone_for,
+)
+from goalnexa.progress import metric_pct, metric_readings, project_value, refresh_goal, refresh_metric, root_metrics, target_datetime
 from goalnexa.serializers import GoalSerializer
 from goalnexa.serializers.goal import SNAP_TO_PARENT
 from goalnexa.serializers.metric import validate_one_per
@@ -114,8 +117,19 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         else:
             follows = instance.snap_to_parent if instance else True
         if follows:
-            return (snap_settings(parent) if parent is not None else dict(ANY_TIME)), True
-        return {**(snap_settings(instance) if instance else NEW_SETTINGS), **sent}, False
+            return settled(snap_settings(parent) if parent is not None else dict(ANY_TIME)), True
+        return settled({**(snap_settings(instance) if instance else NEW_SETTINGS), **sent}), False
+
+    @staticmethod
+    def _resnap(goal) -> None:
+        """Re-snaps the check-ins of every metric whose frequency comes from `goal`."""
+        touched = set()
+        for metric in inheriting_metrics(goal):
+            if resnap(metric):
+                refresh_metric(metric.id)
+                touched.add(metric.goal_id)
+        for goal_id in touched:
+            refresh_goal(goal_id)
 
     @staticmethod
     def _check_follow(metrics) -> None:
@@ -152,6 +166,7 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         parent = self._resolve_parent()
         if parent is not None and parent.is_rollup:
             raise ValidationError({"parent": [TOTAL_READ_ONLY]})
+        serializer.validated_data.pop("resnap", None)  # nothing to move yet
         snap, follows = self._snap_settings(serializer, parent)
         goal = serializer.save(owner_id=self.request.user.id, parent=parent, cycle=cycle, snap_to_parent=follows, **snap)
         goal.position = next_position(goal)
@@ -191,6 +206,7 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
             parent = self._resolve_parent(exclude_id=instance.id) if parent_id else None
         else:
             parent = instance.parent
+        move = serializer.validated_data.pop("resnap", None)
         snap, follows = self._snap_settings(serializer, parent)
         plan = follow_plan(instance, snap) if snap != snap_settings(instance) else ([], [])
         self._check_follow(plan[1])
@@ -217,7 +233,10 @@ class GoalViewSet(ReorderMixin, BaseViewSet):
         if sibling_key(goal) != old_siblings:  # moved under another parent/org - it goes last there
             goal.position = next_position(goal)
             goal.save(update_fields=["position"])
-        apply_follow(*plan)  # its inheriting sub-goals and metrics follow; their check-ins move
+        # Its inheriting sub-goals and metrics follow; their check-ins move unless `resnap` is false.
+        apply_follow(*plan, move=move is not False)
+        if move and not plan[1]:  # asked to re-snap with nothing changing: every metric it sets
+            self._resnap(goal)
         # Its target date may have moved - health and projection follow it.
         refresh_goal(goal.id)
         goal.refresh_from_db()  # the response shows the recomputed fields
