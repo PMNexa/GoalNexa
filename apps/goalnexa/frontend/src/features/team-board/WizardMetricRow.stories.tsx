@@ -52,7 +52,7 @@ export const AmountPerWeek: Story = { args: { metric: perWeek } };
 /** A fresh row: every field empty but the start. */
 export const Empty: Story = { args: { metric: newMetric() } };
 
-/** Check-ins for a week, stamped Friday 17:00: "Check-in period" is the moment picker (fields from the template metric schema). */
+/** Weekly on Friday 17:00: "Frequency" is the moment picker (fields from the template metric schema). */
 export const CheckInsForAWeek: Story = {
   args: {
     metric: { ...reading, snapTo: "week", moment: { snap_weekday: "5", snap_time: "17:00" } },

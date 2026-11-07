@@ -25,7 +25,7 @@ import {
 import WizardMetricRow from "./WizardMetricRow";
 import messages from "./wizardMessages";
 
-const MOMENT_KEYS = ["snap_weekday", "snap_quarter_month", "snap_month", "snap_day", "snap_time", "snap_due"];
+const MOMENT_KEYS = ["snap_weekday", "snap_quarter_month", "snap_month", "snap_day", "snap_time"];
 
 export interface TemplateWizardProps {
   accessToken: string;
@@ -70,7 +70,7 @@ function TemplateWizard({ accessToken, orgId, existing, teams, cycles, cycleId, 
     applied: false,
   });
 
-  // The moment fields ("Check-in period"'s day, time, due) come from the template metric schema.
+  // The moment fields (the frequency's day and time) come from the template metric schema.
   const request = useMemo(() => createRequest(accessToken), [accessToken]);
   const [momentFields, setMomentFields] = useState<Partial<Record<string, CrudField<Record<string, unknown>>>>>({});
   useEffect(() => {

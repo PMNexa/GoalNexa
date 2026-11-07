@@ -83,7 +83,7 @@ for an organization with no goals yet: "Set up \<org\>").
 | F-S3-7 | New goal | **New goal** in the Goals header (presets org, cycle). |
 | F-S3-8 | Goal **+** menu | **Add metric**, **Add sub-goal**. |
 | F-S3-9 | Metric **+** menu | **Check in**, **Add sub-metric**. |
-| F-S3-10 | Check-in modal | "Check in: \<metric\>": **Value** (or **Amount to add** for a sum metric), **When** (blank = now; or **For** a period), **Note**, **Save check-in**. |
+| F-S3-10 | Check-in modal | "Check in: \<metric\>": **Value** (or **Amount to add** for a sum metric), **When** (blank = now; a metric with a Frequency asks **For** a period instead, e.g. "Week from Fri, Oct 2, 17:00"), **Note**, **Save check-in**. |
 | F-S3-11 | Due clock | Shown after a metric's name when its scheduled check-in is overdue; opens the check-in modal. |
 | F-S3-12 | Drawer | Clicking a goal or metric name opens its page in a right-hand drawer (details, Edit, Delete, tabs; for a goal **Sharing** and **Activity**; for a metric **Automatic check-ins**). Closing refreshes the charts. |
 | F-S3-13 | Reorder | Drag a row within its siblings; the order is saved. |
@@ -126,13 +126,13 @@ data = no badge.
 | F-S6-1 | Pick | **Organization**, **Goal template** (**+ New**), **Cycle**, **Teams** (all or one subtree). |
 | F-S6-2 | Mode | **Check in** or **Targets**. |
 | F-S6-3 | Check in | Each team's cell: current / target, %, pace "≈ N/week to go"; type an amount or value, **✎** adds a note; **Checked in at** sets the time (running totals only); **Save N check-ins**; **Discard**. |
-| F-S6-4 | Show by | One picker: its tabs are Totals (running totals, with **Checked in at** beside it), Day, Week, Month, Quarter, Year; with a period kind, click the period. The board shows that period's numbers, and saved check-ins go to it. |
+| F-S6-4 | Show by | One picker: its tabs are Totals (running totals, with **Checked in at** beside it), Day, Week, Month, Quarter, Year; with a period kind, click the period. The board shows that period's numbers, and saved check-ins go to it. Each metric counts in its own periods (its Frequency); a cell's tooltip names its own period ("Week from Fri, Oct 2, 17:00"), a column header the first metric's. |
 | F-S6-5 | Totals | Rows *Whole organization* and each department: calculated from the teams, read-only; planned target and gap. |
 | F-S6-6 | Last update | Per goal: when each team last checked in; for totals, "x/y teams". |
 | F-S6-7 | Targets | **Start** and **Target** per team and metric, **Planned** target on totals; **Save targets**. |
 | F-S6-8 | Add the template to teams | **Add** next to "Doesn't use this template in this cycle.", or tick teams in Targets mode → **Add to N teams**. |
 | F-S6-9 | Edit the template | Click a goal or metric header to edit it in a drawer; **✕** removes it from the template (copies with check-ins are kept as the team's own). "Edit the template" link. |
-| F-S6-10 | Template wizard | **+ New** / **Create the first one**: Template → Goals → Metrics (each check-in is, totals, target is for, counts, progress is, check-in period, start, default target) → Teams → Review → **Create the template**. |
+| F-S6-10 | Template wizard | **+ New** / **Create the first one**: Template → Goals → Metrics (each check-in is, totals, target is for, counts, progress is, frequency, start, default target) → Teams → Review → **Create the template**. |
 | F-S6-11 | Full screen | **Full screen** / **Exit full screen** (Esc). |
 
 ## S7 Lists, detail and edit pages
@@ -167,7 +167,7 @@ Generic detail page plus:
 
 | ID | Function | Details |
 |---|---|---|
-| F-S9-1 | Metric fields | Name, Description, Unit, Start (base) value, Target value, Current value, Each check-in is (new value / amount to add), Check in every (no schedule / daily / weekly / monthly), Target is for (whole goal / each day...year), Counts (every day / weekdays), Progress is (total / how often hit), One reading per, Check-in period, Parent. |
+| F-S9-1 | Metric fields | Name, Description, Unit, Start (base) value, Target value, Current value, Each check-in is (new value / amount to add), Frequency (inherited / any time / daily / weekly / monthly / quarterly / yearly, at a moment - also the schedule; **Move existing check-ins to the moment before them** when editing), Check in every (only on older metrics that have one), Target is for (whole goal / each day...year), Counts (every day / weekdays), Progress is (total / how often hit), One reading per, Parent. |
 | F-S9-2 | Check-ins | **Check ins** tab: list, add, edit, delete. |
 | F-S9-3 | Automatic check-ins | **Create token** / **Rotate token**, copy the URL and `curl` example (token shown once), **Revoke**. |
 

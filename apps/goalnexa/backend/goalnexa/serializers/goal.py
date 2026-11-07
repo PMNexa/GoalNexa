@@ -3,7 +3,7 @@ from rest_framework import serializers
 from core_api.serializers import BaseSerializer
 from goalnexa.models import Goal, SnapTo
 from goalnexa.serializers.layouts import GOAL_LAYOUT
-from goalnexa.serializers.metric import SNAP_MOMENT_HELP, snap_due_field
+from goalnexa.serializers.metric import SNAP_MOMENT_HELP, resnap_field, snap_due_field
 
 #: `Goal.snap_to`'s API value for "inherited from the parent goal" (`Goal.snap_to_parent`).
 SNAP_TO_PARENT = "parent"
@@ -42,13 +42,14 @@ class GoalSerializer(BaseSerializer):
     # effect, read back as `snap_period`. Null = any time, like "" (a
     # generic form's emptied select sends null).
     snap_to = serializers.ChoiceField(
-        label="Check-in period", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_PARENT,
-        help_text="Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period (the organization's time zone). Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins.",
+        label="Frequency", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_PARENT,
+        help_text="How often check-ins happen. Inherited (the default): the parent goal's - any time for a top-level goal. Any time: each check-in keeps its own time. Daily/weekly/monthly/quarterly/yearly at a moment (the snap_* fields, the organization's time zone): each check-in moves to the latest moment at or before it, and one is due at each moment. Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins (see resnap).",
     )
     snap_due = snap_due_field()
+    resnap = resnap_field()
     snap_period = serializers.CharField(
         source="snap_to", read_only=True,
-        help_text="The period check-ins are for, after \"inherited\": empty = any time.",
+        help_text="The frequency in effect, after \"inherited\": empty = any time.",
     )
 
     assignee_name = serializers.SerializerMethodField(

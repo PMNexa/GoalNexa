@@ -29,7 +29,9 @@ from goalnexa.access import visible_goals
 from goalnexa.activity import changes, record, snapshot
 from goalnexa.models import ActivityVerb, Goal, Metric
 from goalnexa.ordering import ReorderMixin, next_position, sibling_key
-from goalnexa.periods import NEW_SETTINGS, SNAP_FIELDS, STAMP_FIELDS, apply_follow, metric_follow_plan, period_name, resnap, snap_settings
+from goalnexa.periods import (
+    NEW_SETTINGS, SNAP_FIELDS, STAMP_FIELDS, apply_follow, metric_follow_plan, period_name, resnap, settled, snap_settings,
+)
 from goalnexa.progress import refresh_goal, refresh_metric, refresh_metric_and_goal
 from goalnexa.serializers import MetricSerializer
 from goalnexa.serializers.metric import SNAP_TO_GOAL, validate_one_per
@@ -114,7 +116,7 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
                 gettext("What it inherits is check-ins for a whole {period}, longer than this metric's target or one-reading period. "
                         "Pick a period for this metric.").format(period=period_name(value["snap_to"]))
             ]})
-        return {**value, "snap_to_goal": follows}
+        return {**settled(value), "snap_to_goal": follows}
 
     @staticmethod
     def _sub_metric_plan(metric_id, goal, value) -> list:
@@ -140,6 +142,7 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         if goal.is_rollup:
             raise ValidationError({"goal": [TOTAL_READ_ONLY]})
         parent = self._resolve_parent()
+        serializer.validated_data.pop("resnap", None)  # nothing to move yet
         metric = serializer.save(goal=goal, parent=parent, **self._snap_settings(serializer, goal, parent), **extra)
         metric.position = next_position(metric)
         metric.save(update_fields=["position"])
@@ -172,6 +175,7 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         old_stamp = tuple(getattr(instance, name) for name in STAMP_FIELDS)
         before = snapshot(instance, FEED_FIELDS)
         old_siblings = sibling_key(instance)
+        move = serializer.validated_data.pop("resnap", None)
         snap = self._snap_settings(serializer, goal, parent)
         value = {name: snap[name] for name in SNAP_FIELDS}
         sub_plan = self._sub_metric_plan(instance.id, goal, value) if value != snap_settings(instance) or goal.id != instance.goal_id else []
@@ -182,11 +186,13 @@ class MetricViewSet(ReorderMixin, BaseViewSet):
         # A current value set by hand stays - unless what check-ins add up
         # to just changed (a SUM metric counts from its base; which
         # check-ins count follows `one_per`).
+        # Existing check-ins move to the moment before them - when the
+        # frequency changed (unless `resnap` is false), or when asked to.
         moved = tuple(getattr(metric, name) for name in STAMP_FIELDS) != old_stamp
-        if moved:
-            resnap(metric)  # existing check-ins move to their period's moment too
-        refresh_metric(metric.id, sync_value=moved or (metric.aggregation, metric.base_value, metric.one_per, metric.snap_to) != old_value_rule)
-        apply_follow([], sub_plan)  # its inheriting sub-metrics follow
+        if (moved and move is not False) or (move and not moved):
+            resnap(metric)
+        refresh_metric(metric.id, sync_value=moved or bool(move) or (metric.aggregation, metric.base_value, metric.one_per, metric.snap_to) != old_value_rule)
+        apply_follow([], sub_plan, move=move is not False)  # its inheriting sub-metrics follow
         refresh_goal(metric.goal_id)
         if old_goal_id != metric.goal_id:
             refresh_goal(old_goal_id)

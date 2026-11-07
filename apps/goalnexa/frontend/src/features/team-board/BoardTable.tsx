@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Checkbox, FormControl, formatDate, useLocale, useT } from "platform-core";
 import type { Board, BoardMetric, CellNumbers, ShownNumbers } from "../../api/teamBoard";
-import { periodLabel, periodStart, type Snap } from "../../lib/periods";
+import { momentLabel, momentStart, type Snap } from "../../lib/periods";
 import {
   fmt,
   heat,
@@ -259,9 +259,9 @@ function BoardTable({
         )}
         {value && isNumber(value) && preview !== null && <span className="gn-sub">→ {fmt(preview)}</span>}
         {column.metric.snap_to && when && (
-          // Check-ins for a period: this one goes to the period around "Checked in at".
+          // A frequency: this one goes to the metric's period running at "Checked in at" (opened by the moment before it).
           <span className="gn-sub" title={t("snapHint")}>
-            {t("forPeriod", { period: periodLabel(periodStart(new Date(when).getTime(), column.metric.snap_to), column.metric.snap_to) })}
+            {t("forPeriod", { period: momentLabel(momentStart(new Date(when).getTime(), column.metric.snap_to, column.metric), column.metric.snap_to) })}
           </span>
         )}
       </>

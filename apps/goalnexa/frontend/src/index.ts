@@ -68,7 +68,7 @@ export { default as TeamBoardScreen } from "./features/team-board/TeamBoardScree
 export type { TeamBoardScreenProps } from "./features/team-board/TeamBoardScreen";
 export type { Board, GoalTemplate } from "./api/teamBoard";
 export { default as CheckInTableScreen } from "./features/check-in-table/CheckInTableScreen";
-/** The "check-in-moment" form widget (`registerFieldWidget`) - "Check-in period" and its moment in one picker. */
+/** The "check-in-moment" form widget (`registerFieldWidget`) - the frequency and its moment in one picker. */
 export { default as CheckInMomentField } from "./components/CheckInMomentField";
 // What a public dashboard link shows - mounted outside the app shell.
 export { default as SharedDashboardScreen } from "./features/dashboard/SharedDashboardScreen";

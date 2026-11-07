@@ -13,7 +13,7 @@ const opts = (pairs: [string | number, string][]) => pairs.map(([value, label]) 
 
 export const snapToField: Field = {
   key: "snap_to",
-  label: "Check-in period",
+  label: "Frequency",
   type: "select",
   helpText: "A check-in for a period is stamped at its moment, whenever it's sent.",
   defaultValue: "goal",
@@ -49,5 +49,5 @@ export const momentFields: Partial<Record<string, Field>> = {
   snap_month: { key: "snap_month", label: "Month", type: "select", defaultValue: "1", options: opts(MONTHS.map((m, i) => [i + 1, m])) },
   snap_day: { key: "snap_day", label: "Day of the month", type: "number" },
   snap_time: { key: "snap_time", label: "Time", type: "select", defaultValue: "00:00", options: opts(TIMES.map((t) => [t, t])) },
-  snap_due: { key: "snap_due", label: "Due at that moment", type: "checkbox" },
+  resnap: { key: "resnap", label: "Move existing check-ins", type: "checkbox" },
 };

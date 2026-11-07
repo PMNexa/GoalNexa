@@ -59,13 +59,26 @@ class CheckIn(TimestampedModel):
         help_text="Optional. Your own id for this check-in: sending the same one again returns the first check-in instead of a duplicate.",
     )
 
-    def save(self, *args, **kwargs):
-        # A metric whose check-ins are for a period (`Metric.snap_to`): the
-        # time is that period's first day - from every source alike.
-        if self.metric_id and self.metric.snap_to and self.checked_in_at:
-            from goalnexa.periods import snap_time  # periods imports models
+    # The time as given, before it moved to its metric's frequency (P-93), so
+    # a later change of frequency re-snaps from it rather than from a moment
+    # (which would slide a period back each time). Null = `checked_in_at`
+    # is the time as given (any time), or a check-in from before P-93.
+    entered_at = models.DateTimeField(null=True, blank=True)
 
-            self.checked_in_at = snap_time(self.metric, self.checked_in_at)
+    def save(self, *args, **kwargs):
+        # A metric with a frequency (`Metric.snap_to`): the time moves to the
+        # latest moment at or before it - from every source alike.
+        if self.metric_id and self.checked_in_at:
+            if self.metric.snap_to:
+                from goalnexa.periods import snap_time  # periods imports models
+
+                snapped = snap_time(self.metric, self.checked_in_at)
+                # A new time (not the stamp it already had): remember it.
+                if self.entered_at is None or snap_time(self.metric, self.entered_at) != snapped:
+                    self.entered_at = self.checked_in_at
+                self.checked_in_at = snapped
+            else:
+                self.entered_at = None
         super().save(*args, **kwargs)
 
     class Meta:

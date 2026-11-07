@@ -47,7 +47,7 @@ from goalnexa.models import (
     TemplateMetric,
 )
 from goalnexa.ordering import next_position
-from goalnexa.periods import ANY_TIME, SNAP_FIELDS, STAMP_FIELDS, snap_settings
+from goalnexa.periods import ANY_TIME, SNAP_FIELDS, STAMP_FIELDS, settled, snap_settings
 from goalnexa.progress import refresh_goal, refresh_metric
 
 #: Template-owned fields an instance can't change (`GoalViewSet`/`MetricViewSet`).
@@ -92,7 +92,7 @@ def template_settings(template) -> tuple[dict, dict]:
         if tg.id not in goal_settings:
             parent = tgs.get(tg.parent_id)
             if not tg.snap_to_parent:
-                goal_settings[tg.id] = snap_settings(tg)
+                goal_settings[tg.id] = settled(snap_settings(tg))
             elif parent is not None and parent.id not in trail:
                 goal_settings[tg.id] = of_goal(parent, (*trail, tg.id))
             else:
@@ -103,7 +103,7 @@ def template_settings(template) -> tuple[dict, dict]:
         if tm.id not in metric_settings:
             parent = tms.get(tm.parent_id)
             if not tm.snap_to_goal:
-                metric_settings[tm.id] = snap_settings(tm)
+                metric_settings[tm.id] = settled(snap_settings(tm))
             elif parent is not None and parent.template_goal_id == tm.template_goal_id and parent.id not in trail:
                 metric_settings[tm.id] = of_metric(parent, (*trail, tm.id))
             else:

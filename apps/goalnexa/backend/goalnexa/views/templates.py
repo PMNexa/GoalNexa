@@ -57,7 +57,7 @@ from goalnexa.models import (
     TemplateGoal,
     TemplateMetric,
 )
-from goalnexa.periods import local_date, pace_hint, shown, shown_series, zone_for
+from goalnexa.periods import STAMP_FIELDS, local_date, pace_hint, shown, shown_series, zone_for
 from goalnexa.progress import metric_pct, refresh_goal, refresh_metric
 from goalnexa.models.template import ORG_TOTAL, default_total_for
 from goalnexa.rollups import batched, combine, schedule
@@ -78,6 +78,7 @@ from goalnexa.teams import (
 from goalnexa.templates import (
     check_template_settings,
     has_check_ins,
+    template_settings,
     ordered,
     push_template,
     remove_template,
@@ -145,7 +146,8 @@ def _combine_shown(rule: str, rows: list[dict]) -> dict | None:
     if quotas and all(q is not None for q in quotas):
         quota = sum(quotas) if rule == RollupRule.SUM else sum(quotas) / len(quotas) if rule == RollupRule.AVG else None
     times = [row["last_at"] for row in rows if row.get("last_at")]
-    return {"start": rows[0]["start"], "last": rows[0]["last"], "value": None if value is None else round(value, 2),
+    period = {k: rows[0][k] for k in ("start", "first", "last", "opens", "closes") if k in rows[0]}
+    return {**period, "value": None if value is None else round(value, 2),
             "quota": None if quota is None else round(quota, 2),
             "count": sum(row.get("count", 0) for row in rows), "last_at": max(times) if times else None}
 
@@ -358,12 +360,15 @@ class GoalTemplateViewSet(BaseViewSet):
             OpenApiParameter("cycle", OpenApiTypes.STR, description="A cycle id; empty or none = goals in no cycle."),
             OpenApiParameter("show", OpenApiTypes.STR, enum=["day", "week", "month", "quarter", "year"],
                              description="Also give each cell that period's numbers (`shown`): the amount done in it, or "
-                             "its last reading in it (none without one), and its target when the metric's target is per that period."),
+                             "its last reading in it (none without one), and its target when the metric's target is per that period. "
+                             "Each metric counts in its OWN periods - from one moment of its frequency to the next (`opens`/"
+                             "`closes`, `first`/`last` days; `start` = the period's key, the first day of the calendar period "
+                             "its moment is in)."),
             OpenApiParameter("periods", OpenApiTypes.INT,
                              description="With `show`: also each cell's numbers in that many periods ending with the one "
                              "around `at` (`history`, oldest first; 1-60)."),
             OpenApiParameter("at", OpenApiTypes.DATETIME, description="The day each team's `last_update` is for, "
-                             "and with `show` the period around this time (each goal's time zone). Default: now."),
+                             "and with `show` each metric's period running at this time (each goal's time zone). Default: now."),
         ],
         responses={200: OpenApiTypes.OBJECT},
     )
@@ -374,6 +379,7 @@ class GoalTemplateViewSet(BaseViewSet):
         cycle_id = cycle.id if cycle else None
         tgs = ordered(TemplateGoal.objects.filter(template=template))
         tms = ordered(TemplateMetric.objects.filter(template_goal__template=template))
+        _, frequencies = template_settings(template)  # each metric's frequency in effect, after inheriting
         parents = team_parents(template.org_id)
         names = team_names(parents.keys())
         goals = list(Goal.objects.filter(template_goal__template=template, cycle_id=cycle_id).select_related("cycle").prefetch_related("members"))
@@ -425,12 +431,13 @@ class GoalTemplateViewSet(BaseViewSet):
             goal = goal_by_id[metric.goal_id]
             zone = zone_for(goal, zones)
             check_ins = check_ins_by_metric.get(metric.id, [])
-            numbers = shown(metric, goal, check_ins, show, local_date(at, zone), zone=zone)
-            row = {**numbers, "start": numbers["start"].isoformat(), "last": numbers["last"].isoformat()}
+            # Each metric's own period running at `at` (P-93: moment to moment).
+            numbers = shown(metric, goal, check_ins, show, at, zone=zone)
+            row = {**numbers, **{k: numbers[k].isoformat() for k in ("start", "first", "last")}}
             if history_count:
                 row["history"] = [
-                    {**n, "start": n["start"].isoformat(), "last": n["last"].isoformat()}
-                    for n in shown_series(metric, goal, check_ins, show, local_date(at, zone), history_count, zone=zone)
+                    {**n, **{k: n[k].isoformat() for k in ("start", "first", "last")}}
+                    for n in shown_series(metric, goal, check_ins, show, at, history_count, zone=zone)
                 ]
             return row
 
@@ -569,7 +576,8 @@ class GoalTemplateViewSet(BaseViewSet):
                     "count_days": tm.count_days,
                     "progress_by": tm.progress_by,
                     "one_per": tm.one_per,
-                    "snap_to": tm.snap_to,
+                    # The frequency in effect and its moment (P-93) - what its teams' copies have.
+                    **{name: frequencies[tm.id][name] for name in STAMP_FIELDS},
                 }
                 for tm in tms
             ],

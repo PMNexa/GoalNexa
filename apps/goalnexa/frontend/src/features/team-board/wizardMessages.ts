@@ -71,11 +71,11 @@ const messages = defineMessages({
 
     // Labels (templateWizardModel)
     snap_any: "Any time",
-    snap_day: "A day",
-    snap_week: "A week",
-    snap_month: "A month",
-    snap_quarter: "A quarter",
-    snap_year: "A year",
+    snap_day: "Daily",
+    snap_week: "Weekly",
+    snap_month: "Monthly",
+    snap_quarter: "Quarterly",
+    snap_year: "Yearly",
     targetPer_whole: "The whole goal",
     targetPer_day: "Each day",
     targetPer_week: "Each week",
@@ -98,7 +98,7 @@ const messages = defineMessages({
     errTargetEqualsStart: "A target equal to its start means no target - leave it empty instead.",
 
     // WizardMetricRow
-    checkInPeriod: "Check-in period",
+    checkInPeriod: "Frequency",
     metric: "Metric",
     metricPlaceholder: "Revenue",
     unit: "Unit",
@@ -175,11 +175,11 @@ const messages = defineMessages({
     changeLater: "Bạn có thể thay đổi mọi thứ sau trên trang của mẫu.",
 
     snap_any: "Bất kỳ lúc nào",
-    snap_day: "Một ngày",
-    snap_week: "Một tuần",
-    snap_month: "Một tháng",
-    snap_quarter: "Một quý",
-    snap_year: "Một năm",
+    snap_day: "Hằng ngày",
+    snap_week: "Hằng tuần",
+    snap_month: "Hằng tháng",
+    snap_quarter: "Hằng quý",
+    snap_year: "Hằng năm",
     targetPer_whole: "Cả mục tiêu",
     targetPer_day: "Mỗi ngày",
     targetPer_week: "Mỗi tuần",
@@ -200,7 +200,7 @@ const messages = defineMessages({
     errTarget: "Chỉ tiêu cần là số - hoặc để trống.",
     errTargetEqualsStart: "Chỉ tiêu bằng giá trị ban đầu nghĩa là không có chỉ tiêu - hãy để trống.",
 
-    checkInPeriod: "Kỳ check-in",
+    checkInPeriod: "Tần suất",
     metric: "Chỉ số",
     metricPlaceholder: "Doanh thu",
     unit: "Đơn vị",

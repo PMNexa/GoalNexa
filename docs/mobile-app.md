@@ -71,7 +71,9 @@ when check-ins are due?"), not at first launch.
 2. **Today** - due metrics, this period's quota per metric ("6/10 km
    today - 4 to go", from `pace`), goals at risk. One call: `GET today`.
 3. **Check in** - number pad with the unit, optional note, backdate. Says
-   what it replaces (`replaces`) and the period it went to (`snap_to`).
+   what it replaces (`replaces`) and the period it went to (`snap_to`;
+   since P-93 a period runs from the moment before - `today`'s
+   `check_in_period` - and a backdated check-in sends `period`, any day of it).
 4. **Goals** and **goal detail** - %, health badge, projection, one chart
    per metric (server-drawn series), activity feed.
 5. **Settings** - organization switch, notifications, sign out, delete

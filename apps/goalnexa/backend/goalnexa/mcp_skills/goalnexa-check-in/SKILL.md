@@ -30,12 +30,15 @@ their own words.
   `"sum"` metric each check-in is then **the period's total so far** ("10,500
   steps today"), not an amount to add.
 - A metric with `snap_period` (day, week, month, quarter or year - its own
-  `snap_to`, or inherited when `snap_to` is `"goal"`) takes check-ins
-  **for a whole period**: the server sets every check-in's `checked_in_at` to
-  that period's moment (the first day, 00:00 unless `snap_weekday`/`snap_day`/
-  `snap_time`/... say otherwise; the organization's time zone). To log one
-  for an earlier period ("last month's revenue"), send any time inside it;
-  confirm with the period ("for October"), not a time.
+  `snap_to`, or inherited when `snap_to` is `"goal"`) has a **frequency**:
+  the server moves every check-in's `checked_in_at` to the LATEST moment at
+  or before it (the first day, 00:00 unless `snap_weekday`/`snap_day`/
+  `snap_time`/... say otherwise; the organization's time zone), and its
+  period runs from that moment to the next - weekly on Friday 17:00: a
+  check-in on Monday is for the week from the Friday before. To log one for
+  an earlier period ("last month's revenue"), send `period` = any day inside
+  that period instead of `checked_in_at`; confirm with the period ("for the
+  month from Oct 15"), not a time.
 - A metric can go down on purpose (response time 12h → 2h: target below base).
 - Progress = `(current - base) / (target - base)`, and a goal's progress is the
   mean of its root metrics' (`parent` null) - sub-metrics don't count toward it.
