@@ -3,6 +3,7 @@
  * a public link's payload and the user's links, and the goal/metric
  * schemas the details drawer's `CrudDetailScreen` loads.
  */
+import type { ReceivedInvitation } from "../../api/invitations";
 import type { Schema } from "platform-core";
 import type { Goal } from "../../api/goals";
 import type { DashboardShare, SharedDashboard } from "../../api/shares";
@@ -116,3 +117,14 @@ export const metricSchema: Schema = {
     { name: "current_value", type: "number", required: false, read_only: true, label: "Current value" },
   ],
 };
+
+/** An open invitation to the user's email (platform-org's `org-invitations/received`). */
+export const invitations: ReceivedInvitation[] = [
+  {
+    id: "09000000-0000-7000-8000-000000000001",
+    token: "inv-token-1",
+    role: "member",
+    org: { id: "02000000-0000-7000-8000-000000000009", name: "Northwind Sales" },
+    invited_by: { id: "01000000-0000-7000-8000-000000000002", name: "Bao Tran", email: "bao@example.com" },
+  },
+];

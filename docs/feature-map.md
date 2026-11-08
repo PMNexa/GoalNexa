@@ -50,7 +50,7 @@ Last updated: 2026-10-26.
 | Sub-goals and sub-metrics (trees) | Done | Done | Done | Planned | Ported | |
 | Goal page: metrics with reading, % and pace | Done | Done | Done | Planned | Ported | |
 | Create and edit goals and metrics | Done | Done | Done | Planned | Ported | Apps: the goal and metric pages' menus; template goals and totals stay read-only |
-| Onboarding wizard | Done | Done | - | - | Web only | |
+| Onboarding wizard | Done | Done | - | - | Web only | Invitations shown first (P-99); an empty org asks only its owners/admins (P-98) |
 | Manual order, drag and drop | Done | Done | - | - | Web only | The apps show the order |
 | Archive, status | Done | Done | Done | Planned | Ported | Archived goals are hidden in the apps |
 | Goal visibility and goal members | Done | Done | - | - | Web only | The apps show what the user may see |

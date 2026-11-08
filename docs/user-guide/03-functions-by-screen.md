@@ -56,7 +56,11 @@ Screens:
 ## S2 Onboarding wizard
 
 Shown on the dashboard to a user with no organization and no goals (or
-for an organization with no goals yet: "Set up \<org\>").
+for an organization with no goals yet: "Set up \<org\>" - to its owners
+and admins; a member sees "\<org\> has no goals yet" with **Track
+personal goals** and **Set up its goals myself**). Invitations to the
+user's email come first: **Join** / **Decline**, or **Set up my own
+instead**; later they show above the dashboard.
 
 | ID | Function | Details |
 |---|---|---|
