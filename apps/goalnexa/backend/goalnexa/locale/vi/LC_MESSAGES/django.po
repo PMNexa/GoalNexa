@@ -43,11 +43,11 @@ msgstr "Chu kỳ không thể chuyển sang tổ chức khác."
 msgid "A goal can't be its own parent."
 msgstr "Mục tiêu không thể là mục cha của chính nó."
 
-#: goalnexa/backend/goalnexa/views/templates.py:713
+#: goalnexa/backend/goalnexa/views/templates.py:710
 msgid "A goal can't be under itself."
 msgstr "Mục tiêu không thể nằm dưới chính nó."
 
-#: goalnexa/backend/goalnexa/views/templates.py:702
+#: goalnexa/backend/goalnexa/views/templates.py:699
 msgid "A goal stays in its template."
 msgstr "Mục tiêu phải ở lại trong mẫu của nó."
 
@@ -55,7 +55,7 @@ msgstr "Mục tiêu phải ở lại trong mẫu của nó."
 msgid "A later check-in in the same period replaced it (the metric keeps one reading per period), so it doesn't count."
 msgstr "Một check-in sau trong cùng kỳ đã thay thế nó (chỉ số chỉ giữ một lần đo mỗi kỳ), nên nó không được tính."
 
-#: goalnexa/backend/goalnexa/views/templates.py:620
+#: goalnexa/backend/goalnexa/views/templates.py:617
 msgid "A list of 1 to {count} changes."
 msgstr "Danh sách từ 1 đến {count} thay đổi."
 
@@ -71,7 +71,7 @@ msgstr "Danh sách tối đa {count} ID."
 msgid "A list of ids, first to last."
 msgstr "Danh sách ID, theo thứ tự từ đầu đến cuối."
 
-#: goalnexa/backend/goalnexa/views/templates.py:337
+#: goalnexa/backend/goalnexa/views/templates.py:334
 msgid "A list: \"org\" and/or team ids."
 msgstr "Một danh sách: \"org\" và/hoặc ID nhóm."
 
@@ -79,11 +79,11 @@ msgstr "Một danh sách: \"org\" và/hoặc ID nhóm."
 msgid "A metric can't be its own parent."
 msgstr "Chỉ số không thể là mục cha của chính nó."
 
-#: goalnexa/backend/goalnexa/views/templates.py:763
+#: goalnexa/backend/goalnexa/views/templates.py:760
 msgid "A metric can't be under itself."
 msgstr "Chỉ số không thể nằm dưới chính nó."
 
-#: goalnexa/backend/goalnexa/views/templates.py:752
+#: goalnexa/backend/goalnexa/views/templates.py:749
 msgid "A metric stays in its template."
 msgstr "Chỉ số phải ở lại trong mẫu của nó."
 
@@ -100,7 +100,7 @@ msgid "A new team instance's target. Empty = each team sets its own (until then,
 msgstr "Chỉ tiêu cho bản của nhóm mới. Để trống = mỗi nhóm tự đặt (trước đó, nó không được tính)."
 
 #: goalnexa/backend/goalnexa/views/templates.py:122
-#: goalnexa/backend/goalnexa/views/templates.py:651
+#: goalnexa/backend/goalnexa/views/templates.py:648
 msgid "A number."
 msgstr "Một số."
 
@@ -137,7 +137,7 @@ msgstr "Tổng của nhóm: tính từ mục tiêu của các nhóm, chỉ đọ
 msgid "A template stays in its organization."
 msgstr "Mẫu phải ở lại trong tổ chức của nó."
 
-#: goalnexa/backend/goalnexa/views/templates.py:636
+#: goalnexa/backend/goalnexa/views/templates.py:633
 msgid "A total's base and target are its teams' - set planned_target."
 msgstr "Giá trị ban đầu và chỉ tiêu của tổng lấy từ các nhóm - hãy đặt planned_target."
 
@@ -145,11 +145,11 @@ msgstr "Giá trị ban đầu và chỉ tiêu của tổng lấy từ các nhóm
 msgid "A whole number from {low} to {high}."
 msgstr "Một số nguyên từ {low} đến {high}."
 
-#: goalnexa/backend/goalnexa/views/templates.py:407
+#: goalnexa/backend/goalnexa/views/templates.py:404
 msgid "A whole number, 1-60, with show."
 msgstr "Một số nguyên, 1-60, kèm show."
 
-#: goalnexa/backend/goalnexa/views/templates.py:405
+#: goalnexa/backend/goalnexa/views/templates.py:402
 msgid "A whole number, 1-60."
 msgstr "Một số nguyên, 1-60."
 
@@ -214,7 +214,7 @@ msgstr "Lượng đã check-in trong kỳ hiện tại (chỉ tiêu theo kỳ)."
 msgid "An amount to add to the total"
 msgstr "Một lượng cộng vào tổng"
 
-#: goalnexa/backend/goalnexa/views/templates.py:400
+#: goalnexa/backend/goalnexa/views/templates.py:397
 msgid "An ISO 8601 date and time."
 msgstr "Ngày giờ theo ISO 8601."
 
@@ -453,7 +453,7 @@ msgstr "Ngày trong tháng"
 msgid "Day of the week"
 msgstr "Ngày trong tuần"
 
-#: goalnexa/backend/goalnexa/views/templates.py:397
+#: goalnexa/backend/goalnexa/views/templates.py:394
 msgid "day, week, month, quarter or year."
 msgstr "day, week, month, quarter hoặc year."
 
@@ -689,7 +689,7 @@ msgstr "Mục tiêu"
 
 #: goalnexa/backend/goalnexa/views/goals.py:158
 #: goalnexa/backend/goalnexa/views/templates.py:221
-#: goalnexa/backend/goalnexa/views/templates.py:294
+#: goalnexa/backend/goalnexa/views/templates.py:291
 msgid "goals"
 msgstr "mục tiêu"
 
@@ -1028,11 +1028,11 @@ msgstr "Một số đo mỗi"
 msgid "One URL per line, as text."
 msgstr "Mỗi dòng một URL, dạng văn bản."
 
-#: goalnexa/backend/goalnexa/views/templates.py:344
+#: goalnexa/backend/goalnexa/views/templates.py:341
 msgid "Only \"org\" or a team of the organization that has sub-teams."
 msgstr "Chỉ \"org\" hoặc một nhóm của tổ chức có nhóm con."
 
-#: goalnexa/backend/goalnexa/views/templates.py:643
+#: goalnexa/backend/goalnexa/views/templates.py:640
 msgid "Only a team total has a planned target."
 msgstr "Chỉ tổng của nhóm mới có chỉ tiêu kế hoạch."
 
@@ -1077,7 +1077,7 @@ msgstr "Chỉ chủ sở hữu mục tiêu mới có thể thay đổi ai đư�
 msgid "Only the goal's owner can remove members."
 msgstr "Chỉ chủ sở hữu mục tiêu mới có thể xóa thành viên."
 
-#: goalnexa/backend/goalnexa/views/templates.py:638
+#: goalnexa/backend/goalnexa/views/templates.py:635
 msgid "Only the organization's owners and admins, or the lead of a team above it, can plan this total."
 msgstr "Chỉ chủ sở hữu và quản trị viên của tổ chức, hoặc trưởng nhóm của một nhóm cấp trên, mới có thể lập kế hoạch cho tổng này."
 
@@ -1086,7 +1086,7 @@ msgid "Only the team's lead or the organization's owners and admins can do this.
 msgstr "Chỉ trưởng nhóm hoặc chủ sở hữu và quản trị viên của tổ chức mới có thể làm việc này."
 
 #: goalnexa/backend/goalnexa/views/metrics.py:170
-#: goalnexa/backend/goalnexa/views/templates.py:645
+#: goalnexa/backend/goalnexa/views/templates.py:642
 msgid "Only the team's lead, the goal's owner or the organization's owners and admins can set its targets."
 msgstr "Chỉ trưởng nhóm, chủ sở hữu mục tiêu hoặc chủ sở hữu và quản trị viên của tổ chức mới có thể đặt chỉ tiêu."
 
@@ -1459,7 +1459,7 @@ msgstr "Tổng của nhóm"
 msgid "Team totals"
 msgstr "Tổng của nhóm"
 
-#: goalnexa/backend/goalnexa/views/templates.py:781
+#: goalnexa/backend/goalnexa/views/templates.py:778
 msgid "Teams have checked in - changing this would change what their check-ins mean."
 msgstr "Các nhóm đã check-in - thay đổi điều này sẽ làm thay đổi ý nghĩa các check-in của họ."
 
@@ -1606,10 +1606,6 @@ msgstr "Tổ chức có các nhóm dùng mẫu này. Chỉ chủ sở hữu và 
 msgid "The owner already sees this goal."
 msgstr "Chủ sở hữu đã xem được mục tiêu này."
 
-#: goalnexa/backend/goalnexa/views/templates.py:291
-msgid "The team doesn't use this template in that cycle - add it first."
-msgstr "Nhóm không dùng mẫu này trong chu kỳ đó - hãy thêm mẫu trước."
-
 #: schema goalnexa.Goal.team_id
 msgid "The team this goal is for, in its organization. Optional."
 msgstr "Nhóm mà mục tiêu này dành cho, trong tổ chức của mục tiêu. Không bắt buộc."
@@ -1697,7 +1693,7 @@ msgstr "Hành động không xác định: {action}"
 msgid "Unknown id."
 msgstr "ID không xác định."
 
-#: goalnexa/backend/goalnexa/views/templates.py:629
+#: goalnexa/backend/goalnexa/views/templates.py:626
 msgid "Unknown metric - only metrics of this template's teams and totals."
 msgstr "Chỉ số không xác định - chỉ các chỉ số thuộc các nhóm và các tổng của mẫu này."
 
