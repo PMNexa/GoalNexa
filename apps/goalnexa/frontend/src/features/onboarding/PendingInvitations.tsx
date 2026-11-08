@@ -55,7 +55,7 @@ function PendingInvitations({ accessToken, invitations, onAccepted, onDeclined }
             </div>
           </div>
           <div className="d-flex gap-2">
-            <Button variant="outline-secondary" disabled={busy !== null} onClick={() => void run(invitation, false)}>
+            <Button variant="light" disabled={busy !== null} onClick={() => void run(invitation, false)}>
               {t("decline")}
             </Button>
             <Button variant="primary" disabled={busy !== null} onClick={() => void run(invitation, true)}>
