@@ -19,15 +19,17 @@ class GoalVisibility(models.TextChoices):
 
 
 class SnapTo(models.TextChoices):
-    """What a check-in is for (P-63): any moment, or a whole period - its
-    time is then snapped to the period's first day (`CheckIn.save`)."""
+    """How often check-ins happen (P-63, P-80, P-93 - "frequency"): any time,
+    or at a moment each day/week/month/quarter/year (`SnapMoment`) - a
+    check-in's time then moves to the latest moment at or before it
+    (`CheckIn.save`), and the next moment is when one is due."""
 
     ANY = "", "Any time"
-    DAY = "day", "A day"
-    WEEK = "week", "A week"
-    MONTH = "month", "A month"
-    QUARTER = "quarter", "A quarter"
-    YEAR = "year", "A year"
+    DAY = "day", "Daily"
+    WEEK = "week", "Weekly"
+    MONTH = "month", "Monthly"
+    QUARTER = "quarter", "Quarterly"
+    YEAR = "year", "Yearly"
 
 
 class Weekday(models.IntegerChoices):
@@ -66,15 +68,16 @@ SNAP_TIMES = [(f"{h:02d}:{m:02d}", f"{h:02d}:{m:02d}") for h in range(24) for m 
 
 
 class SnapMoment(models.Model):
-    """When in its period a check-in for a period is (P-80): its time is
-    set to this moment, and with `snap_due` it's also when the period's
-    check-in is due (flagged and reminded). Which fields apply depends on
-    `snap_to`: a day - the time; a week - the weekday; a month - the day of
-    the month; a quarter - its month and the day; a year - the month and the
-    day. A day past a month's end is its last day. The defaults are the
-    period's first day, 00:00 - where check-ins were stamped before P-80.
-    On a goal or metric following another (`Goal.snap_to_parent`,
-    `Metric.snap_to_goal`) these hold the values in effect, like `snap_to`."""
+    """The moment of a frequency (P-80, P-93): a check-in's time moves to the
+    latest moment at or before it, and the next moment is when a check-in is
+    due (flagged and reminded); a period runs from one moment to the next.
+    Which fields apply depends on `snap_to`: daily - the time; weekly - the
+    weekday; monthly - the day of the month; quarterly - its month and the
+    day; yearly - the month and the day. A day past a month's end is its last
+    day. The defaults are the period's first day, 00:00. On a goal or metric
+    following another (`Goal.snap_to_parent`, `Metric.snap_to_goal`) these
+    hold the values in effect, like `snap_to`. `snap_due` is always true
+    with a frequency since P-93 (kept for older code and apps)."""
 
     snap_weekday = models.PositiveSmallIntegerField(
         "day of the week", choices=Weekday.choices, default=Weekday.MONDAY, db_default=Weekday.MONDAY
@@ -87,7 +90,7 @@ class SnapMoment(models.Model):
         "day of the month", default=1, db_default=1, validators=[MinValueValidator(1), MaxValueValidator(31)]
     )
     snap_time = models.CharField("time", max_length=5, choices=SNAP_TIMES, default="00:00", db_default="00:00")
-    # db_default False: rows from before P-80 keep their own schedule (`check_in_every`).
+    # db_default False: inserts by code from before P-80. Read-only in the API since P-93.
     snap_due = models.BooleanField("due at that moment", default=True, db_default=False)
 
     class Meta:

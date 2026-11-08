@@ -48,9 +48,9 @@ class TemplateGoalSerializer(BaseSerializer):
     sub-goals with "parent" (the default)."""
 
     snap_to = serializers.ChoiceField(
-        label="Check-in period", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True,
+        label="Frequency", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True,
         initial=SNAP_TO_PARENT,
-        help_text="Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period. Its metrics and sub-goals inherit it unless they pick their own; every team's copy follows it.",
+        help_text="Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. Daily/weekly/...: each check-in moves to the latest moment at or before it. Its metrics and sub-goals inherit it unless they pick their own; every team's copy follows it.",
     )
     snap_due = snap_due_field()
 
@@ -86,9 +86,9 @@ class TemplateMetricSerializer(BaseSerializer):
     can't change once a team has checked in."""
 
     snap_to = serializers.ChoiceField(
-        label="Check-in period", choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True,
+        label="Frequency", choices=METRIC_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True,
         initial=SNAP_TO_GOAL,
-        help_text="Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period, whoever checks in. Every team's copy follows it.",
+        help_text="Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. Daily/weekly/...: each check-in moves to the latest moment at or before it, whoever checks in. Every team's copy follows it.",
     )
     snap_due = snap_due_field()
 
@@ -102,7 +102,7 @@ class TemplateMetricSerializer(BaseSerializer):
             "description": {"help_text": "Optional. How it is measured."},
             "unit": {"help_text": "What the number counts, such as $, deals or %."},
             "aggregation": {"help_text": "Latest: each check-in is the new reading. Sum: each check-in is an amount added. Can't change once a team has checked in."},
-            "check_in_every": {"help_text": "How often teams should check in. Empty = no schedule."},
+            "check_in_every": {"help_text": "Replaced by the frequency (snap_to) - only for templates set up before it. Not used with a frequency."},
             "rollup": {"help_text": "How the teams add up into a department's and the organization's total."},
             "default_base": {"help_text": "Where a new team instance starts."},
             "default_target": {"help_text": "A new team instance's target. Empty = each team sets its own (until then, it doesn't count)."},

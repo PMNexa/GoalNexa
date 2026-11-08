@@ -18,8 +18,8 @@ import { fitDomain, pctDomainMax, type ChartDomain } from "../../components/char
 import { metricSnap, periodBars, snapSeries, type PeriodBar, type Snap } from "../../lib/periods";
 
 /** A series snapped to its period, or as checked in (`per` null). */
-function snapped<T extends Parameters<typeof snapSeries>[0][number]>(points: T[], per: Snap | null): T[] {
-  return per ? snapSeries(points, per) : points;
+function snapped<T extends Parameters<typeof snapSeries>[0][number]>(points: T[], per: Snap | null, metric?: Metric): T[] {
+  return per ? snapSeries(points, per, metric) : points;
 }
 import { byPosition } from "../../lib/ordering";
 
@@ -112,7 +112,7 @@ export function useDashboardCharts(
           id: metric.id,
           label: metric.name,
           slot: metricSlot.get(metric.id) as number,
-          points: snapped(computeMetricSeries(metric, checkIns), metricSnap(snap, metric)),
+          points: snapped(computeMetricSeries(metric, checkIns), metricSnap(snap, metric), metric),
           projection: projections.byMetric.get(metric.id) ?? null,
           formatDetail: (point: ProgressPoint) =>
             point.value === undefined
@@ -131,7 +131,7 @@ export function useDashboardCharts(
             label: metric.name,
             unit: metric.unit,
             slot: metricSlot.get(metric.id) as number,
-            points: snapped(computeValueSeries(metric, checkIns), metricSnap(snap, metric)),
+            points: snapped(computeValueSeries(metric, checkIns), metricSnap(snap, metric), metric),
           })),
           // Amounts per period: every metric with a target per period (against
           // its quota), and - when snapped - every other amount-to-add one.

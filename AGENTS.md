@@ -336,14 +336,17 @@ check-ins is detached, an empty one deleted; Check in mode shows only
 teams that run the template),
 `POST check-ins/bulk` (all or nothing); `board?show=<period>&at=<ISO>` adds
 each cell's `shown` numbers in that period (`periods.shown`; totals by
-`_combine_shown`) for the board's "Show by"; `&periods=N` adds `history`
+`_combine_shown`) - the board sends its metrics' own frequency (P-95: no
+"Show by" picker; metrics with several frequencies are shown a group at a
+time, picked in "Frequency"; any time = running totals); `&periods=N` adds `history`
 (that many periods up to `at`, `periods.shown_series`; a cell's `value` is
 null with no check-in in it, `count`/`last_at` describe them) for its "Over
 time" mode (its periods are a range from `PeriodPicker` - day/week/month/
 quarter/year tabs over a calendar or grid, also the single-period picker
 in Check in - sent as `at` = the last and `periods` = the count, capped at
 60; a team's cell is edited in place: one check-in, the difference
-for an amount - `savePeriod`) (rows team -> goal -> metric, columns periods); Check in and Over time
+for an amount - `savePeriod`; a Value / Change switch shows each period
+minus the one before instead - `changeBlocks`, P-97) (rows team -> goal -> metric, columns periods); Check in and Over time
 also draw as charts (Table/Chart, `components/charts/BoardCharts/BoardCharts.tsx`: bars as
 % of each team's target, lines per team; totals listed apart) - goalnexa-frontend's
 `TeamBoardScreen` (`createTeamBoardRoutes("board")`; templates' pages:
@@ -359,7 +362,8 @@ member under the team's on the board (Targets lists every member with an
 "Own" tick). A tree is (template, team, assignee, cycle): pass the
 assignee to `tree_goals` (None = the team's own copy). The member checks
 in, the lead sets targets (`can_set_targets` ignores ownership of a
-member copy); a team with member copies is always totalled (its copy +
+member copy; P-96: no team copy needed - the template wizard's Teams step
+ticks people as well as teams); a team with member copies is always totalled (its copy +
 theirs). Metrics' `for_me` tells an agent which copy is the user's.
 **Placeholders** (P-92, `docs/team-templates.md` "Placeholders"): someone in a team
 with no account - platform-org's `Placeholder`, whose id stands in for a user id
@@ -413,7 +417,17 @@ same setting and inheritance (`TemplateGoal.snap_to_parent`,
 `TemplateMetric.snap_to_goal`); template rows keep their OWN choice and a
 team's copy gets the one in effect (`templates.template_settings`,
 checked against each metric's target by `check_template_settings` before
-the push). Tests:
+the push). **Frequency** (P-93, `docs/period-targets.md` "Frequency"):
+that setting is the frequency, and it's the schedule (`snap_due` is
+read-only, `check_in_every` only on old rows). A check-in moves to the
+LATEST moment at or before it, and every period - quotas, one reading per
+period, the board (each metric's own periods: `opens`/`closes`), the
+dashboard (`lib/periods.ts` `momentStart`) - runs from one moment to the
+next (`periods.period_key`). Never bucket a frequency metric's check-ins
+by calendar period (`period_start`) again. `CheckIn.entered_at` keeps the
+time as given so `resnap` (write-only on goals/metrics: move or leave
+check-ins on a change, or re-snap on demand) never slides them; a
+check-in may name its `period` instead of a time. Tests:
 `tests/test_period_targets.py`.
 
 **System administration** (platform-core's `platform_system` app behind

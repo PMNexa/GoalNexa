@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { ACCESS_TOKEN, cycles, orgs } from "../../storybook/fixtures";
 import { emptyTemplate, orgTeams } from "./TeamBoardScreen.mocks";
 import TemplateWizard from "./TemplateWizard";
@@ -33,7 +33,7 @@ export const MetricsStep: Story = {
   args: { existing: emptyTemplate },
   play: async ({ canvasElement }) => {
     const modal = within(canvasElement.ownerDocument.body);
-    await userEvent.type(await modal.findByLabelText(/Main goal/), "Grow revenue");
+    await userEvent.type(await modal.findByLabelText(/^Goal/), "Grow revenue");
     await userEvent.click(modal.getByRole("button", { name: "Next" }));
   },
 };
@@ -49,4 +49,17 @@ export const MissingName: Story = {
 /** An organization with no teams: the Teams step says to create them first. */
 export const NoTeams: Story = {
   args: { existing: emptyTemplate, teams: [] },
+};
+
+/** Several goals, each with its own sub-goals and frequency: "+ Add a goal" and "+ Add a sub-goal". */
+export const SeveralGoals: Story = {
+  args: { existing: emptyTemplate },
+  play: async ({ canvasElement }) => {
+    const modal = within(canvasElement.ownerDocument.body);
+    await userEvent.type(await modal.findByLabelText(/^Goal/), "Grow revenue");
+    await userEvent.click(modal.getByRole("button", { name: "+ Add a goal" }));
+    await userEvent.type(modal.getByLabelText(/^Goal 2/), "Keep customers");
+    await userEvent.click(modal.getAllByRole("button", { name: "+ Add a sub-goal" })[1]);
+    await expect(modal.getByLabelText("Sub-goal 1")).toBeInTheDocument();
+  },
 };

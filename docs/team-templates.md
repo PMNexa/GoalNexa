@@ -79,7 +79,7 @@ release's code keeps working during a deploy.
 |---|---|---|
 | Goal title, description, parent, position (template sub-goals) | template | locked |
 | Metric name, unit, aggregation, schedule, parent, position | template | locked |
-| When check-ins happen (`snap_to` + moment), on goals and metrics | template (inherited down like goals: `"parent"`/`"goal"`; a copy gets the setting in effect, `templates.template_settings`) | locked |
+| The frequency (`snap_to` + moment, P-93), on goals and metrics | template (inherited down like goals: `"parent"`/`"goal"`; a copy gets the setting in effect, `templates.template_settings`) | locked |
 | Base, target, check-ins, current value, goal owner, members | team | editable |
 | Goal/metric with no template link (local) | team | fully editable, not rolled up |
 
@@ -281,8 +281,9 @@ of its members **their own copy** of the team's instance. Asked for
 
 - A tree is identified by (template, team, **assignee**, cycle, is_rollup):
   `templates.tree_goals(..., assignee_id)` (None = the team's own copy),
-  `team_trees` (the team's and its members'). A copy needs the team's own
-  copy in that cycle, and only the team's members can get one.
+  `team_trees` (the team's and its members'). Only the team's members can
+  get one; since P-96 the team needn't have a copy of its own (a team can
+  run the template through its members alone - its total is then theirs).
 - `POST goal-templates/<id>/assign` / `unassign` `{"team", "users",
   "cycle"}` (`templates.assign_members`/`unassign_members`): a new copy
   takes the team's visibility and target date and the template's default

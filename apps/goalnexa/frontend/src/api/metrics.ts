@@ -41,6 +41,7 @@ export interface Metric {
   snap_day?: number;
   snap_time?: string;
   /** The period's check-in is due at that moment (`check_in_due_at`). */
+  /** Read-only since P-93: true with a frequency (it's the schedule). */
   snap_due?: boolean;
   /** The period check-ins are for, after "goal" ("" = any time) - what to read, not `snap_to`. */
   snap_period?: TargetPer;

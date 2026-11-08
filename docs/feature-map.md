@@ -58,8 +58,8 @@ Last updated: 2026-10-26.
 | Sum vs. latest metrics | Done | Done | Done | Planned | Ported | The check-in label follows it |
 | Targets per period, hit rate, streaks | Done | Done | Built | Planned | Ported | "6/10 km today - 4 to go" |
 | One reading per period | Done | Done | Built | Planned | Ported | Says what it replaced. Not asked in web forms any more: in a check-in period a new value's last one counts, amounts add up (`counted_per`); shown only where already set |
-| Check-ins for a period (`snap_to`, "Check-in period") | Done | Done | Done | Planned | Ported | Says which period it went to; dated at its moment (P-80, picked in one menu on the web, inherited down the tree) - server-side, so app check-ins get it too |
-| Check-in schedules and due dates | Done | Done | Done | Planned | Ported | Shown on Today; set on a metric |
+| Check-in frequency (`snap_to`, "Frequency") | Done | Done | Partial | Planned | Ported | Any time / daily / weekly / monthly / quarterly / yearly at a moment, or inherited down the tree; a check-in moves to the moment before it and periods run moment to moment (P-93) - server-side, so app check-ins get it too. "Move existing check-ins" on a change or on demand; a check-in can name its `period`. Android: still sends mid-period times - needs `period` before `min_app_version` is raised |
+| Check-in schedules and due dates | Done | Done | Done | Planned | Ported | Shown on Today; the frequency is the schedule (P-93: due at each moment; "check in every" only on older metrics) |
 | Ingest URL per metric | Done | Done | - | - | Web only | For scripts and services |
 
 ## Check-ins
@@ -98,9 +98,9 @@ Last updated: 2026-10-26.
 | Organizations and roles | Done | Done | - | - | Web only | The apps only switch between them |
 | Invite and accept invitations | Done | Done | Partial | Planned | Ported | Apps accept or decline (on Today); inviting stays on the web |
 | Teams and the org chart | Done | Done | - | - | Web only | |
-| Goal templates | Done | Done | - | - | Web only | Template goals and metrics carry the check-in setting, inherited like goals; teams' copies follow it |
-| Team board (targets, apply, who plays) | Done | Done | - | - | Web only | Big grid; "Open on the web" from the app |
-| Team board: members' own targets | Done | Done | - | - | Web only | P-91. A member's own copy reaches the apps as an ordinary goal (not tried on a device); assigning stays on the web |
+| Goal templates | Done | Done | - | - | Web only | Template goals and metrics carry the frequency, inherited like goals; teams' copies follow it. The wizard takes several goals with their own sub-goals, a frequency per goal and "Same as goal" on metrics (P-94) |
+| Team board (targets, apply, who plays) | Done | Done | - | - | Web only | Big grid; "Open on the web" from the app. Shows by its metrics' frequency - several frequencies a group at a time (P-95); Over time shows values or the change from the period before (P-97) |
+| Team board: members' own targets | Done | Done | - | - | Web only | P-91; with or without the team's own copy, also picked in the template wizard (P-96). A member's own copy reaches the apps as an ordinary goal (not tried on a device); assigning stays on the web |
 | Teams: people with no account | Done | Done | - | - | Web only | P-92. Placeholders in teams, the lead checks in for them; linked to an account later (pick a member, or by invitation email) |
 | Team totals (rollups) | Done | Done | Done | Planned | Ported | Read-only, labeled |
 | Cycles: close, scores, roll over | Done | Done | - | - | Web only | |

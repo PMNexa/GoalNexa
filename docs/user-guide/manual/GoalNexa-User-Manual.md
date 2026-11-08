@@ -270,9 +270,10 @@ Under it are its **metrics** (current / target and unit), then its
    ![The new goal form](images/newgoal-modal.png){width=45%}
 
    - **Title** - the outcome, e.g. "Run a 10 km race under 50 minutes".
-   - **Check-in period** - Inherited (from the parent goal; any time
-     for a top-level goal), Any time, or a day / week / month / quarter /
-     year, with the moment in it (see "When check-ins happen", 4.5).
+   - **Frequency** - Inherited (from the parent goal; any time for a
+     top-level goal), Any time, Daily, Weekly, Monthly, Quarterly or
+     Yearly, with the moment in it - e.g. "Weekly on Friday at 17:00".
+     It's also when check-ins are due (see "Frequency", 4.5).
    - **Description** - why it matters.
    - **Status** - Not started / In progress / Completed / Archived
      (archived goals leave the dashboard).
@@ -307,12 +308,12 @@ You can also create goals from **Goal tracking > Goals > + New goal**.
 
    ![More metric settings](images/newmetric-modal-2.png){width=45%}
 
-   - **Check in every** - Daily / Weekly / Monthly / Quarterly / Yearly,
-     counted from the last check-in: you get a reminder when a check-in is
-     due (chapter 6). Not used when the check-ins are for a period and due
-     at its moment (4.5).
+   - **Frequency** - when check-ins happen and are due (4.5); inherited
+     from the goal by default.
    - **Target is for**, **Count days**, **Progress by**, **One reading
-     per**, **Check-in period** - quotas per period (4.5).
+     per** - quotas per period (4.5).
+   - **Check in every** - only shown on an older metric that already has
+     one, so you can clear it; ignored once the metric has a Frequency.
 4. Click **Create**.
 
 ## 4.3 Sub-goals and sub-metrics
@@ -350,41 +351,54 @@ day") use a metric whose check-ins are **amounts to add**, then set:
 | **Target is for** | Each day / week / month / quarter / year (the target becomes the amount per period) |
 | **Count days** | Every day, or Weekdays only (for daily/weekly targets) |
 | **Progress by** | *The total against every period's target*, or *How often the target is hit* (hit rate) |
-| **Check-in period** | A check-in counts for a whole day/week/month - its time is set to the period's moment (below). Several check-ins in one period: amounts add up; with "the new value", the last one counts |
+| **Frequency** | Daily / Weekly / ... at a moment: each check-in moves to the latest moment at or before it, and a period runs from one moment to the next (below). Several check-ins in one period: amounts add up; with "the new value", the last one counts |
 
 The tree then shows "done / quota /wk", the chart adds **Per period**
 bars, and the metric's page shows the **hit rate** and **streak**.
 
-### When check-ins happen
+### Frequency
 
-**Check-in period** sits right under a goal's title and a metric's
-name. Click it: the menu lists the choices, and picking a period opens
-the rest in the same menu - the moment, then **Due at that moment** -
-and **Done** closes it; the field then reads e.g. "Each week · Friday,
-17:00 · due then". **Any time** keeps each check-in's own time. A
-period files every check-in under it, dated at the moment you pick (in
-the organization's time zone). On a team's copy of a goal template it's
-greyed out: the template sets it (Goal templates), on its goals and
+**Frequency** sits right under a goal's title and a metric's name. Click
+it: the menu lists the choices, and picking one opens the moment in the
+same menu; **Done** closes it, and the button then reads it in words,
+e.g. "Weekly on Friday at 17:00". On a team's copy of a goal template
+it's greyed out: the template sets it (Goal templates), on its goals and
 metrics the same way - inherited unless one picks its own.
 
-What you pick for each period:
-
-| Period | You pick | Example |
+| Frequency | You pick | Example |
 |---|---|---|
-| A day | Time | Every day at 18:30 |
-| A week | Day of the week, time | Friday 17:00 |
-| A month | Day of the month, time | The 31st (= the month's last day) at 09:00 |
-| A quarter | Month of the quarter, day, time | 2nd month, the 15th |
-| A year | Month, day, time | March 15 |
+| Inherited | - | A sub-goal: its parent goal's; a metric: its goal's; a sub-metric: its parent metric's |
+| Any time | - | Each check-in keeps its own time |
+| Daily | A time | Daily at 18:30 |
+| Weekly | A weekday, a time | Weekly on Friday at 17:00 |
+| Monthly | A day, a time | The 31st (= the month's last day) at 09:00 |
+| Quarterly | A month of the quarter, a day, a time | 2nd month, the 15th, 09:00 |
+| Yearly | A month, a day, a time | March 15, 09:00 |
 
-**Due at that moment** (Yes by default): the period's check-in is due
-then - the metric gets the clock on the dashboard and you're reminded
-(chapter 6). **Check in every** is used only when it's No or for any time.
+**The rule**: a check-in moves to the latest moment at or *before* it
+(in the organization's time zone). With *Weekly on Friday at 17:00*, a
+check-in on Monday goes to the Friday before, 17:00. A period runs from
+one moment to the next - Friday 17:00 to the next Friday 17:00 - and
+targets per period, hit rate, streaks, "one reading per period", the
+dashboard's bars and the team board all count in those periods. A target
+period coarser than the frequency (a weekly quota with *Daily at 09:00*)
+opens on the period's first day at the frequency's time (Monday 09:00).
 
-**Inherited** passes the whole setting down: a sub-goal takes its parent
-goal's, a metric its goal's, a sub-metric its parent metric's - until it
-picks its own. Changing a setting moves the existing check-ins of
-everything that inherits it to their period's new moment.
+**The frequency is the schedule**: each moment is when the next check-in
+is due - the metric gets the clock on the dashboard and you're reminded
+(chapter 6).
+
+In the check-in form, a metric with a frequency asks for the period
+(e.g. "Week from Fri, Oct 2, 17:00"), not a time.
+
+**Changing it**: when you edit a goal or metric, under Frequency there's
+a tick box, **Move existing check-ins to the moment before them**. It's
+ticked for you once you change the frequency - untick it to leave the old
+check-ins where they are. Tick it without changing anything to re-snap
+old check-ins (best effort for check-ins made before this rule, whose
+original time wasn't kept). Switching to **Any time** moves check-ins
+back to the time they were entered. A change also applies to everything
+that inherits the setting.
 
 ## 4.6 Lists, search and filters
 
@@ -452,8 +466,8 @@ template (9.2): each team gets its own copy with its own targets.
 
 ## 5.2 When a check-in is due
 
-A metric with **Check in every** shows a clock after its name once a
-check-in is overdue. Click the clock to open the check-in form.
+A metric with a **Frequency** (4.5) shows a clock after its name once a
+check-in is due. Click the clock to open the check-in form.
 
 ![Due clock on "Subscribers"](images/due-clock.png){width=55%}
 
@@ -492,8 +506,8 @@ to last check-in; hover a column for the numbers.
 
 # 6. Reminders and the goals digest
 
-1. Give metrics a schedule: **Check in every** = Daily, Weekly or Monthly
-   (4.2).
+1. Give metrics a schedule: set a **Frequency** - Daily, Weekly,
+   Monthly ... at a moment - on the goal or the metric (4.5).
 2. Open **Goal tracking > Reminders**.
 
    ![Reminders](images/reminders.png)
@@ -684,7 +698,7 @@ and let GoalNexa add up the totals.
    - **Totals** - how teams add up: *Add up*, *Average*, *Lowest team*
      or *No total*.
    - **Target is for**, **Counts**, **Progress is**, **Which check-ins
-     count**, **Check-in period** - for quotas (4.5).
+     count**, **Frequency** (same choices as on a goal) - for quotas (4.5).
    - **Start** and **Default target** - leave the target empty to let
      each team set its own.
 5. **Teams** - pick the **Cycle** and tick the teams that run it.
@@ -751,8 +765,11 @@ at the top, then click the first period and the last (up to 60; it
 opens on the last 14 days, 12 weeks, 12 months, 8 quarters or 5 years).
 It's the same picker as **Show by**, picking a range instead of one period. A cell
 is what was done in that period (or its last reading), "/ 10" its target
-per period; "—" means nobody checked in. Hover a cell for its details
-(the dates, the % of target, how many check-ins and the last one's time).
+per period; "—" means nobody checked in. A metric with a Frequency
+counts in its own periods (4.5), so the column header is named by the
+first metric's period. Hover a cell for its details (its own period,
+e.g. "Week from Fri, Oct 2, 17:00", the % of target, how many check-ins
+and the last one's time).
 Click a team's cell to type its number for that period and press Enter
 (Esc cancels): a reading is saved as is; for an amount, the difference
 from what the period already has is checked in, so earlier check-ins
@@ -1008,14 +1025,14 @@ the console.
 | Target value | Where you want to be; lower than base = should go down; equal = tracked only |
 | Current value | Updated by check-ins |
 | Each check-in is | The new value (reading) / An amount to add (sum) |
-| Check in every | No schedule / Daily / Weekly / Monthly / Quarterly / Yearly - reminders |
+| Check in every | Only on older metrics that already have one (to clear it); ignored when the metric has a Frequency |
 | Target is for | The whole goal / Each day, week, month, quarter, year (quota) |
 | Count days | Every day / Weekdays only |
 | Progress by | Total against every period's target / How often the target is hit |
 | One reading per | Shown only on a metric that already has it (set before it followed "Each check-in is"): Every check-in counts / The last one each period |
-| Check-in period | Inherited / Any time / A day, week, month, quarter, year |
-| Day of the week, Month of the quarter, Month, Day of the month, Time | The moment in the period (4.5, "When check-ins happen") |
-| Due at that moment | Yes: due and reminded then / No |
+| Frequency | Inherited / Any time / Daily / Weekly / Monthly / Quarterly / Yearly - when check-ins happen and are due |
+| Weekday, Month of the quarter, Month, Day, Time | The moment (4.5, "Frequency") |
+| Move existing check-ins to the moment before them | Ticked when the frequency changes; untick to leave old check-ins in place |
 | Parent | Makes it a sub-metric (not counted in the goal's progress) |
 
 ## Check-in
@@ -1068,6 +1085,6 @@ the console.
 | A goal disappeared from the dashboard | It may be archived, in another cycle or team filter, or hidden (eye). **Show all** |
 | Can't show more goals | Up to 8 at a time - hide one first |
 | No health badge | Give the goal a target date and at least two check-ins |
-| No reminders arrive | Metric needs **Check in every**; **Reminders** must be on with a destination; **Send a test**; the administrator's Status page must show the scheduler *Running* |
+| No reminders arrive | Metric (or its goal) needs a **Frequency**; **Reminders** must be on with a destination; **Send a test**; the administrator's Status page must show the scheduler *Running* |
 | The assistant doesn't see GoalNexa | Check **Connected apps** / tokens on **MCP access**; a Claude/ChatGPT connector needs a public HTTPS address |
 | A team-board total won't take a check-in | Totals are calculated; check in on a team's row |

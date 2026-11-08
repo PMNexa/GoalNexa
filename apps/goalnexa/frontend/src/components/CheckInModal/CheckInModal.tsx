@@ -3,7 +3,7 @@ import { Button, formatDateTime, formatNumber, formatTime, FormControl, FormLabe
 import { apiRequest } from "../../api/client";
 import type { CheckIn } from "../../api/checkIns";
 import type { Metric } from "../../api/metrics";
-import { countedPer, midPeriod, nextPeriodStart, periodStart, recentPeriods, type Snap } from "../../lib/periods";
+import { countedPer, midPeriod, momentStart, nextMomentStart, recentPeriods, type Snap } from "../../lib/periods";
 import messages from "./CheckInModal.messages";
 
 const TIME_OF_DAY: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
@@ -24,7 +24,8 @@ function usePeriodCheckIn(
   useEffect(() => {
     loadedRef.current = onLoaded;
   });
-  const start = per ? periodStart(t, per) : 0;
+  // The metric's own period (P-93): from one of its moments to the next.
+  const start = per ? momentStart(t, per, metric) : 0;
   const [found, setFound] = useState<{ start: number; checkIn: CheckIn | null } | null>(null);
   useEffect(() => {
     if (!per) return;
@@ -33,7 +34,7 @@ function usePeriodCheckIn(
       params: {
         "filter{metric}": metric.id,
         "filter{checked_in_at.gte}": new Date(start).toISOString(),
-        "filter{checked_in_at.lt}": new Date(nextPeriodStart(start, per)).toISOString(),
+        "filter{checked_in_at.lt}": new Date(nextMomentStart(start, per, metric)).toISOString(),
         sort: "-checked_in_at",
         page_size: 1,
       },
@@ -47,7 +48,7 @@ function usePeriodCheckIn(
     return () => {
       live = false;
     };
-  }, [accessToken, metric.id, per, start]);
+  }, [accessToken, metric, per, start]);
   if (!per) return null;
   return found && found.start === start ? found.checkIn : undefined;
 }
@@ -131,9 +132,9 @@ function CheckInForm({
   });
   const periodWord = per ? t(when ? `that_${per}` : `this_${per}`) : "";
   // A later check-in in the same period keeps counting - this one would be replaced at once.
-  // A check-in for a period lands on the period's moment (which may be ahead of now), like this one will.
+  // With a frequency, both land on their period's opening moment - the same one when in the same period.
   const existingAt = existing ? Date.parse(existing.checked_in_at) : 0;
-  const later = !!existing && existingAt > at && !(snap && periodStart(existingAt, snap) === periodStart(at, snap));
+  const later = !!existing && existingAt > at && !(snap && momentStart(existingAt, snap, metric) === momentStart(at, snap, metric));
   const replacing = !!existing && !later;
   const newTotal =
     value !== "" && Number.isFinite(Number(value))
@@ -213,12 +214,12 @@ function CheckInForm({
         )}
       </div>
       {snap ? (
-        // Check-ins are for a whole period: pick it (the server sets the time to its first day).
+        // A frequency: pick the period (the server moves the time to the moment that opens it).
         <div className="mb-3">
           <FormLabel htmlFor="dashboard-check-in-when">{t("for")}</FormLabel>
           <FormSelect id="dashboard-check-in-when" value={when} onChange={(event) => setWhen(event.target.value)}>
-            {recentPeriods(snap, openedAt, 12, locale).map((period, index) => (
-              <option key={period.start} value={index === 0 ? "" : new Date(midPeriod(period.start, snap as Snap)).toISOString()}>
+            {recentPeriods(snap, openedAt, 12, locale, metric).map((period, index) => (
+              <option key={period.start} value={index === 0 ? "" : new Date(midPeriod(period.start, snap as Snap, metric)).toISOString()}>
                 {index === 0 ? `${t(`this_${snap as Snap}`).replace(/^./, (c) => c.toUpperCase())} (${period.label})` : period.label}
               </option>
             ))}

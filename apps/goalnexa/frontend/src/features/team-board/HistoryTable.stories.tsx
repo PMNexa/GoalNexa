@@ -1,7 +1,7 @@
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { useState } from "react";
-import { boardBlocks, buildRows } from "./boardRows";
+import { boardBlocks, buildRows, changeBlocks } from "./boardRows";
 import { BOARD_CSS } from "./boardStyles";
 import { makeBoard, memberBoard, withShown } from "./TeamBoardScreen.mocks";
 import HistoryTable, { type PeriodTip } from "./HistoryTable";
@@ -49,3 +49,9 @@ export const Member: Story = { args: history("week", 8, true) };
 
 /** While a save runs, no cell can be edited. */
 export const Busy: Story = { args: { busy: true } };
+
+/** "Change": each period minus the one before - signed, coloured, not editable. */
+export const Change: Story = (() => {
+  const base = history("week", 8);
+  return { args: { ...base, blocks: changeBlocks(base.blocks), change: true } };
+})();

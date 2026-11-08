@@ -1,5 +1,21 @@
 import { apiRequest } from "./client";
 import { fetchAll } from "./dashboard";
+
+/** Someone in a team (platform-org's `/api/v1/team-members`); `user_id` may be a placeholder's (no account yet). */
+export interface TeamPerson {
+  id: string;
+  team: string;
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  role: "lead" | "member";
+  placeholder?: boolean;
+}
+
+/** Everyone in the teams the caller can see (the wizard lists them per team). */
+export function fetchTeamPeople(accessToken: string): Promise<TeamPerson[]> {
+  return fetchAll<TeamPerson>("/api/v1/team-members?sort=name", accessToken).catch(() => []);
+}
 import type { Pace, TargetPer } from "./metrics";
 
 /**
@@ -38,7 +54,13 @@ export interface BoardMetric {
   count_days: "all" | "weekdays";
   progress_by: "total" | "hit_rate";
   one_per: TargetPer;
+  /** Its frequency in effect (P-93), and the moment (`SnapMoment`). */
   snap_to: TargetPer;
+  snap_weekday?: number;
+  snap_quarter_month?: number;
+  snap_month?: number;
+  snap_day?: number;
+  snap_time?: string;
 }
 
 /** A team's member, who can be given a copy of their own (`Board.members`). */
@@ -91,9 +113,14 @@ export interface CellNumbers {
  * comes from its teams' by the metric's rule (null: not totalled).
  */
 export interface ShownNumbers {
-  /** The period's first and last day, "YYYY-MM-DD". */
+  /** The period's key - the first day of the calendar period its moment is in - and its last day, "YYYY-MM-DD". */
   start: string;
   last: string;
+  /** Its first day (its moment's), "YYYY-MM-DD" - each metric counts in its own periods (P-93). */
+  first?: string;
+  /** When it opens and closes (ISO): one moment of the metric's frequency and the next. */
+  opens?: string;
+  closes?: string;
   value: number | null;
   quota: number | null;
   /** The check-ins that count in it (0: none - `value` is null then). */
@@ -252,7 +279,7 @@ export function createTemplate(
 
 export function createTemplateGoal(
   accessToken: string,
-  data: { template: string; title: string; parent?: string },
+  data: { template: string; title: string; parent?: string; snap_to?: string } & Record<string, unknown>,
 ): Promise<{ id: string }> {
   return apiRequest<{ id: string }>("/api/v1/template-goals", accessToken, { method: "POST", data });
 }
@@ -271,8 +298,8 @@ export function createTemplateMetric(
     count_days?: "all" | "weekdays";
     progress_by?: "total" | "hit_rate";
     one_per?: TargetPer;
-    snap_to?: TargetPer;
-    /** `snap_to`'s moment (`snap_weekday`, `snap_time`, `snap_due`...). */
+    snap_to?: TargetPer | "goal";
+    /** `snap_to`'s moment (`snap_weekday`, `snap_time`...). */
     [moment: `snap_${string}`]: unknown;
   },
 ): Promise<{ id: string }> {

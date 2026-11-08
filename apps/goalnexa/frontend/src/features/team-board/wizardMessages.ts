@@ -9,7 +9,7 @@ interface ReviewMetricVars {
   per: string;
   weekdays: boolean;
   hitRate: boolean;
-  /** The check-in period, already lowercased; "" = any time. */
+  /** The frequency in effect, already lowercased; "" = any time. */
   snap: string;
   sum: boolean;
   /** The totals rule, already lowercased. */
@@ -40,8 +40,11 @@ const messages = defineMessages({
     description: "Description",
     descriptionPlaceholder: "Optional - what it's for",
     goalsIntro:
-      "What every team works toward, as an outcome. Break it down into sub-goals if it helps - each gets its own metrics next.",
-    mainGoal: "Main goal",
+      "What every team works toward, as outcomes - one goal or several. Break a goal down into sub-goals if it helps - each gets its own metrics next.",
+    mainGoal: "Goal",
+    goalAria: "Goal {n}",
+    removeGoalAria: "Remove goal {n}",
+    addGoal: "+ Add a goal",
     mainGoalPlaceholder: "Grow revenue",
     subGoals: "Sub-goals",
     subGoalAria: "Sub-goal {n}",
@@ -53,7 +56,8 @@ const messages = defineMessages({
       "The numbers every team tracks. Leave the target empty to let each team set its own (until then it doesn't count toward the totals).",
     addMetric: "+ Add a metric",
     teamsIntro:
-      "Which teams run it? Each gets its own copy to set targets and check in on. A department can have its own copy too, next to its teams'.",
+      "Who runs it? A ticked team gets its own copy to set targets and check in on (a department too, next to its teams'). Tick people to give them their own copy - with or without their team's; the team's total adds them up.",
+    reviewPeople: "People",
     noTeams:
       "This organization has no teams yet - create them under Organizations → Teams, then add the template to them from the team board (Targets).",
     cycle: "Cycle",
@@ -65,17 +69,21 @@ const messages = defineMessages({
       `${v.name}${v.unit ? ` (${v.unit})` : ""}: from ${v.base}` +
       (v.target ? ` to ${v.target}` : ", each team sets its target") +
       (v.per ? ` ${v.per}${v.weekdays ? " (weekdays)" : ""}${v.hitRate ? ", counted by how often it's hit" : ""}` : "") +
-      (v.snap ? ` · check-in period: ${v.snap}` : "") +
+      (v.snap ? ` · frequency: ${v.snap}` : "") +
       ` · ${v.sum ? "amounts add up" : "readings"} · totals: ${v.rollup}`,
     changeLater: "You can change any of it later on the template's page.",
 
     // Labels (templateWizardModel)
     snap_any: "Any time",
-    snap_day: "A day",
-    snap_week: "A week",
-    snap_month: "A month",
-    snap_quarter: "A quarter",
-    snap_year: "A year",
+    snap_goal: "Same as goal",
+    snap_parent: "Same as parent goal",
+    errFrequencyTooLong: "A metric's frequency (its own or its goal's) can't be longer than its target period - pick a shorter one.",
+    goalFrequency: "Frequency",
+    snap_day: "Daily",
+    snap_week: "Weekly",
+    snap_month: "Monthly",
+    snap_quarter: "Quarterly",
+    snap_year: "Yearly",
     targetPer_whole: "The whole goal",
     targetPer_day: "Each day",
     targetPer_week: "Each week",
@@ -89,7 +97,7 @@ const messages = defineMessages({
 
     // stepProblem
     errTemplateName: "Give the template a name.",
-    errMainGoal: "Name the main goal.",
+    errMainGoal: "Name every goal, or remove the empty one.",
     errSubGoals: "Name every sub-goal, or remove the empty one.",
     errNoMetrics: "Add at least one metric.",
     errMetricNames: "Name every metric, or remove the empty one.",
@@ -98,7 +106,7 @@ const messages = defineMessages({
     errTargetEqualsStart: "A target equal to its start means no target - leave it empty instead.",
 
     // WizardMetricRow
-    checkInPeriod: "Check-in period",
+    checkInPeriod: "Frequency",
     metric: "Metric",
     metricPlaceholder: "Revenue",
     unit: "Unit",
@@ -145,8 +153,11 @@ const messages = defineMessages({
     description: "Mô tả",
     descriptionPlaceholder: "Không bắt buộc - mẫu dùng để làm gì",
     goalsIntro:
-      "Điều mọi nhóm cùng hướng tới, dưới dạng kết quả. Chia nhỏ thành mục tiêu con nếu cần - mỗi mục tiêu con sẽ có chỉ số riêng ở bước sau.",
-    mainGoal: "Mục tiêu chính",
+      "Điều mọi nhóm cùng hướng tới, dưới dạng kết quả - một hoặc nhiều mục tiêu. Chia nhỏ mục tiêu thành mục tiêu con nếu cần - mỗi mục tiêu con sẽ có chỉ số riêng ở bước sau.",
+    mainGoal: "Mục tiêu",
+    goalAria: "Mục tiêu {n}",
+    removeGoalAria: "Xóa mục tiêu {n}",
+    addGoal: "+ Thêm mục tiêu",
     mainGoalPlaceholder: "Tăng doanh thu",
     subGoals: "Mục tiêu con",
     subGoalAria: "Mục tiêu con {n}",
@@ -158,7 +169,8 @@ const messages = defineMessages({
       "Những con số mọi nhóm theo dõi. Để trống chỉ tiêu để mỗi nhóm tự đặt (khi chưa đặt, chỉ số chưa được tính vào tổng).",
     addMetric: "+ Thêm chỉ số",
     teamsIntro:
-      "Những nhóm nào dùng mẫu này? Mỗi nhóm có bản sao riêng để đặt chỉ tiêu và check-in. Một phòng ban cũng có thể có bản sao riêng, bên cạnh bản của các nhóm trực thuộc.",
+      "Ai dùng mẫu này? Nhóm được đánh dấu có bản sao riêng để đặt chỉ tiêu và check-in (phòng ban cũng vậy, bên cạnh bản của các nhóm trực thuộc). Đánh dấu từng người để họ có bản sao riêng - dù nhóm của họ có bản sao hay không; tổng của nhóm cộng dồn họ.",
+    reviewPeople: "Thành viên",
     noTeams:
       "Tổ chức này chưa có nhóm nào - hãy tạo nhóm trong Tổ chức → Nhóm, rồi thêm mẫu cho các nhóm từ bảng nhóm (Chỉ tiêu).",
     cycle: "Chu kỳ",
@@ -170,16 +182,20 @@ const messages = defineMessages({
       `${v.name}${v.unit ? ` (${v.unit})` : ""}: từ ${v.base}` +
       (v.target ? ` đến ${v.target}` : ", mỗi nhóm tự đặt chỉ tiêu") +
       (v.per ? ` ${v.per}${v.weekdays ? " (ngày làm việc)" : ""}${v.hitRate ? ", tính theo tần suất đạt" : ""}` : "") +
-      (v.snap ? ` · kỳ check-in: ${v.snap}` : "") +
+      (v.snap ? ` · tần suất: ${v.snap}` : "") +
       ` · ${v.sum ? "cộng dồn các lượng" : "giá trị mới"} · tổng: ${v.rollup}`,
     changeLater: "Bạn có thể thay đổi mọi thứ sau trên trang của mẫu.",
 
     snap_any: "Bất kỳ lúc nào",
-    snap_day: "Một ngày",
-    snap_week: "Một tuần",
-    snap_month: "Một tháng",
-    snap_quarter: "Một quý",
-    snap_year: "Một năm",
+    snap_goal: "Theo mục tiêu",
+    snap_parent: "Theo mục tiêu cha",
+    errFrequencyTooLong: "Tần suất của chỉ số (của riêng nó hoặc theo mục tiêu) không được dài hơn kỳ chỉ tiêu - hãy chọn tần suất ngắn hơn.",
+    goalFrequency: "Tần suất",
+    snap_day: "Hằng ngày",
+    snap_week: "Hằng tuần",
+    snap_month: "Hằng tháng",
+    snap_quarter: "Hằng quý",
+    snap_year: "Hằng năm",
     targetPer_whole: "Cả mục tiêu",
     targetPer_day: "Mỗi ngày",
     targetPer_week: "Mỗi tuần",
@@ -192,7 +208,7 @@ const messages = defineMessages({
     rollup_none: "Không tính tổng",
 
     errTemplateName: "Hãy đặt tên cho mẫu.",
-    errMainGoal: "Hãy đặt tên cho mục tiêu chính.",
+    errMainGoal: "Hãy đặt tên cho mọi mục tiêu, hoặc xóa mục tiêu còn trống.",
     errSubGoals: "Hãy đặt tên cho mọi mục tiêu con, hoặc xóa mục tiêu con còn trống.",
     errNoMetrics: "Hãy thêm ít nhất một chỉ số.",
     errMetricNames: "Hãy đặt tên cho mọi chỉ số, hoặc xóa chỉ số còn trống.",
@@ -200,7 +216,7 @@ const messages = defineMessages({
     errTarget: "Chỉ tiêu cần là số - hoặc để trống.",
     errTargetEqualsStart: "Chỉ tiêu bằng giá trị ban đầu nghĩa là không có chỉ tiêu - hãy để trống.",
 
-    checkInPeriod: "Kỳ check-in",
+    checkInPeriod: "Tần suất",
     metric: "Chỉ số",
     metricPlaceholder: "Doanh thu",
     unit: "Đơn vị",

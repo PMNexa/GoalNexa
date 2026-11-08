@@ -59,7 +59,7 @@ def metric_readings(metric: Metric, check_ins, zone=None) -> list[tuple[datetime
         zone = zone or periods.zone_for(metric.goal)
         by_period: dict = {}
         for c in ordered:
-            by_period[periods.bucket(c, metric.one_per, zone)] = float(c.value)
+            by_period[periods.bucket(c, metric.one_per, zone, metric)] = float(c.value)
             readings.append((c.checked_in_at, base + sum(by_period.values())))
         return readings
     total = base
@@ -133,10 +133,11 @@ CADENCE_MONTHS = {CheckInCadence.MONTHLY: 1, CheckInCadence.QUARTERLY: 3, CheckI
 
 
 def next_due(metric: Metric, zone=None) -> datetime | None:
-    """A metric due at its period's moment (`snap_due`, P-80): that moment
-    of the period after its latest check-in's (`periods.due_moment`). Else
-    the last check-in (or the metric's creation) plus its cadence."""
-    if metric.snap_to and metric.snap_due:
+    """A metric with a frequency (`snap_to`, P-93): its next moment after its
+    latest check-in's (`periods.due_moment`). A metric with none but an old
+    cadence (`check_in_every`, no longer offered): the last check-in (or the
+    metric's creation) plus that cadence."""
+    if metric.snap_to:
         return periods.due_moment(metric, zone)
     start = metric.last_checked_in_at or metric.created_at
     if not metric.check_in_every or start is None:

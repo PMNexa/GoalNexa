@@ -531,10 +531,18 @@ class TeamMemberCopyTests(TeamSetup):
         self.assign(self.dave, self.north, self.erin, expect=400)  # not in North
         self.assign(self.alice, self.north, self.grace)
 
-    def test_the_team_needs_its_own_copy_first(self):
+    def test_a_team_can_run_it_through_its_members_alone(self):
+        """P-96: a member's copy needs no team copy; the team's total is then its members'."""
         self.ok(self.alice, f"goal-templates/{self.template['id']}/leave", expect=200, teams=[self.north["id"]],
                 cycle=self.cycle["id"])
-        self.assign(self.dave, self.north, self.grace, expect=400)
+        self.assign(self.dave, self.north, self.grace)
+        self.assertFalse(Goal.objects.filter(team_id=self.north["id"], assignee_id__isnull=True, is_rollup=False).exists())
+        self.check_in(self.grace, self.member_metric(self.grace, self.mrr), 20)
+        north = self.total(self.mrr, self.north)
+        self.assertEqual((north.current_value, north.target_value), (Decimal(20), Decimal(100)))
+        board = self.alice.get(f"{API}/goal-templates/{self.template['id']}/board", {"cycle": self.cycle["id"]}).json()
+        self.assertNotIn(self.north["id"], board["instances"])
+        self.assertIn(self.grace.user_id, board["members"][self.north["id"]])
 
     def test_the_team_total_is_its_copy_plus_its_members(self):
         self.assign(self.dave, self.north, self.grace)

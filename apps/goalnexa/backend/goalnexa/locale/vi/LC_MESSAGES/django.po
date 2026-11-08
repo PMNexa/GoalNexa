@@ -9,11 +9,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: goalnexa/backend/goalnexa/views/metrics.py:160
+#: goalnexa/backend/goalnexa/views/metrics.py:163
 msgid " Set its planned target on the team board."
 msgstr " Hãy đặt chỉ tiêu kế hoạch của nó trên bảng nhóm."
 
-#: goalnexa/backend/goalnexa/views/goals.py:128
+#: goalnexa/backend/goalnexa/views/goals.py:142
 msgid "\"{metric}\" can't have check-ins for a whole {period} (its target or one-reading period is shorter). Pick a period for that metric first."
 msgstr "\"{metric}\" không thể có check-in cho cả một {period} (kỳ chỉ tiêu hoặc kỳ một lần đo của nó ngắn hơn). Hãy chọn kỳ cho chỉ số đó trước."
 
@@ -39,21 +39,15 @@ msgstr "Tháng thứ 3 của quý (tháng 3, 6, 9, 12)"
 msgid "A cycle can't move to another organization."
 msgstr "Chu kỳ không thể chuyển sang tổ chức khác."
 
-#: schema goalnexa.Goal.snap_to
-#: schema goalnexa.Metric.snap_to
-#: schema goalnexa.TemplateGoal.snap_to
-msgid "A day"
-msgstr "Một ngày"
-
-#: goalnexa/backend/goalnexa/views/goals.py:87
+#: goalnexa/backend/goalnexa/views/goals.py:90
 msgid "A goal can't be its own parent."
 msgstr "Mục tiêu không thể là mục cha của chính nó."
 
-#: goalnexa/backend/goalnexa/views/templates.py:705
+#: goalnexa/backend/goalnexa/views/templates.py:710
 msgid "A goal can't be under itself."
 msgstr "Mục tiêu không thể nằm dưới chính nó."
 
-#: goalnexa/backend/goalnexa/views/templates.py:694
+#: goalnexa/backend/goalnexa/views/templates.py:699
 msgid "A goal stays in its template."
 msgstr "Mục tiêu phải ở lại trong mẫu của nó."
 
@@ -61,7 +55,7 @@ msgstr "Mục tiêu phải ở lại trong mẫu của nó."
 msgid "A later check-in in the same period replaced it (the metric keeps one reading per period), so it doesn't count."
 msgstr "Một check-in sau trong cùng kỳ đã thay thế nó (chỉ số chỉ giữ một lần đo mỗi kỳ), nên nó không được tính."
 
-#: goalnexa/backend/goalnexa/views/templates.py:612
+#: goalnexa/backend/goalnexa/views/templates.py:617
 msgid "A list of 1 to {count} changes."
 msgstr "Danh sách từ 1 đến {count} thay đổi."
 
@@ -77,27 +71,21 @@ msgstr "Danh sách tối đa {count} ID."
 msgid "A list of ids, first to last."
 msgstr "Danh sách ID, theo thứ tự từ đầu đến cuối."
 
-#: goalnexa/backend/goalnexa/views/templates.py:335
+#: goalnexa/backend/goalnexa/views/templates.py:334
 msgid "A list: \"org\" and/or team ids."
 msgstr "Một danh sách: \"org\" và/hoặc ID nhóm."
 
-#: goalnexa/backend/goalnexa/views/metrics.py:84
+#: goalnexa/backend/goalnexa/views/metrics.py:86
 msgid "A metric can't be its own parent."
 msgstr "Chỉ số không thể là mục cha của chính nó."
 
-#: goalnexa/backend/goalnexa/views/templates.py:755
+#: goalnexa/backend/goalnexa/views/templates.py:760
 msgid "A metric can't be under itself."
 msgstr "Chỉ số không thể nằm dưới chính nó."
 
-#: goalnexa/backend/goalnexa/views/templates.py:744
+#: goalnexa/backend/goalnexa/views/templates.py:749
 msgid "A metric stays in its template."
 msgstr "Chỉ số phải ở lại trong mẫu của nó."
-
-#: schema goalnexa.Goal.snap_to
-#: schema goalnexa.Metric.snap_to
-#: schema goalnexa.TemplateGoal.snap_to
-msgid "A month"
-msgstr "Một tháng"
 
 #: schema goalnexa.GoalTemplate.title
 msgid "A name for the goal system. For example: Sales targets."
@@ -111,8 +99,8 @@ msgstr "Tên cho giai đoạn. Ví dụ: Q4 2026."
 msgid "A new team instance's target. Empty = each team sets its own (until then, it doesn't count)."
 msgstr "Chỉ tiêu cho bản của nhóm mới. Để trống = mỗi nhóm tự đặt (trước đó, nó không được tính)."
 
-#: goalnexa/backend/goalnexa/views/templates.py:121
-#: goalnexa/backend/goalnexa/views/templates.py:643
+#: goalnexa/backend/goalnexa/views/templates.py:122
+#: goalnexa/backend/goalnexa/views/templates.py:648
 msgid "A number."
 msgstr "Một số."
 
@@ -120,17 +108,11 @@ msgstr "Một số."
 msgid "A phone registers again every time the app starts; one silent this long is forgotten. 0 = keep forever. Older rows are deleted once a day."
 msgstr "Điện thoại đăng ký lại mỗi lần ứng dụng khởi động; máy im lặng lâu như vậy sẽ bị quên. 0 = giữ mãi mãi. Các dòng cũ hơn được xóa mỗi ngày một lần."
 
-#: schema goalnexa.Goal.snap_to
-#: schema goalnexa.Metric.snap_to
-#: schema goalnexa.TemplateGoal.snap_to
-msgid "A quarter"
-msgstr "Một quý"
-
 #: goalnexa/backend/goalnexa/views/cycles.py:85
 msgid "A score is between 0 and 1."
 msgstr "Điểm phải nằm trong khoảng 0 đến 1."
 
-#: goalnexa/backend/goalnexa/serializers/metric.py:141
+#: goalnexa/backend/goalnexa/serializers/metric.py:147
 #: goalnexa/backend/goalnexa/serializers/template.py:134
 msgid "A target per period needs check-ins that are amounts to add (Sum)."
 msgstr "Chỉ tiêu theo kỳ cần các check-in là lượng cộng thêm (Cộng dồn)."
@@ -139,7 +121,7 @@ msgstr "Chỉ tiêu theo kỳ cần các check-in là lượng cộng thêm (C�
 msgid "A team member's own share of their team's goal: that member's user id (set on the team board). Empty on the team's own goal."
 msgstr "Phần riêng của một thành viên trong mục tiêu của nhóm: ID người dùng của thành viên đó (đặt trên bảng nhóm). Để trống trên mục tiêu của chính nhóm."
 
-#: goalnexa/backend/goalnexa/views/templates.py:259
+#: goalnexa/backend/goalnexa/views/templates.py:261
 msgid "A team of the template's organization."
 msgstr "Một nhóm thuộc tổ chức của mẫu."
 
@@ -151,37 +133,25 @@ msgstr "Chỉ tiêu giao từ trên xuống cho tổng của nhóm, đặt trên
 msgid "A team total: calculated from the teams' own goals, read-only."
 msgstr "Tổng của nhóm: tính từ mục tiêu của các nhóm, chỉ đọc."
 
-#: goalnexa/backend/goalnexa/views/templates.py:174
+#: goalnexa/backend/goalnexa/views/templates.py:176
 msgid "A template stays in its organization."
 msgstr "Mẫu phải ở lại trong tổ chức của nó."
 
-#: goalnexa/backend/goalnexa/views/templates.py:628
+#: goalnexa/backend/goalnexa/views/templates.py:633
 msgid "A total's base and target are its teams' - set planned_target."
 msgstr "Giá trị ban đầu và chỉ tiêu của tổng lấy từ các nhóm - hãy đặt planned_target."
-
-#: schema goalnexa.Goal.snap_to
-#: schema goalnexa.Metric.snap_to
-#: schema goalnexa.TemplateGoal.snap_to
-msgid "A week"
-msgstr "Một tuần"
 
 #: goalnexa/backend/goalnexa/views/reminders.py:69
 msgid "A whole number from {low} to {high}."
 msgstr "Một số nguyên từ {low} đến {high}."
 
-#: goalnexa/backend/goalnexa/views/templates.py:401
+#: goalnexa/backend/goalnexa/views/templates.py:404
 msgid "A whole number, 1-60, with show."
 msgstr "Một số nguyên, 1-60, kèm show."
 
-#: goalnexa/backend/goalnexa/views/templates.py:399
+#: goalnexa/backend/goalnexa/views/templates.py:402
 msgid "A whole number, 1-60."
 msgstr "Một số nguyên, 1-60."
-
-#: schema goalnexa.Goal.snap_to
-#: schema goalnexa.Metric.snap_to
-#: schema goalnexa.TemplateGoal.snap_to
-msgid "A year"
-msgstr "Một năm"
 
 #: schema goalnexa.Goal.health
 #: schema goalnexa.GoalScore.final_health
@@ -213,7 +183,7 @@ msgstr "hoạt động"
 msgid "Actor id"
 msgstr "ID người thực hiện"
 
-#: goalnexa/backend/goalnexa/views/templates.py:215
+#: goalnexa/backend/goalnexa/views/templates.py:217
 msgid "Add a goal to the template first."
 msgstr "Hãy thêm một mục tiêu vào mẫu trước."
 
@@ -244,7 +214,7 @@ msgstr "Lượng đã check-in trong kỳ hiện tại (chỉ tiêu theo kỳ)."
 msgid "An amount to add to the total"
 msgstr "Một lượng cộng vào tổng"
 
-#: goalnexa/backend/goalnexa/views/templates.py:394
+#: goalnexa/backend/goalnexa/views/templates.py:397
 msgid "An ISO 8601 date and time."
 msgstr "Ngày giờ theo ISO 8601."
 
@@ -304,15 +274,15 @@ msgstr "Giá trị ban đầu"
 msgid "Body"
 msgstr "Nội dung"
 
-#: goalnexa/backend/goalnexa/serializers/metric.py:53
+#: goalnexa/backend/goalnexa/serializers/metric.py:58
 msgid "Can't be longer than \"one reading per {period}\" - every check-in would land in the same {period}."
 msgstr "Không được dài hơn \"một lần đo mỗi {period}\" - mọi check-in sẽ rơi vào cùng một {period}."
 
-#: goalnexa/backend/goalnexa/serializers/metric.py:43
+#: goalnexa/backend/goalnexa/serializers/metric.py:48
 msgid "Can't be longer than the target's period: a target per {period} needs at most one reading per {period}."
 msgstr "Không được dài hơn kỳ của chỉ tiêu: chỉ tiêu mỗi {period} cần tối đa một lần đo mỗi {period}."
 
-#: goalnexa/backend/goalnexa/serializers/metric.py:48
+#: goalnexa/backend/goalnexa/serializers/metric.py:53
 msgid "Can't be longer than the target's period: a target per {period} needs check-ins for a {period} at most."
 msgstr "Không được dài hơn kỳ của chỉ tiêu: chỉ tiêu mỗi {period} cần check-in cho tối đa một {period}."
 
@@ -345,15 +315,13 @@ msgstr "Check-in mỗi"
 msgid "Check ins"
 msgstr "Check-in"
 
+#: schema goalnexa.CheckIn form_layout
+msgid "Check-in"
+msgstr "Check-in"
+
 #: schema goalnexa.CheckIn
 msgid "check-in"
 msgstr "check-in"
-
-#: schema goalnexa.Goal.snap_to
-#: schema goalnexa.Metric.snap_to
-#: schema goalnexa.TemplateGoal.snap_to
-msgid "Check-in period"
-msgstr "Kỳ check-in"
 
 #: email category reminders
 msgid "Check-in reminders and the goals digest, when you've chosen email for them on the Reminders page."
@@ -453,8 +421,9 @@ msgstr "chu kỳ"
 msgid "cycles"
 msgstr "chu kỳ"
 
+#: schema goalnexa.Goal.snap_to
 #: schema goalnexa.Metric.check_in_every
-#: schema goalnexa.TemplateMetric.check_in_every
+#: schema goalnexa.Metric.snap_to
 msgid "Daily"
 msgstr "Hằng ngày"
 
@@ -468,7 +437,7 @@ msgstr "Dữ liệu"
 msgid "Data retention"
 msgstr "Lưu giữ dữ liệu"
 
-#: goalnexa/backend/goalnexa/periods.py:173
+#: goalnexa/backend/goalnexa/periods.py:196
 msgid "day"
 msgstr "ngày"
 
@@ -484,7 +453,7 @@ msgstr "Ngày trong tháng"
 msgid "Day of the week"
 msgstr "Ngày trong tuần"
 
-#: goalnexa/backend/goalnexa/views/templates.py:391
+#: goalnexa/backend/goalnexa/views/templates.py:394
 msgid "day, week, month, quarter or year."
 msgstr "day, week, month, quarter hoặc year."
 
@@ -515,8 +484,8 @@ msgstr "Đã bỏ"
 #: schema goalnexa.Goal.snap_due
 #: schema goalnexa.Metric.snap_due
 #: schema goalnexa.TemplateGoal.snap_due
-msgid "Due at that moment"
-msgstr "Đến hạn vào thời điểm đó"
+msgid "Due at each moment"
+msgstr "Đến hạn ở mỗi mốc"
 
 #: schema goalnexa.Metric.aggregation
 #: schema goalnexa.TemplateMetric.aggregation
@@ -564,6 +533,10 @@ msgstr "Kết thúc ngày"
 msgid "Engaged users"
 msgstr "Người dùng tích cực"
 
+#: schema goalnexa.CheckIn.entered_at
+msgid "Entered at"
+msgstr "Thời điểm nhập"
+
 #: schema goalnexa.Metric.one_per
 #: schema goalnexa.TemplateMetric.one_per
 msgid "Every check-in counts"
@@ -596,6 +569,32 @@ msgstr "Tình trạng cuối cùng"
 msgid "Final progress"
 msgstr "Tiến độ cuối cùng"
 
+#: schema goalnexa.Goal.snap_time
+#: schema goalnexa.Metric.snap_time
+#: schema goalnexa.TemplateGoal.snap_time
+msgid "For a frequency: the time of day (the organization's time zone). Each check-in moves to the latest such moment at or before it."
+msgstr "Với một tần suất: giờ trong ngày (theo múi giờ của tổ chức). Mỗi check-in được chuyển về mốc gần nhất tại hoặc trước thời điểm đó."
+
+#: schema goalnexa.CheckIn.period
+msgid "For a metric with a frequency: any day of the period this check-in is for, instead of checked_in_at - it's dated at that period's moment (a weekly Friday 17:00 frequency: Thursday Nov 6 is the week from Friday Oct 31 17:00). Without a frequency: that day, 00:00."
+msgstr "Với chỉ số có tần suất: một ngày bất kỳ trong kỳ mà check-in này thuộc về, thay cho checked_in_at - check-in được ghi vào mốc của kỳ đó (tần suất hằng tuần thứ Sáu 17:00: thứ Năm 6/11 thuộc tuần bắt đầu từ thứ Sáu 31/10 17:00). Không có tần suất: ngày đó, 00:00."
+
+#: schema goalnexa.CheckIn.entered_at
+msgid "For a metric with a frequency: the time as given, before it moved to the moment (checked_in_at)."
+msgstr "Với chỉ số có tần suất: thời điểm như đã nhập, trước khi được chuyển về mốc (checked_in_at)."
+
+#: schema goalnexa.Goal.snap_day
+#: schema goalnexa.Metric.snap_day
+#: schema goalnexa.TemplateGoal.snap_day
+msgid "For a monthly, quarterly or yearly frequency: the day of the month (1-31; past the month's end = its last day)."
+msgstr "Với tần suất hằng tháng, hằng quý hoặc hằng năm: ngày trong tháng (1-31; quá cuối tháng = ngày cuối tháng)."
+
+#: schema goalnexa.Goal.snap_quarter_month
+#: schema goalnexa.Metric.snap_quarter_month
+#: schema goalnexa.TemplateGoal.snap_quarter_month
+msgid "For a quarterly frequency: which month of the quarter."
+msgstr "Với tần suất hằng quý: tháng thứ mấy của quý."
+
 #: schema goalnexa.Metric.count_days
 msgid "For a target per day or week: count every day, or weekdays only."
 msgstr "Với chỉ tiêu mỗi ngày hoặc mỗi tuần: tính mọi ngày, hoặc chỉ ngày làm việc."
@@ -612,39 +611,27 @@ msgstr "Với chỉ tiêu theo kỳ: tiến độ là tổng so với chỉ tiê
 msgid "For a target per period: the total, or how often the target is hit (totals then average the teams or take the lowest)."
 msgstr "Với chỉ tiêu theo kỳ: tổng, hoặc tần suất đạt chỉ tiêu (khi đó phần tổng lấy trung bình các nhóm hoặc lấy mức thấp nhất)."
 
-#: schema goalnexa.Goal.snap_day
-#: schema goalnexa.Metric.snap_day
-#: schema goalnexa.TemplateGoal.snap_day
-msgid "For check-ins for a month, quarter or year: the day of the month (1-31; past the month's end = its last day)."
-msgstr "Với check-in cho một tháng, quý hoặc năm: ngày trong tháng (1-31; quá cuối tháng = ngày cuối tháng)."
-
-#: schema goalnexa.Goal.snap_time
-#: schema goalnexa.Metric.snap_time
-#: schema goalnexa.TemplateGoal.snap_time
-msgid "For check-ins for a period: the time of day (the organization's time zone). Each check-in's time is set to this moment in its period."
-msgstr "Với check-in cho một kỳ: giờ trong ngày (theo múi giờ của tổ chức). Thời gian của mỗi check-in được đặt vào thời điểm này trong kỳ của nó."
-
-#: schema goalnexa.Goal.snap_quarter_month
-#: schema goalnexa.Metric.snap_quarter_month
-#: schema goalnexa.TemplateGoal.snap_quarter_month
-msgid "For check-ins for a quarter: which of its months."
-msgstr "Với check-in cho một quý: tháng nào trong quý."
-
 #: schema goalnexa.Goal.snap_weekday
 #: schema goalnexa.Metric.snap_weekday
 #: schema goalnexa.TemplateGoal.snap_weekday
-msgid "For check-ins for a week: the day they're for."
-msgstr "Với check-in cho một tuần: ngày mà check-in thuộc về."
+msgid "For a weekly frequency: the day of the week."
+msgstr "Với tần suất hằng tuần: ngày trong tuần."
 
 #: schema goalnexa.Goal.snap_month
 #: schema goalnexa.Metric.snap_month
 #: schema goalnexa.TemplateGoal.snap_month
-msgid "For check-ins for a year: the month."
-msgstr "Với check-in cho một năm: tháng."
+msgid "For a yearly frequency: the month."
+msgstr "Với tần suất hằng năm: tháng."
 
 #: schema goalnexa.Metric.for_me
 msgid "For me"
 msgstr "Của tôi"
+
+#: schema goalnexa.Goal.snap_to
+#: schema goalnexa.Metric.snap_to
+#: schema goalnexa.TemplateGoal.snap_to
+msgid "Frequency"
+msgstr "Tần suất"
 
 #: schema goalnexa.Goal.snap_weekday
 #: schema goalnexa.Metric.snap_weekday
@@ -700,9 +687,9 @@ msgstr "mẫu mục tiêu"
 msgid "Goals"
 msgstr "Mục tiêu"
 
-#: goalnexa/backend/goalnexa/views/goals.py:144
-#: goalnexa/backend/goalnexa/views/templates.py:219
-#: goalnexa/backend/goalnexa/views/templates.py:292
+#: goalnexa/backend/goalnexa/views/goals.py:158
+#: goalnexa/backend/goalnexa/views/templates.py:221
+#: goalnexa/backend/goalnexa/views/templates.py:291
 msgid "goals"
 msgstr "mục tiêu"
 
@@ -746,23 +733,23 @@ msgstr "Tỷ lệ đạt không cộng dồn được - hãy chọn trung bình 
 msgid "How far along the goal is, as a %: the average of its metrics' progress. Calculated for you."
 msgstr "Mục tiêu đã đi được bao xa, tính bằng %: trung bình tiến độ các chỉ số của nó. Được tính tự động."
 
-#: schema goalnexa.TemplateMetric.check_in_every
-msgid "How often teams should check in. Empty = no schedule."
-msgstr "Tần suất các nhóm nên check-in. Để trống = không có lịch."
+#: schema goalnexa.Metric.snap_to
+msgid "How often check-ins happen. Inherited (the default): its goal's - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. Daily/weekly/monthly/quarterly/yearly at a moment (the snap_* fields, the organization's time zone): each check-in moves to the latest moment at or before it, whoever checks in, and one is due at each moment. Changing it moves existing check-ins (see resnap)."
+msgstr "Check-in diễn ra thường xuyên thế nào. Kế thừa (mặc định): theo mục tiêu - với chỉ số con, theo chỉ số cha. Bất kỳ lúc nào: mỗi check-in giữ thời điểm của nó. Hằng ngày/tuần/tháng/quý/năm vào một mốc (các trường snap_*, theo múi giờ của tổ chức): mỗi check-in được chuyển về mốc gần nhất tại hoặc trước thời điểm đó, dù ai check-in, và mỗi mốc là một hạn check-in. Đổi tần suất sẽ chuyển các check-in đã có (xem resnap)."
+
+#: schema goalnexa.Goal.snap_to
+msgid "How often check-ins happen. Inherited (the default): the parent goal's - any time for a top-level goal. Any time: each check-in keeps its own time. Daily/weekly/monthly/quarterly/yearly at a moment (the snap_* fields, the organization's time zone): each check-in moves to the latest moment at or before it, and one is due at each moment. Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins (see resnap)."
+msgstr "Check-in diễn ra thường xuyên thế nào. Kế thừa (mặc định): theo mục tiêu cha - bất kỳ lúc nào với mục tiêu cấp cao nhất. Bất kỳ lúc nào: mỗi check-in giữ thời điểm của nó. Hằng ngày/tuần/tháng/quý/năm vào một mốc (các trường snap_*, theo múi giờ của tổ chức): mỗi check-in được chuyển về mốc gần nhất tại hoặc trước thời điểm đó, và mỗi mốc là một hạn check-in. Các chỉ số và mục tiêu con kế thừa trừ khi tự chọn; đổi tần suất sẽ chuyển các check-in của chúng (xem resnap)."
 
 #: schema goalnexa.Metric.progress_by
 #: schema goalnexa.TemplateMetric.progress_by
 msgid "How often the target is hit"
 msgstr "Tần suất đạt chỉ tiêu"
 
-#: goalnexa/backend/goalnexa/serializers/metric.py:143
+#: goalnexa/backend/goalnexa/serializers/metric.py:149
 #: goalnexa/backend/goalnexa/serializers/template.py:136
 msgid "How often the target is hit needs a target per period."
 msgstr "Tần suất đạt chỉ tiêu cần có chỉ tiêu theo kỳ."
-
-#: schema goalnexa.Metric.check_in_every
-msgid "How often you plan to check in, counted from the last check-in. You get a reminder when one is due. Empty = no schedule. Not used when check-ins are for a period and due at its moment (snap_due)."
-msgstr "Tần suất bạn dự định check-in, tính từ lần check-in gần nhất. Bạn sẽ nhận nhắc nhở khi đến hạn. Để trống = không có lịch. Không dùng khi check-in tính theo kỳ và đến hạn vào thời điểm của kỳ (snap_due)."
 
 #: schema goalnexa.TemplateMetric.rollup
 msgid "How the teams add up into a department's and the organization's total."
@@ -800,21 +787,13 @@ msgstr "Kế thừa (từ mục tiêu của nó, hoặc chỉ số cha)"
 msgid "Inherited (from the parent goal)"
 msgstr "Kế thừa (từ mục tiêu cha)"
 
-#: schema goalnexa.Metric.snap_to
-msgid "Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period (the organization's time zone), whoever checks in. Changing it moves existing check-ins."
-msgstr "Kế thừa (mặc định): theo cài đặt của mục tiêu - với chỉ số con là của chỉ số cha. Bất kỳ lúc nào: mỗi check-in giữ thời gian riêng. Một kỳ: mỗi check-in được ghi vào thời điểm đã chọn trong kỳ của nó (theo múi giờ của tổ chức), dù ai check-in. Thay đổi sẽ dời các check-in hiện có."
-
 #: schema goalnexa.TemplateMetric.snap_to
-msgid "Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period, whoever checks in. Every team's copy follows it."
-msgstr "Kế thừa (mặc định): theo cài đặt của mục tiêu - với chỉ số con là của chỉ số cha. Bất kỳ lúc nào: mỗi check-in giữ thời gian riêng. Một kỳ: mỗi check-in được ghi vào thời điểm đã chọn trong kỳ của nó, dù ai check-in. Bản của mọi nhóm đều theo cài đặt này."
-
-#: schema goalnexa.Goal.snap_to
-msgid "Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period (the organization's time zone). Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins."
-msgstr "Kế thừa (mặc định): theo cài đặt của mục tiêu cha - bất kỳ lúc nào với mục tiêu cấp cao nhất. Bất kỳ lúc nào: mỗi check-in giữ thời gian riêng. Một kỳ: mỗi check-in được ghi vào thời điểm đã chọn trong kỳ của nó (theo múi giờ của tổ chức). Chỉ số và mục tiêu con kế thừa cài đặt này trừ khi tự chọn; thay đổi sẽ dời các check-in của chúng."
+msgid "Inherited (the default): its goal's setting - a sub-metric's, its parent metric's. Any time: each check-in keeps its own time. Daily/weekly/...: each check-in moves to the latest moment at or before it, whoever checks in. Every team's copy follows it."
+msgstr "Kế thừa (mặc định): theo thiết lập của mục tiêu - với chỉ số con, theo chỉ số cha. Bất kỳ lúc nào: mỗi check-in giữ thời điểm của nó. Hằng ngày/tuần/...: mỗi check-in được chuyển về mốc gần nhất tại hoặc trước thời điểm đó, dù ai check-in. Bản của mọi nhóm đều theo."
 
 #: schema goalnexa.TemplateGoal.snap_to
-msgid "Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. A period: each check-in is dated at the moment picked in its period. Its metrics and sub-goals inherit it unless they pick their own; every team's copy follows it."
-msgstr "Kế thừa (mặc định): theo cài đặt của mục tiêu cha - bất kỳ lúc nào với mục tiêu cấp cao nhất. Bất kỳ lúc nào: mỗi check-in giữ thời gian riêng. Một kỳ: mỗi check-in được ghi vào thời điểm đã chọn trong kỳ của nó. Các chỉ số và mục tiêu con của nó kế thừa cài đặt này trừ khi tự chọn; bản của mọi nhóm đều theo cài đặt này."
+msgid "Inherited (the default): the parent goal's setting - any time for a top-level goal. Any time: each check-in keeps its own time. Daily/weekly/...: each check-in moves to the latest moment at or before it. Its metrics and sub-goals inherit it unless they pick their own; every team's copy follows it."
+msgstr "Kế thừa (mặc định): theo thiết lập của mục tiêu cha - bất kỳ lúc nào với mục tiêu cấp cao nhất. Bất kỳ lúc nào: mỗi check-in giữ thời điểm của nó. Hằng ngày/tuần/...: mỗi check-in được chuyển về mốc gần nhất tại hoặc trước thời điểm đó. Các chỉ số và mục tiêu con kế thừa trừ khi tự chọn; bản của mọi nhóm đều theo."
 
 #: goalnexa/backend/goalnexa/views/ingest.py:118
 #: goalnexa/backend/goalnexa/views/ingest.py:120
@@ -943,7 +922,7 @@ msgstr "Thứ Hai"
 msgid "Month"
 msgstr "Tháng"
 
-#: goalnexa/backend/goalnexa/periods.py:173
+#: goalnexa/backend/goalnexa/periods.py:196
 msgid "month"
 msgstr "tháng"
 
@@ -953,22 +932,22 @@ msgstr "tháng"
 msgid "Month of the quarter"
 msgstr "Tháng trong quý"
 
+#: schema goalnexa.Goal.snap_to
 #: schema goalnexa.Metric.check_in_every
-#: schema goalnexa.TemplateMetric.check_in_every
+#: schema goalnexa.Metric.snap_to
 msgid "Monthly"
 msgstr "Hằng tháng"
+
+#: schema goalnexa.Goal.resnap
+#: schema goalnexa.Metric.resnap
+msgid "Move existing check-ins"
+msgstr "Chuyển các check-in đã có"
 
 #: schema goalnexa.Cycle.name
 #: schema goalnexa.Metric.name
 #: schema goalnexa.TemplateMetric.name
 msgid "Name"
 msgstr "Tên"
-
-#: schema goalnexa.Goal.snap_due
-#: schema goalnexa.Metric.snap_due
-#: schema goalnexa.TemplateGoal.snap_due
-msgid "No"
-msgstr "Không"
 
 #: schema goalnexa.Metric.check_in_every
 #: schema goalnexa.TemplateMetric.check_in_every
@@ -1049,15 +1028,15 @@ msgstr "Một số đo mỗi"
 msgid "One URL per line, as text."
 msgstr "Mỗi dòng một URL, dạng văn bản."
 
-#: goalnexa/backend/goalnexa/views/templates.py:342
+#: goalnexa/backend/goalnexa/views/templates.py:341
 msgid "Only \"org\" or a team of the organization that has sub-teams."
 msgstr "Chỉ \"org\" hoặc một nhóm của tổ chức có nhóm con."
 
-#: goalnexa/backend/goalnexa/views/templates.py:635
+#: goalnexa/backend/goalnexa/views/templates.py:640
 msgid "Only a team total has a planned target."
 msgstr "Chỉ tổng của nhóm mới có chỉ tiêu kế hoạch."
 
-#: goalnexa/backend/goalnexa/views/goals.py:136
+#: goalnexa/backend/goalnexa/views/goals.py:150
 msgid "Only a team's goal can be visible to its team - pick a team first."
 msgstr "Chỉ mục tiêu của một nhóm mới có thể hiển thị cho nhóm đó - hãy chọn nhóm trước."
 
@@ -1077,12 +1056,12 @@ msgstr "Chỉ có thể sắp xếp lại cùng nhau các mục có cùng mục 
 msgid "Only its author can change a comment."
 msgstr "Chỉ tác giả mới có thể sửa bình luận."
 
-#: goalnexa/backend/goalnexa/views/templates.py:286
+#: goalnexa/backend/goalnexa/views/templates.py:288
 msgid "Only members of the team."
 msgstr "Chỉ thành viên của nhóm."
 
-#: goalnexa/backend/goalnexa/views/templates.py:213
-#: goalnexa/backend/goalnexa/views/templates.py:247
+#: goalnexa/backend/goalnexa/views/templates.py:215
+#: goalnexa/backend/goalnexa/views/templates.py:249
 msgid "Only teams of the template's organization."
 msgstr "Chỉ các nhóm thuộc tổ chức của mẫu."
 
@@ -1090,7 +1069,7 @@ msgstr "Chỉ các nhóm thuộc tổ chức của mẫu."
 msgid "Only the goal's owner can add members."
 msgstr "Chỉ chủ sở hữu mục tiêu mới có thể thêm thành viên."
 
-#: goalnexa/backend/goalnexa/views/goals.py:183
+#: goalnexa/backend/goalnexa/views/goals.py:198
 msgid "Only the goal's owner can change who sees it."
 msgstr "Chỉ chủ sở hữu mục tiêu mới có thể thay đổi ai được xem."
 
@@ -1098,16 +1077,16 @@ msgstr "Chỉ chủ sở hữu mục tiêu mới có thể thay đổi ai đư�
 msgid "Only the goal's owner can remove members."
 msgstr "Chỉ chủ sở hữu mục tiêu mới có thể xóa thành viên."
 
-#: goalnexa/backend/goalnexa/views/templates.py:630
+#: goalnexa/backend/goalnexa/views/templates.py:635
 msgid "Only the organization's owners and admins, or the lead of a team above it, can plan this total."
 msgstr "Chỉ chủ sở hữu và quản trị viên của tổ chức, hoặc trưởng nhóm của một nhóm cấp trên, mới có thể lập kế hoạch cho tổng này."
 
-#: goalnexa/backend/goalnexa/views/templates.py:261
+#: goalnexa/backend/goalnexa/views/templates.py:263
 msgid "Only the team's lead or the organization's owners and admins can do this."
 msgstr "Chỉ trưởng nhóm hoặc chủ sở hữu và quản trị viên của tổ chức mới có thể làm việc này."
 
-#: goalnexa/backend/goalnexa/views/metrics.py:167
-#: goalnexa/backend/goalnexa/views/templates.py:637
+#: goalnexa/backend/goalnexa/views/metrics.py:170
+#: goalnexa/backend/goalnexa/views/templates.py:642
 msgid "Only the team's lead, the goal's owner or the organization's owners and admins can set its targets."
 msgstr "Chỉ trưởng nhóm, chủ sở hữu mục tiêu hoặc chủ sở hữu và quản trị viên của tổ chức mới có thể đặt chỉ tiêu."
 
@@ -1193,17 +1172,21 @@ msgstr "Nhịp độ"
 msgid "Parent"
 msgstr "Mục cha"
 
-#: goalnexa/backend/goalnexa/views/goals.py:239
+#: goalnexa/backend/goalnexa/views/goals.py:258
 msgid "Part of a goal template - remove it from the template, or delete the team's whole instance from its top goal."
 msgstr "Thuộc một mẫu mục tiêu - hãy xóa nó khỏi mẫu, hoặc xóa toàn bộ bản của nhóm từ mục tiêu cấp cao nhất."
 
-#: goalnexa/backend/goalnexa/views/metrics.py:202
+#: goalnexa/backend/goalnexa/views/metrics.py:208
 msgid "Part of a goal template - remove it from the template."
 msgstr "Thuộc một mẫu mục tiêu - hãy xóa nó khỏi mẫu."
 
 #: schema goalnexa.GoalScore.outcome
 msgid "Partial"
 msgstr "Đạt một phần"
+
+#: schema goalnexa.CheckIn.period
+msgid "Period"
+msgstr "Kỳ"
 
 #: schema goalnexa.Metric.period_reminded_for
 msgid "Period reminded for"
@@ -1225,7 +1208,7 @@ msgstr "Ứng dụng điện thoại"
 msgid "Phone notifications"
 msgstr "Thông báo trên điện thoại"
 
-#: goalnexa/backend/goalnexa/views/goals.py:134
+#: goalnexa/backend/goalnexa/views/goals.py:148
 msgid "Pick a team of the goal's organization."
 msgstr "Hãy chọn một nhóm thuộc tổ chức của mục tiêu."
 
@@ -1237,12 +1220,12 @@ msgstr "Hãy chọn một chu kỳ khác chưa đóng."
 msgid "Pick at least one goal."
 msgstr "Hãy chọn ít nhất một mục tiêu."
 
-#: goalnexa/backend/goalnexa/views/templates.py:264
+#: goalnexa/backend/goalnexa/views/templates.py:266
 msgid "Pick at least one member."
 msgstr "Hãy chọn ít nhất một thành viên."
 
-#: goalnexa/backend/goalnexa/views/templates.py:209
-#: goalnexa/backend/goalnexa/views/templates.py:244
+#: goalnexa/backend/goalnexa/views/templates.py:211
+#: goalnexa/backend/goalnexa/views/templates.py:246
 msgid "Pick at least one team."
 msgstr "Hãy chọn ít nhất một nhóm."
 
@@ -1305,14 +1288,21 @@ msgstr "Công khai: mọi người trong tổ chức đều xem được. Riêng
 msgid "Push relay"
 msgstr "Máy chủ chuyển tiếp thông báo đẩy"
 
-#: goalnexa/backend/goalnexa/periods.py:174
+#: goalnexa/backend/goalnexa/periods.py:197
 msgid "quarter"
 msgstr "quý"
 
+#: schema goalnexa.Goal.snap_to
 #: schema goalnexa.Metric.check_in_every
-#: schema goalnexa.TemplateMetric.check_in_every
+#: schema goalnexa.Metric.snap_to
 msgid "Quarterly"
 msgstr "Hằng quý"
+
+#: schema goalnexa.Goal.snap_due
+#: schema goalnexa.Metric.snap_due
+#: schema goalnexa.TemplateGoal.snap_due
+msgid "Read-only: whether a check-in is due at each moment - always, with a frequency (it's the schedule)."
+msgstr "Chỉ đọc: check-in có đến hạn ở mỗi mốc không - luôn có, khi có tần suất (tần suất chính là lịch)."
 
 #: schema goalnexa.GoalScore.reflection
 msgid "Reflection"
@@ -1342,6 +1332,14 @@ msgstr "Đã xóa một chỉ số"
 #: schema goalnexa.CheckIn.replaced
 msgid "Replaced"
 msgstr "Đã bị thay thế"
+
+#: schema goalnexa.Metric.check_in_every
+msgid "Replaced by the frequency (snap_to) - only for metrics set up before it: how often you plan to check in, counted from the last check-in. Not used with a frequency. Empty = none."
+msgstr "Đã được thay bằng tần suất (snap_to) - chỉ cho các chỉ số tạo trước đó: bạn định check-in thường xuyên thế nào, tính từ lần check-in gần nhất. Không dùng khi có tần suất. Để trống = không có."
+
+#: schema goalnexa.TemplateMetric.check_in_every
+msgid "Replaced by the frequency (snap_to) - only for templates set up before it. Not used with a frequency."
+msgstr "Đã được thay bằng tần suất (snap_to) - chỉ cho các mẫu tạo trước đó. Không dùng khi có tần suất."
 
 #: schema goalnexa.Cycle.retro
 msgid "Retro"
@@ -1447,7 +1445,7 @@ msgstr "Chỉ tiêu áp dụng cho"
 msgid "Target value"
 msgstr "Chỉ tiêu"
 
-#: goalnexa/backend/goalnexa/serializers/goal.py:78
+#: goalnexa/backend/goalnexa/serializers/goal.py:79
 #: schema goalnexa.Goal.team_id
 #: schema goalnexa.Goal.visibility
 msgid "Team"
@@ -1461,7 +1459,7 @@ msgstr "Tổng của nhóm"
 msgid "Team totals"
 msgstr "Tổng của nhóm"
 
-#: goalnexa/backend/goalnexa/views/templates.py:773
+#: goalnexa/backend/goalnexa/views/templates.py:778
 msgid "Teams have checked in - changing this would change what their check-ins mean."
 msgstr "Các nhóm đã check-in - thay đổi điều này sẽ làm thay đổi ý nghĩa các check-in của họ."
 
@@ -1495,13 +1493,13 @@ msgid "template metrics"
 msgstr "chỉ số mẫu"
 
 #: goalnexa/backend/goalnexa/views/cycles.py:93
-#: goalnexa/backend/goalnexa/views/goals.py:99
-#: goalnexa/backend/goalnexa/views/templates.py:188
+#: goalnexa/backend/goalnexa/views/goals.py:102
+#: goalnexa/backend/goalnexa/views/templates.py:190
 msgid "That cycle belongs to another organization."
 msgstr "Chu kỳ đó thuộc về một tổ chức khác."
 
-#: goalnexa/backend/goalnexa/views/goals.py:101
-#: goalnexa/backend/goalnexa/views/templates.py:190
+#: goalnexa/backend/goalnexa/views/goals.py:104
+#: goalnexa/backend/goalnexa/views/templates.py:192
 msgid "That cycle is closed."
 msgstr "Chu kỳ đó đã đóng."
 
@@ -1520,6 +1518,11 @@ msgstr "Dòng hoạt động của mỗi mục tiêu (check-in, thay đổi, bì
 #: schema goalnexa.Cycle.starts_on
 msgid "The first day of the period."
 msgstr "Ngày đầu tiên của kỳ."
+
+#: schema goalnexa.Goal.snap_period
+#: schema goalnexa.Metric.snap_period
+msgid "The frequency in effect, after \"inherited\": empty = any time."
+msgstr "Tần suất đang áp dụng, sau khi \"kế thừa\": trống = bất kỳ lúc nào."
 
 #: schema goalnexa.TemplateGoal.title
 msgid "The goal, as an outcome. Every team's copy gets this title."
@@ -1602,21 +1605,6 @@ msgstr "Tổ chức có các nhóm dùng mẫu này. Chỉ chủ sở hữu và 
 #: goalnexa/backend/goalnexa/views/goal_members.py:42
 msgid "The owner already sees this goal."
 msgstr "Chủ sở hữu đã xem được mục tiêu này."
-
-#: schema goalnexa.Goal.snap_period
-#: schema goalnexa.Metric.snap_period
-msgid "The period check-ins are for, after \"inherited\": empty = any time."
-msgstr "Kỳ áp dụng cho các check-in, sau khi tính phần \"kế thừa\": để trống = bất kỳ lúc nào."
-
-#: schema goalnexa.Goal.snap_due
-#: schema goalnexa.Metric.snap_due
-#: schema goalnexa.TemplateGoal.snap_due
-msgid "The period's check-in is due at that moment: flagged when it passes, and you're reminded. Off = not due then (a metric's own \"check in every\" schedule applies)."
-msgstr "Check-in của kỳ đến hạn vào thời điểm đó: được đánh dấu khi đã qua và bạn sẽ được nhắc. Tắt = không đến hạn lúc đó (áp dụng lịch \"Check-in mỗi\" riêng của chỉ số)."
-
-#: goalnexa/backend/goalnexa/views/templates.py:289
-msgid "The team doesn't use this template in that cycle - add it first."
-msgstr "Nhóm không dùng mẫu này trong chu kỳ đó - hãy thêm mẫu trước."
 
 #: schema goalnexa.Goal.team_id
 msgid "The team this goal is for, in its organization. Optional."
@@ -1705,7 +1693,7 @@ msgstr "Hành động không xác định: {action}"
 msgid "Unknown id."
 msgstr "ID không xác định."
 
-#: goalnexa/backend/goalnexa/views/templates.py:621
+#: goalnexa/backend/goalnexa/views/templates.py:626
 msgid "Unknown metric - only metrics of this template's teams and totals."
 msgstr "Chỉ số không xác định - chỉ các chỉ số thuộc các nhóm và các tổng của mẫu này."
 
@@ -1743,7 +1731,7 @@ msgstr "Web"
 msgid "Wednesday"
 msgstr "Thứ Tư"
 
-#: goalnexa/backend/goalnexa/periods.py:173
+#: goalnexa/backend/goalnexa/periods.py:196
 msgid "week"
 msgstr "tuần"
 
@@ -1752,8 +1740,9 @@ msgstr "tuần"
 msgid "Weekdays only (Mon-Fri)"
 msgstr "Chỉ ngày làm việc (Thứ Hai - Thứ Sáu)"
 
+#: schema goalnexa.Goal.snap_to
 #: schema goalnexa.Metric.check_in_every
-#: schema goalnexa.TemplateMetric.check_in_every
+#: schema goalnexa.Metric.snap_to
 msgid "Weekly"
 msgstr "Hằng tuần"
 
@@ -1765,7 +1754,7 @@ msgstr "Giá trị khởi đầu của mỗi bản mới của nhóm. Với ch�
 msgid "What each push said; the app fetches it when the push arrives. 0 = keep forever. Older rows are deleted once a day."
 msgstr "Nội dung của mỗi thông báo đẩy; ứng dụng tải về khi nhận được thông báo. 0 = giữ mãi mãi. Dữ liệu cũ hơn được xóa mỗi ngày một lần."
 
-#: goalnexa/backend/goalnexa/views/metrics.py:114
+#: goalnexa/backend/goalnexa/views/metrics.py:116
 msgid "What it inherits is check-ins for a whole {period}, longer than this metric's target or one-reading period. Pick a period for this metric."
 msgstr "Thiết lập kế thừa là check-in cho cả một {period}, dài hơn kỳ chỉ tiêu hoặc kỳ một số đo của chỉ số này. Hãy chọn một kỳ cho chỉ số này."
 
@@ -1784,6 +1773,11 @@ msgstr "Chỉ tiêu áp dụng cho: toàn bộ mục tiêu, hoặc mỗi ngày/t
 #: schema goalnexa.Goal.title
 msgid "What you want to achieve, as an outcome. For example: Run a half marathon."
 msgstr "Điều bạn muốn đạt được, viết dưới dạng kết quả. Ví dụ: Chạy bán marathon."
+
+#: schema goalnexa.Goal.resnap
+#: schema goalnexa.Metric.resnap
+msgid "When the frequency changes, move existing check-ins to the moment before them (the default; false = leave them). True with no change re-snaps them anyway - best effort for check-ins dated forward by an older rule."
+msgstr "Khi đổi tần suất, chuyển các check-in đã có về mốc trước đó (mặc định; false = giữ nguyên). True mà không đổi gì vẫn sắp lại chúng - cố gắng tốt nhất cho các check-in bị ghi lùi về sau theo quy tắc cũ."
 
 #: schema goalnexa.Metric.last_checked_in_at
 msgid "When the latest check-in happened."
@@ -1853,17 +1847,12 @@ msgstr "Ai được xem"
 msgid "Write something."
 msgstr "Hãy viết gì đó."
 
-#: goalnexa/backend/goalnexa/periods.py:174
+#: goalnexa/backend/goalnexa/periods.py:197
 msgid "year"
 msgstr "năm"
 
+#: schema goalnexa.Goal.snap_to
 #: schema goalnexa.Metric.check_in_every
-#: schema goalnexa.TemplateMetric.check_in_every
+#: schema goalnexa.Metric.snap_to
 msgid "Yearly"
 msgstr "Hằng năm"
-
-#: schema goalnexa.Goal.snap_due
-#: schema goalnexa.Metric.snap_due
-#: schema goalnexa.TemplateGoal.snap_due
-msgid "Yes"
-msgstr "Có"

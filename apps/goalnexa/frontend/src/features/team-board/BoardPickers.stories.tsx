@@ -4,7 +4,7 @@ import { cycles } from "../../storybook/fixtures";
 import { periodStart } from "../../lib/periods";
 import { localInput } from "./boardHelpers";
 import { boardTeams, templates } from "./TeamBoardScreen.mocks";
-import BoardPickers, { MomentPicker, RangePicker, ShowPicker } from "./BoardPickers";
+import BoardPickers, { FrequencyPicker, MomentPicker, RangePicker, ShowPicker } from "./BoardPickers";
 
 const NOW = Date.now();
 const week = periodStart(NOW, "week");
@@ -37,28 +37,39 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Check in, running totals: "Show by" on its Totals tab, and "Checked in at". */
+/** Check in, metrics with no frequency: running totals at "Checked in at". */
 export const CheckIn: Story = {
+  args: {
+    children: (
+      <div className="col-sm-6 col-lg-3">
+        <MomentPicker when={localInput(NOW)} onChange={fn()} />
+      </div>
+    ),
+  },
+};
+
+/** Metrics with different frequencies: "Frequency" picks the group shown, then its period. */
+export const SeveralFrequencies: Story = {
   args: {
     children: (
       <>
         <div className="col-sm-6 col-lg-2">
-          <ShowPicker show="" picked={week} onShowChange={fn()} onPick={fn()} />
+          <FrequencyPicker frequencies={["day", "week", ""]} value="week" onChange={fn()} />
         </div>
-        <div className="col-sm-6 col-lg-3">
-          <MomentPicker when={localInput(NOW)} onChange={fn()} />
+        <div className="col-sm-6 col-lg-2">
+          <ShowPicker show="week" picked={week} onPick={fn()} />
         </div>
       </>
     ),
   },
 };
 
-/** Check in, shown by a week: no "Checked in at" (check-ins go to the picked week). */
+/** Check in, weekly metrics: the week to show (and check in for) - no other kind of period. */
 export const ShowByWeek: Story = {
   args: {
     children: (
       <div className="col-sm-6 col-lg-2">
-        <ShowPicker show="week" picked={week} onShowChange={fn()} onPick={fn()} />
+        <ShowPicker show="week" picked={week} onPick={fn()} />
       </div>
     ),
   },

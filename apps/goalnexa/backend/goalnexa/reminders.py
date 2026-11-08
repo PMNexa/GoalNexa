@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 
 from django.conf import settings
@@ -36,6 +37,8 @@ from goalnexa.models import GoalStatus, Metric, ReminderSettings
 
 #: An end-of-period nudge goes out from this hour (local) on a period's last counted day.
 NUDGE_HOUR = 18
+#: How long before its period closes a quota still short is nudged (from 18:00 for one closing at midnight).
+NUDGE_WINDOW = timedelta(hours=24 - NUDGE_HOUR)
 
 logger = logging.getLogger(__name__)
 
@@ -167,10 +170,11 @@ def _message(metrics: list[Metric], app_url: str, now) -> tuple[str, str]:
 
 
 def short_of_quota(now=None) -> list[tuple[Metric, object, float]]:
-    """Metrics with a target per period whose current period ends today
-    (its last counted day, from NUDGE_HOUR local time) still under quota,
+    """Metrics with a target per period whose current period closes within
+    the next NUDGE_WINDOW (from NUDGE_HOUR local time for one that closes at
+    midnight; the metric's own moment otherwise - P-93) still under quota,
     not nudged for this period yet: `(metric, period, quota)`."""
-    from goalnexa.periods import current_quota, local_date, zone_for
+    from goalnexa.periods import current_quota, period_bounds, period_days, zone_for
 
     now = now or timezone.now()
     zones: dict = {}
@@ -185,10 +189,14 @@ def short_of_quota(now=None) -> list[tuple[Metric, object, float]]:
         if metric.target_value == metric.base_value:
             continue
         zone = zone_for(metric.goal, zones)
-        local = now.astimezone(zone)
-        today = local_date(now, zone)
-        period, quota = current_quota(metric, metric.goal, today=today, zone=zone)
-        if period is None or period.last != today or local.hour < NUDGE_HOUR:
+        period, quota = current_quota(metric, metric.goal, zone=zone, now=now)
+        if period is None:
+            continue
+        _opens, closes = period_bounds(period.start, metric.target_per, metric, zone)
+        if period.last < period_days(period.start, metric.target_per, metric)[1]:  # the target date ends it sooner
+            end = period.last + timedelta(days=1)
+            closes = datetime(end.year, end.month, end.day, tzinfo=zone)
+        if now < closes - NUDGE_WINDOW:
             continue
         if metric.period_reminded_for == period.start or float(metric.period_value or 0) >= quota:
             continue

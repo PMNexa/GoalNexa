@@ -6,7 +6,7 @@ import type { KeyboardEvent } from "react";
 import type { Cycle } from "../../api/cycles";
 import type { BoardMetric, CellNumbers, ShownNumbers } from "../../api/teamBoard";
 import { formatDateTime, formatNumber, translate } from "platform-core";
-import { midPeriod, nextPeriodStart, periodLabel, periodStart, type Snap } from "../../lib/periods";
+import { midPeriod, momentLabel, nextPeriodStart, periodLabel, periodStart, type Snap } from "../../lib/periods";
 import messages from "./messages";
 
 /** A template goal or metric opened from a column header, to edit. */
@@ -27,6 +27,36 @@ export function viewOptions(): { value: View; label: string }[] {
   return (["table", "chart"] as const).map((value) => ({ value, label: translate(messages, `view_${value}`) }));
 }
 export const VIEW_KEY = "goalnexa:board-view";
+
+/** "Over time" cells: each period's value, or its change from the period before. */
+export type HistoryShow = "value" | "change";
+export const HISTORY_SHOW_KEY = "goalnexa:board-history-show";
+/** The Value / Change switch's options, in the UI language. */
+export function historyShowOptions(): { value: HistoryShow; label: string }[] {
+  return (["value", "change"] as const).map((value) => ({ value, label: translate(messages, `historyShow_${value}`) }));
+}
+
+/**
+ * A period's change from the one before: its value minus the latest earlier
+ * period that has one (an amount: what was done in each; a reading: its last
+ * value in each). Null without a value now or before.
+ */
+export function periodChange(history: (ShownNumbers | null)[], index: number): number | null {
+  const now = history[index]?.value;
+  if (now === null || now === undefined) return null;
+  for (let i = index - 1; i >= 0; i -= 1) {
+    const before = history[i]?.value;
+    if (before !== null && before !== undefined) return Math.round((now - before) * 100) / 100;
+  }
+  return null;
+}
+
+/** "+5", "−2", "0" - a change, signed, in the UI language. */
+export function fmtChange(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  if (value === 0) return fmt(0);
+  return `${value > 0 ? "+" : "−"}${fmt(Math.abs(value))}`;
+}
 /** "Over time": how many periods it shows, up to the picked day. */
 export const HISTORY_COUNT: Record<Snap, number> = { day: 14, week: 12, month: 12, quarter: 8, year: 5 };
 /** The most periods Over time asks for (the API's cap). */
@@ -76,8 +106,9 @@ export function heat(progress: number | null | undefined): string {
   return "gn-h-low";
 }
 
-/** "Week of Oct 6", for a shown period's first day ("YYYY-MM-DD"). */
+/** "Week of Oct 6", or - a metric's own period opening at its moment - "Week from Fri, Oct 2, 17:00". */
 export function shownLabel(shown: ShownNumbers, per: Snap): string {
+  if (shown.opens) return momentLabel(Date.parse(shown.opens), per);
   const [year, month, day] = shown.start.split("-").map(Number);
   return periodLabel(new Date(year, month - 1, day).getTime(), per);
 }
@@ -165,6 +196,14 @@ export function periodEditable(metric: BoardMetric, per: Snap): boolean {
 
 /** When a check-in that sets an "Over time" cell is made: now in the current period, else inside it - a reading at its end, so it's the period's last. */
 export function periodCheckInAt(cell: ShownNumbers, per: Snap, reading: boolean): string {
+  if (cell.opens && cell.closes) {
+    // The metric's own period (P-93), from the server - exact in the organization's zone.
+    const opens = Date.parse(cell.opens);
+    const closes = Date.parse(cell.closes);
+    const now = Date.now();
+    if (opens <= now && now < closes) return new Date(now).toISOString();
+    return new Date(reading ? closes - 60_000 : opens + (closes - opens) / 2).toISOString();
+  }
   const [y, m, d] = cell.start.split("-").map(Number);
   const start = new Date(y, m - 1, d).getTime();
   if (start === periodStart(Date.now(), per)) return new Date().toISOString();

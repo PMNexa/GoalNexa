@@ -19,17 +19,27 @@ export interface DraftMetric {
   targetPer: TargetPer;
   countDays: "all" | "weekdays";
   progressBy: "total" | "hit_rate";
-  snapTo: TargetPer;
-  /** The moment in a `snapTo` period (`snap_weekday`, `snap_time`, `snap_due`...), as the schema's fields - sent only with a period. */
+  /** Its frequency; "goal" (the default) = inherited from its goal. */
+  snapTo: Frequency;
+  /** The moment of a `snapTo` frequency (`snap_weekday`, `snap_time`...), as the schema's fields - sent only with a period. */
   moment: Record<string, unknown>;
 }
 
-/** "Check-in period": a check-in's time is snapped to its period ("Any time", "A week"...), in the UI language. */
-export function snapToLabel(per: TargetPer): string {
+/** A frequency as the template API takes it: a period, any time (""), or inherited ("goal" on a metric, "parent" on a sub-goal). */
+export type Frequency = TargetPer | "goal" | "parent";
+
+/** A frequency in effect - after inheriting - and its moment. */
+export interface Effective {
+  snapTo: TargetPer;
+  moment: Record<string, unknown>;
+}
+
+/** The frequency: a check-in moves to the moment before it ("Any time", "Weekly", "Same as goal"...), in the UI language. */
+export function snapToLabel(per: Frequency): string {
   return translate(messages, per ? (`snap_${per}` as const) : "snap_any");
 }
 export const PER_ORDER: TargetPer[] = ["", "day", "week", "month", "quarter", "year"];
-/** A check-in period can't be longer than the target's period. */
+/** A frequency can't be longer than the target's period. */
 export const periodFits = (per: TargetPer, targetPer: TargetPer) =>
   !per || !targetPer || PER_ORDER.indexOf(per) <= PER_ORDER.indexOf(targetPer);
 
@@ -41,6 +51,11 @@ export function targetPerLabel(per: TargetPer): string {
 export interface DraftGoal {
   key: number;
   title: string;
+  /** Its frequency; "parent" (a sub-goal's default) = its parent goal's. A top-level goal starts at any time. */
+  snapTo: Frequency;
+  moment: Record<string, unknown>;
+  /** The draft goal it's a sub-goal of (its `key`); null = a top-level goal of the template. */
+  parent: number | null;
   metrics: DraftMetric[];
 }
 
@@ -54,9 +69,36 @@ export function rollupLabel(rule: RollupRule): string {
 let nextKey = 1;
 export const newMetric = (): DraftMetric => ({
   key: nextKey++, name: "", unit: "", aggregation: "latest", rollup: "sum", base: "0", target: "",
-  targetPer: "", countDays: "all", progressBy: "total", snapTo: "", moment: {},
+  targetPer: "", countDays: "all", progressBy: "total", snapTo: "goal", moment: {},
 });
-export const newGoal = (title = ""): DraftGoal => ({ key: nextKey++, title, metrics: [newMetric()] });
+export const newGoal = (title = "", parent: number | null = null): DraftGoal => ({
+  key: nextKey++, title, parent, snapTo: parent === null ? "" : "parent", moment: {}, metrics: [newMetric()],
+});
+
+/** `goal`'s frequency in effect: its own, else (inherited) its parent goal's, all the way up; any time at the top. */
+export function effectiveGoal(goals: DraftGoal[], goal: DraftGoal | undefined, seen = 0): Effective {
+  if (!goal || seen > goals.length) return { snapTo: "", moment: {} };
+  if (goal.snapTo === "parent" || goal.snapTo === "goal") {
+    return goal.parent === null ? { snapTo: "", moment: {} } : effectiveGoal(goals, goals.find((g) => g.key === goal.parent), seen + 1);
+  }
+  return { snapTo: goal.snapTo, moment: goal.moment };
+}
+
+/** `metric`'s frequency in effect: its own, else its goal's. */
+export function effectiveMetric(goals: DraftGoal[], goal: DraftGoal, metric: DraftMetric): Effective {
+  return metric.snapTo === "goal" || metric.snapTo === "parent" ? effectiveGoal(goals, goal) : { snapTo: metric.snapTo, moment: metric.moment };
+}
+
+/** `goals` with a new sub-goal of `parent` after its last sub-goal (parents stay before their sub-goals). */
+export function withSubGoal(goals: DraftGoal[], parent: number): DraftGoal[] {
+  let at = goals.findIndex((g) => g.key === parent);
+  while (at + 1 < goals.length && goals[at + 1].parent === parent) at += 1;
+  return [...goals.slice(0, at + 1), newGoal("", parent), ...goals.slice(at + 1)];
+}
+
+/** `goals` without the goal `key` and its sub-goals. */
+export const withoutGoal = (goals: DraftGoal[], key: number): DraftGoal[] =>
+  goals.filter((g) => g.key !== key && g.parent !== key);
 
 export const isNumber = (value: string) => value.trim() !== "" && Number.isFinite(Number(value));
 
@@ -83,8 +125,8 @@ export function teamTree(teams: TeamOption[]): { team: TeamOption; depth: number
 export function stepProblem(name: string, title: string, goals: DraftGoal[]): string | null {
   if (name === "Template" && !title.trim()) return translate(messages, "errTemplateName");
   if (name === "Goals") {
-    if (!goals[0].title.trim()) return translate(messages, "errMainGoal");
-    if (goals.slice(1).some((g) => !g.title.trim())) return translate(messages, "errSubGoals");
+    if (goals.some((g) => g.parent === null && !g.title.trim())) return translate(messages, "errMainGoal");
+    if (goals.some((g) => g.parent !== null && !g.title.trim())) return translate(messages, "errSubGoals");
   }
   if (name === "Metrics") {
     const metrics = goals.flatMap((g) => g.metrics);
@@ -94,6 +136,9 @@ export function stepProblem(name: string, title: string, goals: DraftGoal[]): st
     if (metrics.some((m) => m.target.trim() !== "" && !isNumber(m.target))) return translate(messages, "errTarget");
     if (metrics.some((m) => m.target.trim() !== "" && Number(m.target) === Number(m.base)))
       return translate(messages, "errTargetEqualsStart");
+    // An inherited frequency can't be longer than the metric's target period either.
+    if (goals.some((g) => g.metrics.some((m) => !periodFits(effectiveMetric(goals, g, m).snapTo, m.targetPer))))
+      return translate(messages, "errFrequencyTooLong");
   }
   return null;
 }

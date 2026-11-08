@@ -17,7 +17,7 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from goalnexa import periods
-from goalnexa.models import Goal, Metric, ReminderSettings
+from goalnexa.models import CheckIn, Goal, Metric, ReminderSettings
 from goalnexa.reminders import send_due_reminders
 from tests.test_tenant_isolation import API, signup
 
@@ -154,8 +154,10 @@ class PeriodTargetApiTests(TestCase):
         self.assertEqual(row["cumulative_target"], "100.00")  # 10 days of the cycle
         self.assertEqual(row["expected_value"], "30.00")
         self.assertEqual(row["hit_rate"], "50.00")  # day 1 hit, day 2 missed, today not yet
+        closes = row["pace"].pop("closes")  # the next moment (P-93): tomorrow 00:00 here
         self.assertEqual(row["pace"], {"per": "day", "in_period": True, "period_label": "today", "done": 6.0,
                                        "quota": 10.0, "left": 4.0})
+        self.assertTrue(closes.endswith("T00:00:00+00:00"))
         goal = self.alice.get(f"{API}/goals/{self.goal['id']}").json()
         self.assertEqual(goal["progress"], "20.00")  # 20 of 100
         self.assertEqual(goal["projected_progress"], "66.67")  # 20 of the 30 expected so far
@@ -537,11 +539,11 @@ class GoalSnapToTests(TestCase):
 
 @override_settings(AUTH_FIRST_RUN_SETUP=False)
 class SnapMomentTests(TestCase):
-    """P-80: when in its period a check-in is (`SnapMoment`: weekday, month
-    of the quarter, month, day, time) - its time is set to that moment, and
-    with `snap_due` it's when the period's check-in is due. Sub-goals inherit
-    their parent goal's setting, metrics their goal's, sub-metrics their
-    parent metric's."""
+    """P-80, P-93: a frequency's moment (`SnapMoment`: weekday, month of the
+    quarter, month, day, time) - a check-in's time moves to the latest moment
+    at or before it, and the next moment is when one is due. Sub-goals
+    inherit their parent goal's setting, metrics their goal's, sub-metrics
+    their parent metric's."""
 
     setUp = SnapToTests.setUp
     ok = SnapToTests.ok
@@ -556,11 +558,13 @@ class SnapMomentTests(TestCase):
 
     def test_check_ins_land_on_the_periods_moment(self):
         cases = [
-            ({"snap_to": "day", "snap_time": "18:30"}, "2026-10-09T11:30:00Z"),  # Fri Oct 9 18:30
-            ({"snap_to": "week", "snap_weekday": 5, "snap_time": "17:00"}, "2026-10-09T10:00:00Z"),  # Fri Oct 9 17:00
-            ({"snap_to": "month", "snap_day": 31}, "2026-10-30T17:00:00Z"),  # Oct 31 00:00
-            # The 2nd month of Q4 is November; day 31 = its last day.
-            ({"snap_to": "quarter", "snap_quarter_month": 2, "snap_day": 31, "snap_time": "09:00"}, "2026-11-30T02:00:00Z"),
+            # The moment before Fri Oct 9 03:00:
+            ({"snap_to": "day", "snap_time": "18:30"}, "2026-10-08T11:30:00Z"),  # Thu Oct 8 18:30
+            ({"snap_to": "day", "snap_time": "03:00"}, "2026-10-08T20:00:00Z"),  # Fri Oct 9 03:00 - at the moment itself
+            ({"snap_to": "week", "snap_weekday": 5, "snap_time": "17:00"}, "2026-10-02T10:00:00Z"),  # Fri Oct 2 17:00
+            ({"snap_to": "month", "snap_day": 31}, "2026-09-29T17:00:00Z"),  # Sep 30 00:00 (day 31 = its last day)
+            # The 2nd month of Q3 is August.
+            ({"snap_to": "quarter", "snap_quarter_month": 2, "snap_day": 31, "snap_time": "09:00"}, "2026-08-31T02:00:00Z"),
             ({"snap_to": "year", "snap_month": 3, "snap_day": 15}, "2026-03-14T17:00:00Z"),  # Mar 15 00:00
         ]
         for settings, expected in cases:
@@ -572,16 +576,66 @@ class SnapMomentTests(TestCase):
         self.assertEqual(self.check_in(metric), "2026-10-04T17:00:00Z")  # Mon Oct 5 00:00
         self.patch(f"metrics/{metric['id']}", snap_weekday=3, snap_time="08:00")
         row = self.alice.get(f"{API}/check-ins", {"filter{metric}": metric["id"]}).json()["items"][0]
+        # From the time it was given (Fri Oct 9 03:00), not from its old stamp.
         self.assertEqual(row["checked_in_at"], "2026-10-07T01:00:00Z")  # Wed Oct 7 08:00
+        self.assertEqual(row["entered_at"], "2026-10-08T20:00:00Z")
+        # Changed again: still from the time given - no sliding back a week per change.
+        self.patch(f"metrics/{metric['id']}", snap_weekday=4, snap_time="08:00")
+        self.patch(f"metrics/{metric['id']}", snap_weekday=3, snap_time="08:00")
+        row = self.alice.get(f"{API}/check-ins", {"filter{metric}": metric["id"]}).json()["items"][0]
+        self.assertEqual(row["checked_in_at"], "2026-10-07T01:00:00Z")
+        # resnap false: they stay where they are.
+        self.patch(f"metrics/{metric['id']}", snap_weekday=5, snap_time="17:00", resnap=False)
+        row = self.alice.get(f"{API}/check-ins", {"filter{metric}": metric["id"]}).json()["items"][0]
+        self.assertEqual(row["checked_in_at"], "2026-10-07T01:00:00Z")
+        # ...until asked for, with no change.
+        self.patch(f"metrics/{metric['id']}", resnap=True)
+        row = self.alice.get(f"{API}/check-ins", {"filter{metric}": metric["id"]}).json()["items"][0]
+        self.assertEqual(row["checked_in_at"], "2026-10-02T10:00:00Z")  # Fri Oct 2 17:00
+        # Any time: back to the time given.
+        self.patch(f"metrics/{metric['id']}", snap_to="")
+        row = self.alice.get(f"{API}/check-ins", {"filter{metric}": metric["id"]}).json()["items"][0]
+        self.assertEqual((row["checked_in_at"], row["entered_at"]), ("2026-10-08T20:00:00Z", None))
+
+    def test_resnap_without_a_given_time_is_best_effort(self):
+        """A check-in from before P-93 (no `entered_at`), dated forward by the
+        old rule: re-snapping starts from when it was made."""
+        metric = self.metric(snap_to="month", snap_day=15)
+        row = CheckIn.objects.create(metric_id=metric["id"], value=1, checked_in_at=datetime(2026, 10, 9, tzinfo=UTC))
+        made = datetime(2026, 10, 9, 1, tzinfo=UTC)
+        CheckIn.objects.filter(id=row.id).update(checked_in_at=datetime(2026, 10, 14, 17, tzinfo=UTC), entered_at=None, created_at=made)
+        self.patch(f"metrics/{metric['id']}", resnap=True)
+        row.refresh_from_db()
+        self.assertEqual(row.checked_in_at, datetime(2026, 9, 14, 17, tzinfo=UTC))  # Sep 15 00:00 +07:00
+        self.assertEqual(row.entered_at, made)
+
+    def test_a_goals_resnap_moves_its_inheriting_metrics(self):
+        self.patch(f"goals/{self.goal['id']}", snap_to="week")
+        metric = self.metric()
+        own = self.metric(snap_to="day")
+        rows = [CheckIn.objects.create(metric_id=m["id"], value=1, checked_in_at=datetime(2026, 10, 8, 20, tzinfo=UTC)) for m in (metric, own)]
+        CheckIn.objects.filter(id__in=[r.id for r in rows]).update(checked_in_at=datetime(2026, 10, 9, 10, tzinfo=UTC), entered_at=None)
+        self.patch(f"goals/{self.goal['id']}", resnap=True)
+        moved, kept = (CheckIn.objects.get(id=r.id).checked_in_at for r in rows)
+        self.assertEqual(moved, datetime(2026, 10, 4, 17, tzinfo=UTC))  # Mon Oct 5 00:00 +07:00
+        self.assertEqual(kept, datetime(2026, 10, 9, 10, tzinfo=UTC))  # its own frequency: not the goal's to move
+
+    def test_a_check_in_can_name_its_period(self):
+        metric = self.metric(snap_to="week", snap_weekday=5, snap_time="17:00")
+        made = self.ok(self.alice, "check-ins", metric=metric["id"], value=1, period="2026-10-08")
+        self.assertEqual(made["checked_in_at"], "2026-10-02T10:00:00Z")  # Thu Oct 8 is in the week from Fri Oct 2 17:00
+        made = self.ok(self.alice, "check-ins", metric=metric["id"], value=1, period="2026-10-09")
+        self.assertEqual(made["checked_in_at"], "2026-10-09T10:00:00Z")
 
     def test_due_at_the_next_periods_moment(self):
         metric = self.metric(snap_to="week", snap_weekday=5, snap_time="17:00")
         self.assertTrue(metric["snap_due"])
         self.check_in(metric)
         metric = self.alice.get(f"{API}/metrics/{metric['id']}").json()
-        self.assertEqual(metric["check_in_due_at"], "2026-10-16T10:00:00Z")  # next Friday 17:00
-        # Off: no due moment (and no "check in every" schedule).
-        self.assertIsNone(self.patch(f"metrics/{metric['id']}", snap_due=False)["check_in_due_at"])
+        # Stamped Fri Oct 2 17:00, so the next moment is due: Fri Oct 9 17:00.
+        self.assertEqual(metric["check_in_due_at"], "2026-10-09T10:00:00Z")
+        # A frequency is the schedule: `snap_due` is read-only now.
+        self.assertEqual(self.patch(f"metrics/{metric['id']}", snap_due=False)["check_in_due_at"], "2026-10-09T10:00:00Z")
 
     def test_a_new_metric_is_first_due_at_its_creation_periods_moment_if_still_ahead(self):
         created = timezone.now()
@@ -601,7 +655,7 @@ class SnapMomentTests(TestCase):
         sub_metric = self.ok(self.alice, "metrics", goal=sub["id"], parent=own["id"], name="Online", aggregation="sum",
                              target_value=100)
         self.assertEqual((sub_metric["snap_to"], sub_metric["snap_period"], sub_metric["snap_day"]), ("goal", "month", 10))
-        self.assertEqual(self.check_in(metric), "2026-10-09T10:00:00Z")  # the top goal's Friday 17:00
+        self.assertEqual(self.check_in(metric), "2026-10-02T10:00:00Z")  # the top goal's Friday 17:00 before it
 
         # The top goal changes: the sub-goal and its inheriting metric follow, check-ins too.
         self.patch(f"goals/{self.goal['id']}", snap_to="month", snap_day=5, snap_time="00:00")

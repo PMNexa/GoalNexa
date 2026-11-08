@@ -71,8 +71,8 @@ period's numbers per cell (`shown`: `value`, `quota`), and `periods` (up to
 period). Present it as a table: team · each metric's current / target ·
 progress, totals last; name the teams that haven't checked in.
 
-**Overdue metrics**: a metric with a schedule (`check_in_every`, or a
-period's moment with `snap_due`) has `check_in_due_at`; it's overdue once that's passed -
+**Overdue metrics**: a metric with a frequency (`snap_period`; or an old
+`check_in_every`) has `check_in_due_at` - its next moment; it's overdue once that's passed -
 `metrics_list` with `filter: {"check_in_due_at.lte": "<now, ISO 8601>"}` and
 `include: ["goal"]`. A metric with no schedule is stale when
 `last_checked_in_at` is more than 14 days ago (or null while the goal is in

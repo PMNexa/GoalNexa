@@ -37,7 +37,7 @@ const meta = {
     id: "crud-field-snap_to",
     field: snapToField,
     fields: momentFields,
-    values: { name: "Weekly sales", snap_to: "week", snap_weekday: 5, snap_time: "17:00", snap_due: true },
+    values: { name: "Weekly sales", snap_to: "week", snap_weekday: 5, snap_time: "17:00" },
     onChange: fn(),
   },
 } satisfies Meta<typeof CheckInMomentField>;
@@ -52,48 +52,61 @@ const openMenu: Story["play"] = async ({ canvasElement }) => {
   await expect(canvas.getByRole("dialog")).toBeInTheDocument();
 };
 
-/** Closed: the setting in words - "Each week · Friday, 17:00 · due then". */
+/** Closed: the frequency in words - "Weekly on Friday at 17:00". */
 export const Week: Story = {};
 
-/** Week, opened: period first, then the weekday, time and "due". */
+/** Week, opened: the frequency first, then the weekday and time, and the rule. */
 export const WeekOpen: Story = { play: openMenu };
 
 /** A day: only the time. */
-export const DayOpen: Story = { args: { values: { snap_to: "day", snap_time: "21:30", snap_due: false } }, play: openMenu };
+export const DayOpen: Story = { args: { values: { snap_to: "day", snap_time: "21:30" } }, play: openMenu };
 
 /** A month: the day of the month (and the time). */
-export const MonthOpen: Story = { args: { values: { snap_to: "month", snap_day: 15, snap_time: "09:00", snap_due: true } }, play: openMenu };
+export const MonthOpen: Story = { args: { values: { snap_to: "month", snap_day: 15, snap_time: "09:00" } }, play: openMenu };
 
 /** A quarter: its month, then the day. */
 export const QuarterOpen: Story = {
-  args: { values: { snap_to: "quarter", snap_quarter_month: 3, snap_day: 1, snap_time: "00:00", snap_due: true } },
+  args: { values: { snap_to: "quarter", snap_quarter_month: 3, snap_day: 1, snap_time: "00:00" } },
   play: openMenu,
 };
 
 /** A year on day 31: "A shorter month uses its last day." */
 export const YearOpen: Story = {
-  args: { values: { snap_to: "year", snap_month: 12, snap_day: 31, snap_time: "23:30", snap_due: true } },
+  args: { values: { snap_to: "year", snap_month: 12, snap_day: 31, snap_time: "23:30" } },
   play: openMenu,
 };
 
 /** Inherited from the goal ("Same as goal" - the default when unset): no moment to pick. */
 export const SameAsGoal: Story = { args: { values: {} } };
 
-/** Any time: the periods only - picking one that has no moment closes the menu. */
+/** Any time: the frequencies only - picking one that has no moment closes the menu. */
 export const AnyTimeOpen: Story = { args: { values: { snap_to: "" } }, play: openMenu };
 
-/** A form whose layout passes only `snap_to` (no moment fields): just the period. */
+/** A form whose layout passes only `snap_to` (no moment fields): just the frequency. */
 export const PeriodOnly: Story = { args: { fields: {}, values: { snap_to: "week" } }, play: openMenu };
 
 /** A team's copy of a template metric: shown, not editable, with where to change it. */
 export const LockedByTemplate: Story = {
-  args: { values: { snap_to: "week", snap_weekday: 1, snap_time: "00:00", snap_due: true, template_metric: "0b000000-0000-7000-8000-000000000001" } },
+  args: { values: { snap_to: "week", snap_weekday: 1, snap_time: "00:00", template_metric: "0b000000-0000-7000-8000-000000000001" } },
 };
 
 /** The server refused it: the errors of any of its fields, under the button. */
 export const Refused: Story = {
   args: {
-    values: { snap_to: "day", snap_time: "08:00", snap_due: true },
+    values: { snap_to: "day", snap_time: "08:00" },
     errors: { snap_to: ["A metric with a weekly target can't take check-ins for a day."] },
+  },
+};
+
+/** Editing a saved metric: "Move existing check-ins" sits under it, ticked once the frequency changes. */
+export const Editing: Story = {
+  args: { values: { id: "0b000000-0000-7000-8000-000000000002", snap_to: "week", snap_weekday: 5, snap_time: "17:00" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const move = canvas.getByRole("checkbox", { name: /move existing check-ins/i });
+    await expect(move).not.toBeChecked();
+    await userEvent.click(canvas.getByRole("button", { expanded: false }));
+    await userEvent.click(canvas.getByRole("button", { name: "Mon" }));
+    await expect(move).toBeChecked();
   },
 };

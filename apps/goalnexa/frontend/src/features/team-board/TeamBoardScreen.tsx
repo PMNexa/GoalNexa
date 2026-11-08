@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, CardBody, CrudDetailScreen, Drawer, useLocale, useT, type LinkComponent } from "platform-core";
+import { Button, Card, CardBody, CrudDetailScreen, Drawer, FormLabel, SegmentedControl, useLocale, useT, type LinkComponent } from "platform-core";
 import TemplateWizard from "./TemplateWizard";
-import BoardPickers, { MomentPicker, RangePicker, ShowPicker } from "./BoardPickers";
+import BoardPickers, { FrequencyPicker, MomentPicker, RangePicker, ShowPicker } from "./BoardPickers";
+
+/** The frequencies a board can show, in order ("" = any time). */
+const FREQUENCY_ORDER: (Snap | "")[] = ["day", "week", "month", "quarter", "year", ""];
 import BoardTable from "./BoardTable";
 import HistoryTable, { type PeriodTip } from "./HistoryTable";
 import { LeaveTemplateModal, RemoveFromTemplateModal } from "./BoardModals";
 import { BOARD_CSS } from "./boardStyles";
 import {
   HISTORY_COUNT,
+  HISTORY_SHOW_KEY,
   MAX_HISTORY,
   NO_CYCLE,
   PICKERS_KEY,
@@ -16,6 +20,7 @@ import {
   VIEW_KEY,
   defaultCycle,
   fmt,
+  historyShowOptions,
   isNumber,
   nowLocal,
   periodCheckInAt,
@@ -23,10 +28,11 @@ import {
   periodsBetween,
   whenFor,
   type EditTarget,
+  type HistoryShow,
   type Mode,
   type View,
 } from "./boardHelpers";
-import { boardBlocks, buildColumns, buildRows, chartPoint, goalOrder, historyStarts, type Row } from "./boardRows";
+import { boardBlocks, buildColumns, buildRows, changeBlocks, chartPoint, goalOrder, historyStarts, type Row } from "./boardRows";
 import { useBoardDrafts } from "./useBoardDrafts";
 import { useBoardLayout, useFullscreen } from "./useBoardLayout";
 import { BOARD_CHART_CSS, BoardBarCharts, BoardLineCharts, type ChartSeries } from "../../components/charts/BoardCharts";
@@ -117,13 +123,38 @@ function TeamBoardScreen({
   // The pickers' "+ New" forms (a cycle, a team).
   const [creating, setCreating] = useState<CreateTarget | null>(null);
   const [cycleId, setCycleId] = useState<string>(NO_CYCLE);
-  const [board, setBoard] = useState<Board | null>(null);
+  const [fullBoard, setBoard] = useState<Board | null>(null);
   const [root, setRoot] = useState("");
   const [mode, setMode] = useState<Mode>("checkin");
   const [when, setWhen] = useState(nowLocal);
   // "Now" for the period pickers (render must not read the clock).
   const [openedAt] = useState(() => Date.now());
-  const [show, setShowState] = useState<Snap | "">(() => readStored<Snap | "">(SHOW_KEY, ""));
+  // P-95: the board shows by its metrics' frequency. When they have several, one group at a time (picked).
+  const frequencies = useMemo(
+    () => FREQUENCY_ORDER.filter((per) => fullBoard?.metrics.some((m) => (m.snap_to || "") === per)),
+    [fullBoard],
+  );
+  const [pickedFrequency, setPickedFrequency] = useState<Snap | "" | null>(() => readStored<Snap | "" | null>(SHOW_KEY, null));
+  const show: Snap | "" =
+    pickedFrequency !== null && frequencies.includes(pickedFrequency) ? pickedFrequency : (frequencies[0] ?? "");
+  function setShow(value: Snap | "") {
+    setPickedFrequency(value);
+    writeStored(SHOW_KEY, value);
+  }
+  // The board as shown: only the picked frequency's metrics.
+  const board = useMemo(
+    () => (fullBoard && frequencies.length > 1 ? { ...fullBoard, metrics: fullBoard.metrics.filter((m) => (m.snap_to || "") === show) } : fullBoard),
+    [fullBoard, frequencies, show],
+  );
+  // Over time for metrics with no frequency: by day, or another kind picked in the range picker.
+  const [anyTimePer, setAnyTimePer] = useState<Snap>("day");
+  // Over time: each period's value, or its change from the period before (remembered per browser).
+  const [historyShow, setHistoryShowState] = useState<HistoryShow>(() => readStored<HistoryShow>(HISTORY_SHOW_KEY, "value"));
+  function setHistoryShow(value: HistoryShow) {
+    setHistoryShowState(value);
+    writeStored(HISTORY_SHOW_KEY, value);
+  }
+  const change = historyShow === "change";
   // The picker card folds to one summary line (remembered per browser).
   const [pickersFolded, setPickersFoldedState] = useState(() => readStored<boolean>(PICKERS_KEY, false));
   function setPickersFolded(value: boolean) {
@@ -136,15 +167,11 @@ function TeamBoardScreen({
     writeStored(VIEW_KEY, value);
     drafts.reset();
   }
-  function setShow(value: Snap | "") {
-    setShowState(value);
-    writeStored(SHOW_KEY, value);
-  }
   // The shown period follows "Checked in at"; only refetched while showing by a period.
   // The board's day ("Last update") and shown period both follow "Checked in at".
   const boardAt = when ? new Date(when).toISOString() : "";
   // "Over time": one column per period (Show by; a day when it's "Running totals").
-  const historyPer: Snap | null = mode === "history" ? show || "day" : null;
+  const historyPer: Snap | null = mode === "history" ? show || anyTimePer : null;
   // Over time's range: From (a period's first day; null = the default count back) to `when`.
   const [historyFrom, setHistoryFrom] = useState<number | null>(null);
   const historyTo = historyPer ? periodStart(when ? new Date(when).getTime() : openedAt, historyPer) : 0;
@@ -393,7 +420,10 @@ function TeamBoardScreen({
     const goals = goalOrder(board);
     if (historyPer) {
       const { starts, label } = historyStarts(blocks, historyPer);
-      return <BoardLineCharts goals={goals} metrics={board.metrics} series={series} starts={starts} label={label} />;
+      const lines = change
+        ? changeBlocks(blocks).map((b) => ({ key: b.key, label: b.label, total: !!b.sub, metrics: b.metrics }))
+        : series;
+      return <BoardLineCharts goals={goals} metrics={board.metrics} series={lines} starts={starts} label={label} />;
     }
     return <BoardBarCharts goals={goals} metrics={board.metrics} series={series} point={(numbers, metric) => chartPoint(numbers, metric, showing)} />;
   }
@@ -545,9 +575,10 @@ function TeamBoardScreen({
                 from={historyFirst}
                 to={historyTo}
                 capped={historyFrom !== null && periodStart(historyFrom, historyPer) < historyFirst}
-                onPerChange={(next) => {
+                pers={show ? [show] : undefined}
+                onPerChange={show ? undefined : (next) => {
                   setHistoryFrom(null); // a new kind of period starts from its default span
-                  setShow(next);
+                  setAnyTimePer(next);
                 }}
                 onChange={(first, last) => {
                   setHistoryFrom(first);
@@ -556,16 +587,32 @@ function TeamBoardScreen({
               />
             </div>
           )}
-          {mode === "checkin" && (
+          {frequencies.length > 1 && mode !== "targets" && (
+            <div className="col-sm-6 col-lg-2">
+              <FrequencyPicker
+                frequencies={frequencies}
+                value={show}
+                onChange={(value) => {
+                  setHistoryFrom(null);
+                  setShow(value);
+                }}
+              />
+            </div>
+          )}
+          {mode === "history" && (
+            <div className="col-sm-6 col-lg-2" title={t("historyShowHint")}>
+              <FormLabel>{t("historyShow")}</FormLabel>
+              <div>
+                <SegmentedControl label={t("historyShow")} variant="secondary" options={historyShowOptions()} value={historyShow} onChange={setHistoryShow} />
+              </div>
+            </div>
+          )}
+          {mode === "checkin" && show && (
             <div className="col-sm-6 col-lg-2">
               <ShowPicker
                 show={show}
-                picked={periodStart(when ? new Date(when).getTime() : openedAt, show || "week")}
-                onShowChange={setShow}
-                onPick={(last, per) => {
-                  if (!show) setShow(per);
-                  setWhen(whenFor(last, per));
-                }}
+                picked={periodStart(when ? new Date(when).getTime() : openedAt, show)}
+                onPick={(last, per) => setWhen(whenFor(last, per))}
               />
             </div>
           )}
@@ -654,7 +701,8 @@ function TeamBoardScreen({
                 {historyPer ? (
                   <HistoryTable
                     board={board}
-                    blocks={boardBlocks(rows)}
+                    blocks={change ? changeBlocks(boardBlocks(rows)) : boardBlocks(rows)}
+                    change={change}
                     per={historyPer}
                     busy={busy}
                     tip={periodTip}
