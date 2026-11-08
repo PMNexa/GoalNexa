@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, CardBody, CrudDetailScreen, Drawer, useLocale, useT, type LinkComponent } from "platform-core";
+import { Button, Card, CardBody, CrudDetailScreen, Drawer, FormLabel, SegmentedControl, useLocale, useT, type LinkComponent } from "platform-core";
 import TemplateWizard from "./TemplateWizard";
 import BoardPickers, { FrequencyPicker, MomentPicker, RangePicker, ShowPicker } from "./BoardPickers";
 
@@ -11,6 +11,7 @@ import { LeaveTemplateModal, RemoveFromTemplateModal } from "./BoardModals";
 import { BOARD_CSS } from "./boardStyles";
 import {
   HISTORY_COUNT,
+  HISTORY_SHOW_KEY,
   MAX_HISTORY,
   NO_CYCLE,
   PICKERS_KEY,
@@ -19,6 +20,7 @@ import {
   VIEW_KEY,
   defaultCycle,
   fmt,
+  historyShowOptions,
   isNumber,
   nowLocal,
   periodCheckInAt,
@@ -26,10 +28,11 @@ import {
   periodsBetween,
   whenFor,
   type EditTarget,
+  type HistoryShow,
   type Mode,
   type View,
 } from "./boardHelpers";
-import { boardBlocks, buildColumns, buildRows, chartPoint, goalOrder, historyStarts, type Row } from "./boardRows";
+import { boardBlocks, buildColumns, buildRows, changeBlocks, chartPoint, goalOrder, historyStarts, type Row } from "./boardRows";
 import { useBoardDrafts } from "./useBoardDrafts";
 import { useBoardLayout, useFullscreen } from "./useBoardLayout";
 import { BOARD_CHART_CSS, BoardBarCharts, BoardLineCharts, type ChartSeries } from "../../components/charts/BoardCharts";
@@ -145,6 +148,13 @@ function TeamBoardScreen({
   );
   // Over time for metrics with no frequency: by day, or another kind picked in the range picker.
   const [anyTimePer, setAnyTimePer] = useState<Snap>("day");
+  // Over time: each period's value, or its change from the period before (remembered per browser).
+  const [historyShow, setHistoryShowState] = useState<HistoryShow>(() => readStored<HistoryShow>(HISTORY_SHOW_KEY, "value"));
+  function setHistoryShow(value: HistoryShow) {
+    setHistoryShowState(value);
+    writeStored(HISTORY_SHOW_KEY, value);
+  }
+  const change = historyShow === "change";
   // The picker card folds to one summary line (remembered per browser).
   const [pickersFolded, setPickersFoldedState] = useState(() => readStored<boolean>(PICKERS_KEY, false));
   function setPickersFolded(value: boolean) {
@@ -410,7 +420,10 @@ function TeamBoardScreen({
     const goals = goalOrder(board);
     if (historyPer) {
       const { starts, label } = historyStarts(blocks, historyPer);
-      return <BoardLineCharts goals={goals} metrics={board.metrics} series={series} starts={starts} label={label} />;
+      const lines = change
+        ? changeBlocks(blocks).map((b) => ({ key: b.key, label: b.label, total: !!b.sub, metrics: b.metrics }))
+        : series;
+      return <BoardLineCharts goals={goals} metrics={board.metrics} series={lines} starts={starts} label={label} />;
     }
     return <BoardBarCharts goals={goals} metrics={board.metrics} series={series} point={(numbers, metric) => chartPoint(numbers, metric, showing)} />;
   }
@@ -586,6 +599,14 @@ function TeamBoardScreen({
               />
             </div>
           )}
+          {mode === "history" && (
+            <div className="col-sm-6 col-lg-2" title={t("historyShowHint")}>
+              <FormLabel>{t("historyShow")}</FormLabel>
+              <div>
+                <SegmentedControl label={t("historyShow")} variant="secondary" options={historyShowOptions()} value={historyShow} onChange={setHistoryShow} />
+              </div>
+            </div>
+          )}
           {mode === "checkin" && show && (
             <div className="col-sm-6 col-lg-2">
               <ShowPicker
@@ -680,7 +701,8 @@ function TeamBoardScreen({
                 {historyPer ? (
                   <HistoryTable
                     board={board}
-                    blocks={boardBlocks(rows)}
+                    blocks={change ? changeBlocks(boardBlocks(rows)) : boardBlocks(rows)}
+                    change={change}
                     per={historyPer}
                     busy={busy}
                     tip={periodTip}

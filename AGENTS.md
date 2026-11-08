@@ -345,7 +345,8 @@ time" mode (its periods are a range from `PeriodPicker` - day/week/month/
 quarter/year tabs over a calendar or grid, also the single-period picker
 in Check in - sent as `at` = the last and `periods` = the count, capped at
 60; a team's cell is edited in place: one check-in, the difference
-for an amount - `savePeriod`) (rows team -> goal -> metric, columns periods); Check in and Over time
+for an amount - `savePeriod`; a Value / Change switch shows each period
+minus the one before instead - `changeBlocks`, P-97) (rows team -> goal -> metric, columns periods); Check in and Over time
 also draw as charts (Table/Chart, `components/charts/BoardCharts/BoardCharts.tsx`: bars as
 % of each team's target, lines per team; totals listed apart) - goalnexa-frontend's
 `TeamBoardScreen` (`createTeamBoardRoutes("board")`; templates' pages:

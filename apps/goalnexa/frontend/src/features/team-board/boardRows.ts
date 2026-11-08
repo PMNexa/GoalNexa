@@ -7,7 +7,7 @@ import type { ChartPoint } from "../../components/charts/BoardCharts";
 import type { Board, BoardInstance, BoardMetric, BoardPerson, BoardTeam, BoardTotal, CellNumbers, ShownNumbers } from "../../api/teamBoard";
 import { momentLabel, periodLabel, type Snap } from "../../lib/periods";
 import { getLocale, translate, translator, type Locale } from "platform-core";
-import { fmt, perLabel, shownPct, tipDay, tipTime, type Mode } from "./boardHelpers";
+import { fmt, fmtChange, perLabel, periodChange, shownPct, tipDay, tipTime, type Mode } from "./boardHelpers";
 import messages from "./messages";
 
 export interface Row {
@@ -195,6 +195,25 @@ export function boardBlocks(rows: Row[]): BoardBlock[] {
   return blocks;
 }
 
+/**
+ * The blocks with every Over time cell's value turned into its change from
+ * the period before (`periodChange`), and no per-period target - for the
+ * Value / Change switch's "Change" (table and charts alike).
+ */
+export function changeBlocks(blocks: BoardBlock[]): BoardBlock[] {
+  return blocks.map((block) => ({
+    ...block,
+    metrics: Object.fromEntries(
+      Object.entries(block.metrics).map(([id, numbers]) => [
+        id,
+        numbers.history
+          ? { ...numbers, history: numbers.history.map((cell, i, all) => cell && { ...cell, value: periodChange(all, i), quota: null }) }
+          : numbers,
+      ]),
+    ),
+  }));
+}
+
 /** Over time's periods: their first days, from any cell that has them all (a team's always does), and their names. */
 export function historyStarts(blocks: BoardBlock[], per: Snap) {
   const sample = blocks.flatMap((b) => Object.values(b.metrics)).find((n) => n.history?.length && n.history.every(Boolean));
@@ -232,14 +251,15 @@ export function chartPoint(numbers: CellNumbers, metric: BoardMetric, showing: b
 }
 
 /** The hover details of an "Over time" cell. */
-export function periodTipLines(block: BoardBlock, metric: BoardMetric, cell: ShownNumbers | null, label: string, editable: boolean, per?: Snap): string[] {
+export function periodTipLines(block: BoardBlock, metric: BoardMetric, cell: ShownNumbers | null, label: string, editable: boolean, per?: Snap, change = false): string[] {
   const lines = [`${block.label}${block.sub ? translate(messages, "tipTotal") : ""} · ${metric.name}`];
   if (!cell) return [...lines, translate(messages, "tipNotTotalled")];
   const own = cell.opens && per ? momentLabel(Date.parse(cell.opens), per) : label;
   const first = cell.first ?? cell.start;
   lines.push(first === cell.last ? own : `${own} (${tipDay(new Date(`${first}T00:00`))} – ${tipDay(new Date(`${cell.last}T00:00`))})`);
   const unit = metric.unit ? ` ${metric.unit}` : "";
-  if (cell.value === null) lines.push(translate(messages, "tipNoCheckIn"));
+  if (change) lines.push(`${translate(messages, "historyShow_change")}: ${fmtChange(cell.value)}${unit}`);
+  else if (cell.value === null) lines.push(translate(messages, "tipNoCheckIn"));
   else {
     const pct = shownPct(cell, block.metrics[metric.id], metric);
     lines.push(`${fmt(cell.value)}${cell.quota !== null ? ` / ${fmt(cell.quota)}` : ""}${unit}${pct !== null ? ` · ${Math.round(pct)}%` : ""}`);

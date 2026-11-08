@@ -2,7 +2,7 @@ import { Fragment, useRef, useState } from "react";
 import { FormControl, useT } from "platform-core";
 import type { Board, BoardMetric, CellNumbers, ShownNumbers } from "../../api/teamBoard";
 import type { Snap } from "../../lib/periods";
-import { fmt, heat, periodEditable, shownPct } from "./boardHelpers";
+import { fmt, fmtChange, heat, periodEditable, shownPct } from "./boardHelpers";
 import { historyStarts, periodTipLines, goalOrder, type BoardBlock } from "./boardRows";
 import messages from "./messages";
 
@@ -26,6 +26,8 @@ export interface HistoryTableProps {
   onTip: (tip: PeriodTip | null) => void;
   /** A cell typed into and left: set that period to `typed` (see `savePeriod`). */
   onSavePeriod: (metric: BoardMetric, numbers: CellNumbers, cell: ShownNumbers, per: Snap, typed: string) => void;
+  /** Cells hold each period's change from the one before (`changeBlocks`): signed, not editable, no % shading. */
+  change?: boolean;
 }
 
 /**
@@ -34,7 +36,7 @@ export interface HistoryTableProps {
  * that period (or its last reading), against its target per that period.
  * A team's cell the caller may check in on is edited in place.
  */
-function HistoryTable({ board, blocks, per, busy, tip: periodTip, onTip, onSavePeriod }: HistoryTableProps) {
+function HistoryTable({ board, blocks, per, busy, tip: periodTip, onTip, onSavePeriod, change = false }: HistoryTableProps) {
   const t = useT(messages);
   // The cell being typed into.
   const [periodEdit, setPeriodEdit] = useState<{ key: string; value: string } | null>(null);
@@ -106,9 +108,9 @@ function HistoryTable({ board, blocks, per, busy, tip: periodTip, onTip, onSaveP
                         </th>
                         {starts.map((start, index) => {
                           const cell = numbers?.history?.[index] ?? null;
-                          const pct = cell && numbers ? shownPct(cell, numbers, metric) : null;
+                          const pct = cell && numbers && !change ? shownPct(cell, numbers, metric) : null;
                           const key = `${block.key}:${metric.id}:${index}`;
-                          const editable = !!block.canCheckIn && !!numbers && !!cell && !busy && periodEditable(metric, per);
+                          const editable = !change && !!block.canCheckIn && !!numbers && !!cell && !busy && periodEditable(metric, per);
                           if (periodEdit?.key === key && numbers && cell) {
                             return (
                               <td key={start} className="gn-cell gn-num">
@@ -133,7 +135,7 @@ function HistoryTable({ board, blocks, per, busy, tip: periodTip, onTip, onSaveP
                               </td>
                             );
                           }
-                          const tip = () => periodTipLines(block, metric, cell, label(start), editable, per);
+                          const tip = () => periodTipLines(block, metric, cell, label(start), editable, per, change);
                           const startEdit = () => {
                             periodCancel.current = false;
                             onTip(null);
@@ -160,7 +162,11 @@ function HistoryTable({ board, blocks, per, busy, tip: periodTip, onTip, onSaveP
                               onFocus={(e) => showPeriodTip(e.currentTarget, tip())}
                               onBlur={() => onTip(null)}
                             >
-                              {cell?.value === null || cell === null ? "—" : fmt(cell.value)}
+                              {change ? (
+                                <span className={cell?.value ? (cell.value > 0 ? "text-success" : "text-danger") : undefined}>
+                                  {fmtChange(cell?.value)}
+                                </span>
+                              ) : cell?.value === null || cell === null ? "—" : fmt(cell.value)}
                               {cell?.quota !== null && cell?.quota !== undefined && (
                                 <span className="text-secondary"> / {fmt(cell.quota)}</span>
                               )}
