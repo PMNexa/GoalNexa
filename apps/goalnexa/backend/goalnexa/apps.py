@@ -74,6 +74,13 @@ class GoalnexaConfig(AppConfig):
 
         if hasattr(system, "person_converted"):
             system.person_converted.connect(on_person_converted, dispatch_uid="goalnexa.person_converted")
+        # An org's new time zone re-stamps its goals (goalnexa.zones, P-106).
+        from django.db.models.signals import post_save, pre_save
+
+        from goalnexa import zones
+
+        pre_save.connect(zones.before_org_save, dispatch_uid="goalnexa.org_zone_before")
+        post_save.connect(zones.after_org_save, dispatch_uid="goalnexa.org_zone_after")
         register_usage_provider(UsageProvider("Goals", usage))
         register_export_provider("goals", export)
         from goalnexa.insights import register_insights

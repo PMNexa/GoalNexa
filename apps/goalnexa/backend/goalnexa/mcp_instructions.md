@@ -34,7 +34,7 @@ names, notes) stay in the user's own words and language.
    reading counts, and `replaces` says which one it replaced.
    A metric whose `snap_period` is set has a frequency (daily/weekly/... at
    a moment: `snap_weekday`/`snap_quarter_month`/`snap_month`/`snap_day`/
-   `snap_time`, the organization's time zone): the server moves
+   `snap_time`, in the goal's `time_zone`): the server moves
    `checked_in_at` to the LATEST moment at or before it, and its period runs
    from that moment to the next (a weekly Friday 17:00 metric: Friday 17:00
    -> Friday 17:00; a check-in on Monday goes to the Friday before).
@@ -68,12 +68,22 @@ duplicate (`goals_list`, `filter: {"title.icontains": ...}`), show the
 draft, create only after a yes: `goals_create`, then `metrics_create` with
 `goal`. For a team goal set `org_id` (`orgs_list`). Then:
 
+- Check the time zone first: a goal's frequency, due times and quotas
+  count in its `time_zone` - the organization's (`orgs_list` `timezone`),
+  else the owner's (`reminder_settings_get` `timezone`, "UTC" until set).
+  If the one that applies is "UTC" or doesn't match where the user is (ask
+  if you can't tell), set it - `reminder_settings_update` with `timezone`
+  (IANA, e.g. "Asia/Ho_Chi_Minh"), or `orgs_update` for an organization -
+  BEFORE creating goals; existing goals' check-in times move with it.
+  Otherwise "Monday 00:00" lands at another hour for them.
 - Suggest a frequency - how often check-ins happen: set `snap_to` on the
   goal (`"day"`, `"week"`, `"month"`, `"quarter"`, `"year"`; `""` = any
   time) with its moment - `snap_weekday` 1-7 (Monday = 1),
   `snap_quarter_month` 1-3, `snap_month` 1-12, `snap_day` 1-31, `snap_time`
   "HH:MM" (30-minute steps) - e.g. weekly on Friday 17:00. Each moment is
-  when a check-in is due and reminded. Metrics and sub-goals inherit it.
+  when a check-in is due and reminded, in the goal's `time_zone` (say it:
+  "weekly on Monday 09:00, Asia/Ho_Chi_Minh"). The web app's default is
+  weekly on Monday 09:00. Metrics and sub-goals inherit it.
   (`check_in_every` is the old schedule - don't set it.) Changing a
   frequency moves existing check-ins; `resnap: false` leaves them.
 - Offer reminders once: `reminder_settings_get`; if nothing is set up,

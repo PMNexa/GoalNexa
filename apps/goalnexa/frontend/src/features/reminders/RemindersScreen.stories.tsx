@@ -78,7 +78,7 @@ export const DailyDigest: Story = { parameters: setup({ settings: { digest: "dai
 /** More due than the first page: "And 47 more." */
 export const ManyDue: Story = { parameters: setup({ dueTotal: DUE.length + 47 }) };
 
-/** Saved in another time zone than this browser's: Save is offered to update it. */
+/** Saved in another time zone than this browser's: the picker offers "Use it" for the device's zone. */
 export const OtherTimeZone: Story = { parameters: setup({ settings: { timezone: "Pacific/Kiritimati" } }) };
 
 /** Saving a change: "Saved." */

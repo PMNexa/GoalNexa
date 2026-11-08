@@ -677,3 +677,50 @@ class SnapMomentTests(TestCase):
     def test_a_top_level_goal_inheriting_is_any_time(self):
         goal = self.ok(self.alice, "goals", title="Solo", org_id=self.org["id"], snap_to="parent")
         self.assertEqual((goal["snap_to"], goal["snap_period"]), ("parent", ""))
+
+
+@override_settings(AUTH_FIRST_RUN_SETUP=False)
+class TimeZoneChangeTests(TestCase):
+    """P-106: a goal counts in its org's zone, else its owner's, else UTC
+    (`time_zone` on the goal); changing either moves its check-ins and due
+    time to the new zone (`goalnexa.zones`)."""
+
+    setUp = SnapToTests.setUp
+    ok = SnapToTests.ok
+
+    def weekly(self, **goal):
+        goal = self.ok(self.alice, "goals", title="Run", snap_to="week", snap_weekday=1, snap_time="00:00", **goal)
+        metric = self.ok(self.alice, "metrics", goal=goal["id"], name="Km", aggregation="sum", target_value=100)
+        self.ok(self.alice, "check-ins", metric=metric["id"], value=5, checked_in_at="2026-10-14T03:00:00Z")
+        return goal, metric
+
+    def stamp(self, metric):
+        return self.alice.get(f"{API}/check-ins", {"filter{metric}": metric["id"]}).json()["items"][0]["checked_in_at"]
+
+    def test_the_owners_zone_moves_personal_goals(self):
+        goal, metric = self.weekly()
+        self.assertEqual(goal["time_zone"], "UTC")
+        self.assertEqual(self.stamp(metric), "2026-10-12T00:00:00Z")  # Mon 00:00 UTC
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.alice.patch(f"{API}/reminder-settings", {"timezone": "Asia/Ho_Chi_Minh"}, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(self.alice.get(f"{API}/goals/{goal['id']}").json()["time_zone"], "Asia/Ho_Chi_Minh")
+        self.assertEqual(self.stamp(metric), "2026-10-11T17:00:00Z")  # Mon Oct 12 00:00 +07:00
+        due = Metric.objects.get(id=metric["id"]).check_in_due_at
+        self.assertEqual(due.astimezone(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%a %H:%M"), "Mon 00:00")
+
+    def test_an_org_zone_moves_its_goals(self):
+        goal, metric = self.weekly(org_id=self.org["id"])
+        self.assertEqual((goal["time_zone"], self.stamp(metric)), ("Asia/Ho_Chi_Minh", "2026-10-11T17:00:00Z"))
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.alice.patch(f"{API}/orgs/{self.org['id']}", {"timezone": "Europe/Berlin"}, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(self.stamp(metric), "2026-10-11T22:00:00Z")  # Mon Oct 12 00:00 +02:00
+
+    def test_an_org_with_no_zone_follows_its_goal_owner(self):
+        self.alice.patch(f"{API}/orgs/{self.org['id']}", {"timezone": ""}, format="json")
+        goal, metric = self.weekly(org_id=self.org["id"])
+        self.assertEqual(goal["time_zone"], "UTC")
+        with self.captureOnCommitCallbacks(execute=True):
+            self.alice.patch(f"{API}/reminder-settings", {"timezone": "Asia/Ho_Chi_Minh"}, format="json")
+        self.assertEqual(self.stamp(metric), "2026-10-11T17:00:00Z")

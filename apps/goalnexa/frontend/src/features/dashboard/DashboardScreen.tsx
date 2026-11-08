@@ -27,6 +27,7 @@ import { DASHBOARD_CSS } from "../../components/dashboardStyles";
 import OnboardingWizard from "../onboarding/OnboardingWizard";
 import OrgWaiting from "../onboarding/OrgWaiting";
 import PendingInvitations from "../onboarding/PendingInvitations";
+import TimeZoneNotice from "../../components/TimeZoneNotice";
 import onboardingMessages from "../onboarding/messages";
 import { fetchReceivedInvitations, type ReceivedInvitation } from "../../api/invitations";
 import { readStored, writeStored } from "../../lib/storedState";
@@ -559,6 +560,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         onChanged={() => setDetailVersion((v) => v + 1)}
       />
       {invitationList && <div className="col-12">{invitationList}</div>}
+      <TimeZoneNotice className="col-12" accessToken={accessToken} onChanged={() => setGoalsVersion((v) => v + 1)} />
       {error && (
         <div className="col-12">
           <div className="alert alert-danger mb-0">{error.message}</div>

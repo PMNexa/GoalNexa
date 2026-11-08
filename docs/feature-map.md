@@ -107,6 +107,7 @@ Last updated: 2026-10-26.
 | Activity feed | Done | Done | Done | Planned | Ported | |
 | Comments on goals | Done | Done | Partial | Planned | Ported | Read in the apps; writing later |
 | Organization time zone | Done | Done | Done | Planned | Ported | Server's numbers; set on the web |
+| Your time zone (P-106) | Done | Done | - | - | Web only | Reminders page picker; dashboard asks when it isn't the device's; a change moves check-in times |
 
 ## Reminders and email
 

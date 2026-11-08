@@ -69,6 +69,14 @@ From what the user said, propose:
     reminded, if the user has reminders set up (step 4). A target per period
     (`target_per`) counts in the same moment-to-moment periods. Don't set
     `check_in_every` (the old schedule, replaced by the frequency).
+  - The moment is in the goal's **time zone** (`time_zone` on a goal): the
+    organization's (`orgs_list` `timezone`), else the owner's
+    (`reminder_settings_get` `timezone`, "UTC" until set). Before setting a
+    frequency, check the one that applies; if it's "UTC" or not where the
+    user is (ask when unsure), set it first - `reminder_settings_update`
+    `timezone` (IANA, e.g. `"Asia/Ho_Chi_Minh"`) or `orgs_update` for an
+    organization. A change moves existing check-in times with it. Say the
+    zone in the draft ("weekly on Monday 09:00, Asia/Ho_Chi_Minh").
 
 Before creating anything, check for duplicates: `goals_list` with
 `filter: {"title.icontains": "<keyword>"}`. If there's a close match, ask

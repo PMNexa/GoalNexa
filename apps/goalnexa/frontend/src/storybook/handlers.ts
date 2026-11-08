@@ -87,6 +87,9 @@ export const handlers: HttpHandler[] = [
   http.put("*/api/v1/reminder-settings", async ({ request }) =>
     HttpResponse.json({ ...data.reminderSettings, ...((await request.json()) as Row) }),
   ),
+  http.patch("*/api/v1/reminder-settings", async ({ request }) =>
+    HttpResponse.json({ ...data.reminderSettings, ...((await request.json()) as Row) }),
+  ),
   http.post("*/api/v1/reminder-settings/test", () => new HttpResponse(null, { status: 204 })),
   http.post("*/api/v1/:kind/reorder", () => new HttpResponse(null, { status: 204 })),
   http.get("*/api/v1/org-invitations/received", () => HttpResponse.json({ items: [] })),

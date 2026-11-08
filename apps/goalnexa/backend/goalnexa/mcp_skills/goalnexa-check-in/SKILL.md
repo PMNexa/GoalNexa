@@ -26,14 +26,15 @@ their own words.
   The server recomputes `current_value` either way - never add it up yourself.
 - A metric with **one reading per period** (`one_per`: day, week, month,
   quarter or year) counts only the LAST check-in of each period, in the
-  organization's time zone; earlier ones are kept with `replaced: true`. On a
+  goal's `time_zone`; earlier ones are kept with `replaced: true`. On a
   `"sum"` metric each check-in is then **the period's total so far** ("10,500
   steps today"), not an amount to add.
 - A metric with `snap_period` (day, week, month, quarter or year - its own
   `snap_to`, or inherited when `snap_to` is `"goal"`) has a **frequency**:
   the server moves every check-in's `checked_in_at` to the LATEST moment at
   or before it (the first day, 00:00 unless `snap_weekday`/`snap_day`/
-  `snap_time`/... say otherwise; the organization's time zone), and its
+  `snap_time`/... say otherwise; in the goal's `time_zone` - the
+  organization's, else the goal owner's, else UTC), and its
   period runs from that moment to the next - weekly on Friday 17:00: a
   check-in on Monday is for the week from the Friday before. To log one for
   an earlier period ("last month's revenue"), send `period` = any day inside
@@ -45,8 +46,8 @@ their own words.
 
 - A metric can have a **target per period** (`target_per`: day, week, month,
   quarter or year, counting every day or weekdays only - `count_days`): then
-  `target_value` is the quota per period, counted in the organization's time
-  zone. Its progress is either the total against every period's quota
+  `target_value` is the quota per period, counted in the goal's
+  `time_zone`. Its progress is either the total against every period's quota
   (`progress_by: "total"`, measured against `cumulative_target`) or the share
   of periods hit (`"hit_rate"`, with a `streak`). `period_value` is what's
   checked in this period, and `pace` sums it up: `{"period_label": "today",

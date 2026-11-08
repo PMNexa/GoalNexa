@@ -216,7 +216,8 @@ TOOLS = [
         "description": (
             "The user's own check-in reminder and digest settings: `enabled`, `urls` (one Apprise URL per "
             "line), `email`, `push` (to the phone app; `push_devices` counts phones), `digest` (off/daily/weekly), `digest_weekday` (0 = Monday), `digest_hour`, "
-            "`timezone`. `allowed_schemes` lists the services this instance accepts (null = any); "
+            "`timezone` (the user's own: their personal goals' frequency, due times and quotas count in it, and their "
+            "goals in an organization with no time zone of its own; \"UTC\" until set). `allowed_schemes` lists the services this instance accepts (null = any); "
             "`email_available` says whether it can send email."
         ),
         "inputSchema": _schema({}),
@@ -239,7 +240,10 @@ TOOLS = [
             "digest": {"type": "string", "enum": ["off", "daily", "weekly"]},
             "digest_weekday": {"type": "integer", "minimum": 0, "maximum": 6, "description": "0 = Monday."},
             "digest_hour": {"type": "integer", "minimum": 0, "maximum": 23, "description": "In `timezone`."},
-            "timezone": {"type": "string", "description": "IANA name, e.g. Asia/Ho_Chi_Minh."},
+            "timezone": {
+                "type": "string",
+                "description": "IANA name, e.g. Asia/Ho_Chi_Minh. Changing it moves the user's goals' check-in times to it.",
+            },
         }),
         # Saves where reminders go: outside services (Telegram, email, ...).
         "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": True},

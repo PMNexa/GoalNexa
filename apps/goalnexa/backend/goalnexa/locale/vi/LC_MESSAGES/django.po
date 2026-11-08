@@ -141,7 +141,7 @@ msgstr "Mẫu phải ở lại trong tổ chức của nó."
 msgid "A total's base and target are its teams' - set planned_target."
 msgstr "Giá trị ban đầu và chỉ tiêu của tổng lấy từ các nhóm - hãy đặt planned_target."
 
-#: goalnexa/backend/goalnexa/views/reminders.py:69
+#: goalnexa/backend/goalnexa/views/reminders.py:70
 msgid "A whole number from {low} to {high}."
 msgstr "Một số nguyên từ {low} đến {high}."
 
@@ -738,8 +738,8 @@ msgid "How often check-ins happen. Inherited (the default): its goal's - a sub-m
 msgstr "Check-in diễn ra thường xuyên thế nào. Kế thừa (mặc định): theo mục tiêu - với chỉ số con, theo chỉ số cha. Bất kỳ lúc nào: mỗi check-in giữ thời điểm của nó. Hằng ngày/tuần/tháng/quý/năm vào một mốc (các trường snap_*, theo múi giờ của tổ chức): mỗi check-in được chuyển về mốc gần nhất tại hoặc trước thời điểm đó, dù ai check-in, và mỗi mốc là một hạn check-in. Đổi tần suất sẽ chuyển các check-in đã có (xem resnap)."
 
 #: schema goalnexa.Goal.snap_to
-msgid "How often check-ins happen. Inherited (the default): the parent goal's - any time for a top-level goal. Any time: each check-in keeps its own time. Daily/weekly/monthly/quarterly/yearly at a moment (the snap_* fields, the organization's time zone): each check-in moves to the latest moment at or before it, and one is due at each moment. Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins (see resnap)."
-msgstr "Check-in diễn ra thường xuyên thế nào. Kế thừa (mặc định): theo mục tiêu cha - bất kỳ lúc nào với mục tiêu cấp cao nhất. Bất kỳ lúc nào: mỗi check-in giữ thời điểm của nó. Hằng ngày/tuần/tháng/quý/năm vào một mốc (các trường snap_*, theo múi giờ của tổ chức): mỗi check-in được chuyển về mốc gần nhất tại hoặc trước thời điểm đó, và mỗi mốc là một hạn check-in. Các chỉ số và mục tiêu con kế thừa trừ khi tự chọn; đổi tần suất sẽ chuyển các check-in của chúng (xem resnap)."
+msgid "How often check-ins happen. Inherited (the default): the parent goal's - any time for a top-level goal. Any time: each check-in keeps its own time. Daily/weekly/monthly/quarterly/yearly at a moment (the snap_* fields, in `time_zone`): each check-in moves to the latest moment at or before it, and one is due at each moment. Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins (see resnap)."
+msgstr "Check-in diễn ra thường xuyên thế nào. Kế thừa (mặc định): theo mục tiêu cha - bất kỳ lúc nào với mục tiêu cấp cao nhất. Bất kỳ lúc nào: mỗi check-in giữ thời điểm của nó. Hằng ngày/tuần/tháng/quý/năm vào một mốc (các trường snap_*, theo `time_zone`): mỗi check-in được chuyển về mốc gần nhất tại hoặc trước thời điểm đó, và mỗi mốc là một hạn check-in. Các chỉ số và mục tiêu con kế thừa trừ khi tự chọn; đổi tần suất sẽ chuyển các check-in của chúng (xem resnap)."
 
 #: schema goalnexa.Metric.progress_by
 #: schema goalnexa.TemplateMetric.progress_by
@@ -1014,7 +1014,7 @@ msgstr "Đúng tiến độ, có rủi ro hoặc chậm tiến độ, đánh gi�
 
 #: goalnexa/backend/goalnexa/views/onboarding.py:24
 #: goalnexa/backend/goalnexa/views/push.py:114
-#: goalnexa/backend/goalnexa/views/reminders.py:60
+#: goalnexa/backend/goalnexa/views/reminders.py:61
 msgid "One of: {choices}."
 msgstr "Một trong: {choices}."
 
@@ -1023,8 +1023,8 @@ msgstr "Một trong: {choices}."
 msgid "One reading per"
 msgstr "Một số đo mỗi"
 
-#: goalnexa/backend/goalnexa/views/reminders.py:118
-#: goalnexa/backend/goalnexa/views/reminders.py:95
+#: goalnexa/backend/goalnexa/views/reminders.py:111
+#: goalnexa/backend/goalnexa/views/reminders.py:136
 msgid "One URL per line, as text."
 msgstr "Mỗi dòng một URL, dạng văn bản."
 
@@ -1359,7 +1359,7 @@ msgstr "Cách tính tổng"
 msgid "Saturday"
 msgstr "Thứ Bảy"
 
-#: goalnexa/backend/goalnexa/views/reminders.py:139
+#: goalnexa/backend/goalnexa/views/reminders.py:158
 msgid "Save at least one URL, or turn on email or the phone app, first."
 msgstr "Hãy lưu ít nhất một URL, hoặc bật email hay ứng dụng điện thoại trước."
 
@@ -1371,7 +1371,7 @@ msgstr "Điểm"
 msgid "Scored in a cycle"
 msgstr "Đã chấm điểm trong chu kỳ"
 
-#: goalnexa/backend/goalnexa/views/reminders.py:142
+#: goalnexa/backend/goalnexa/views/reminders.py:161
 msgid "Sending failed - check the URLs (the server log has details)."
 msgstr "Gửi thất bại - hãy kiểm tra các URL (nhật ký máy chủ có chi tiết)."
 
@@ -1445,7 +1445,7 @@ msgstr "Chỉ tiêu áp dụng cho"
 msgid "Target value"
 msgstr "Chỉ tiêu"
 
-#: goalnexa/backend/goalnexa/serializers/goal.py:79
+#: goalnexa/backend/goalnexa/serializers/goal.py:82
 #: schema goalnexa.Goal.team_id
 #: schema goalnexa.Goal.visibility
 msgid "Team"
@@ -1610,6 +1610,10 @@ msgstr "Chủ sở hữu đã xem được mục tiêu này."
 msgid "The team this goal is for, in its organization. Optional."
 msgstr "Nhóm mà mục tiêu này dành cho, trong tổ chức của mục tiêu. Không bắt buộc."
 
+#: schema goalnexa.Goal.time_zone
+msgid "The time zone its frequency, due times and quotas count in: the organization's, else the owner's (reminder settings), else UTC."
+msgstr "Múi giờ dùng để tính tần suất, hạn check-in và chỉ tiêu: của tổ chức, nếu không có thì của người sở hữu (cài đặt nhắc nhở), nếu không nữa thì UTC."
+
 #: schema goalnexa.Metric.progress_by
 #: schema goalnexa.TemplateMetric.progress_by
 msgid "The total against every period's target"
@@ -1654,6 +1658,10 @@ msgstr "Thứ Năm"
 msgid "Time"
 msgstr "Giờ"
 
+#: schema goalnexa.Goal.time_zone
+msgid "Time zone"
+msgstr "Múi giờ"
+
 #: email category tips
 msgid "Tips & getting started"
 msgstr "Mẹo & bắt đầu sử dụng"
@@ -1697,7 +1705,7 @@ msgstr "ID không xác định."
 msgid "Unknown metric - only metrics of this template's teams and totals."
 msgstr "Chỉ số không xác định - chỉ các chỉ số thuộc các nhóm và các tổng của mẫu này."
 
-#: goalnexa/backend/goalnexa/views/reminders.py:75
+#: goalnexa/backend/goalnexa/views/reminders.py:76
 msgid "Unknown time zone."
 msgstr "Múi giờ không xác định."
 

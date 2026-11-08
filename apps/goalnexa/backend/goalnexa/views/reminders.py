@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
 from django.utils.translation import gettext
+from django.db import transaction
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -82,6 +83,20 @@ def _saved(request, name: str, default: bool) -> bool:
     return getattr(row, name) if row else default
 
 
+def _saved_zone(request) -> str:
+    row = ReminderSettings.objects.filter(user_id=request.user.id).first()
+    return row.timezone if row else ReminderSettings._meta.get_field("timezone").default
+
+
+def _rezone_if_changed(request, old: str, new: str) -> None:
+    """A new zone moves the user's goals' check-in times to it (goalnexa.zones)."""
+    if old != new:
+        from goalnexa.zones import user_zone_changed
+
+        user_id = request.user.id
+        transaction.on_commit(lambda: user_zone_changed(user_id))
+
+
 class ReminderSettingsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -90,6 +105,7 @@ class ReminderSettingsView(APIView):
         return Response(_payload(row or ReminderSettings(user_id=request.user.id)))
 
     def put(self, request):
+        old_zone = _saved_zone(request)
         urls = request.data.get("urls", "")
         if not isinstance(urls, str):
             raise ValidationError({"urls": ["One URL per line, as text."]})
@@ -108,10 +124,12 @@ class ReminderSettingsView(APIView):
                 **_digest_fields(request.data),
             },
         )
+        _rezone_if_changed(request, old_zone, reminder_settings.timezone)
         return Response(_payload(reminder_settings))
 
     def patch(self, request):
         row = ReminderSettings.objects.filter(user_id=request.user.id).first() or ReminderSettings(user_id=request.user.id)
+        old_zone = row.timezone
         if "urls" in request.data:
             urls = request.data["urls"]
             if not isinstance(urls, str):
@@ -127,6 +145,7 @@ class ReminderSettingsView(APIView):
             setattr(row, name, value)
         row.app_url = _app_url(request)
         row.save()
+        _rezone_if_changed(request, old_zone, row.timezone)
         return Response(_payload(row))
 
 
