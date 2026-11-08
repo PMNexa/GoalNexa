@@ -269,8 +269,8 @@ class GoalTemplateViewSet(BaseViewSet):
 
     @extend_schema(
         description="Give members of a team their own copy of the team's goals in a cycle - their own targets "
-        "(set by the team's lead) and check-ins, added into the team's total together with the team's own copy. "
-        "The team must use the template in that cycle; members who have a copy are skipped. The team's lead "
+        "(set by the team's lead) and check-ins, added into the team's total together with the team's own copy, if "
+        "it has one - a team can run the template through its members alone. Members who have a copy are skipped. The team's lead "
         "(or a lead above it) and the organization's owners and admins.",
         request=inline_serializer("AssignMembers", {
             "team": serializers.UUIDField(help_text="The team, in the template's organization."),
@@ -286,9 +286,6 @@ class GoalTemplateViewSet(BaseViewSet):
         people = {str(user_id) for user_id, _ in team_people([team]).get(team, [])}
         if any(u not in people for u in user_ids):
             raise ValidationError({"users": ["Only members of the team."]})
-        cycle_id = cycle.id if cycle else None
-        if not tree_goals(template.id, team, cycle_id, False).exists():
-            raise ValidationError({"team": ["The team doesn't use this template in that cycle - add it first."]})
         per_tree = TemplateGoal.objects.filter(template=template).count()
         current = Goal.objects.filter(org_id=template.org_id, is_rollup=False).exclude(status=GoalStatus.ARCHIVED).count()
         check_org_limit(template.org_id, "max_goals", current + per_tree * len(user_ids) - 1, gettext_noop("goals"))

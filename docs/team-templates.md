@@ -281,8 +281,9 @@ of its members **their own copy** of the team's instance. Asked for
 
 - A tree is identified by (template, team, **assignee**, cycle, is_rollup):
   `templates.tree_goals(..., assignee_id)` (None = the team's own copy),
-  `team_trees` (the team's and its members'). A copy needs the team's own
-  copy in that cycle, and only the team's members can get one.
+  `team_trees` (the team's and its members'). Only the team's members can
+  get one; since P-96 the team needn't have a copy of its own (a team can
+  run the template through its members alone - its total is then theirs).
 - `POST goal-templates/<id>/assign` / `unassign` `{"team", "users",
   "cycle"}` (`templates.assign_members`/`unassign_members`): a new copy
   takes the team's visibility and target date and the template's default

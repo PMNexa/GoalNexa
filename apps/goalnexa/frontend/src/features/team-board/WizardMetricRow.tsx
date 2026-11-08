@@ -10,6 +10,8 @@ import {
   snapToLabel,
   targetPerLabel,
   type DraftMetric,
+  type Effective,
+  type Frequency,
 } from "./templateWizardModel";
 import messages from "./wizardMessages";
 
@@ -23,6 +25,8 @@ export interface WizardMetricRowProps {
   onRemove: () => void;
   /** The template metric schema's moment fields (`snap_weekday`, `snap_time`, ...), by key; without them only the period is picked. */
   momentFields?: Partial<Record<string, CrudField<Record<string, unknown>>>>;
+  /** Its goal's frequency in effect - what "Same as goal" means for it. */
+  inherited?: Effective;
 }
 
 /**
@@ -30,7 +34,7 @@ export interface WizardMetricRowProps {
  * check-in counts and how teams add up, a target per period (amounts only),
  * the frequency (and its moment), the default start and target.
  */
-function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove, momentFields = {} }: WizardMetricRowProps) {
+function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove, momentFields = {}, inherited = { snapTo: "", moment: {} } }: WizardMetricRowProps) {
   const t = useT(messages);
   const id = `tw-${goal.key}-${metric.key}`;
   // "Frequency" offers only the ones that fit the target's period. Which check-ins in a period count
@@ -39,11 +43,13 @@ function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove, momentFi
     key: "snap_to",
     label: t("checkInPeriod"),
     type: "select",
-    options: PER_ORDER.filter((per) => periodFits(per, metric.targetPer)).map((per) => ({
-      value: per,
-      label: snapToLabel(per),
-    })),
+    // "Same as goal" first - offered while what it inherits fits the target's period.
+    options: [
+      ...(periodFits(inherited.snapTo, metric.targetPer) ? [{ value: "goal", label: snapToLabel("goal") }] : []),
+      ...PER_ORDER.filter((per) => periodFits(per, metric.targetPer)).map((per) => ({ value: per, label: snapToLabel(per) })),
+    ],
   };
+  const own: TargetPer = metric.snapTo === "goal" || metric.snapTo === "parent" ? inherited.snapTo : metric.snapTo;
   return (
     <div className="row g-2 align-items-end mb-2 pb-2 border-bottom">
       <div className="col-md-4">
@@ -86,7 +92,9 @@ function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove, momentFi
             <FormSelect id={`${id}-per`} value={metric.targetPer}
               onChange={(e) => {
                 const targetPer = e.target.value as TargetPer;
-                onChange({ targetPer, ...(periodFits(metric.snapTo, targetPer) ? {} : { snapTo: "" as TargetPer }) });
+                // A frequency longer than the new target period falls back: to the goal's if that fits, else any time.
+                const fallback: Frequency = periodFits(inherited.snapTo, targetPer) ? "goal" : "";
+                onChange({ targetPer, ...(periodFits(own, targetPer) ? {} : { snapTo: fallback }) });
               }}>
               {PER_ORDER.map((per) => (
                 <option key={per} value={per}>{targetPerLabel(per)}</option>
@@ -127,8 +135,9 @@ function WizardMetricRow({ goal, metric, index: mi, onChange, onRemove, momentFi
           field={snapField}
           fields={momentFields}
           values={{ snap_to: metric.snapTo, ...metric.moment }}
+          inherited={{ snap_to: inherited.snapTo, ...inherited.moment }}
           onChange={(key, value) =>
-            onChange(key === "snap_to" ? { snapTo: value as TargetPer } : { moment: { ...metric.moment, [key]: value } })
+            onChange(key === "snap_to" ? { snapTo: value as Frequency } : { moment: { ...metric.moment, [key]: value } })
           }
         />
       </div>

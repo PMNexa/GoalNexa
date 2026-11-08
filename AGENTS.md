@@ -336,7 +336,9 @@ check-ins is detached, an empty one deleted; Check in mode shows only
 teams that run the template),
 `POST check-ins/bulk` (all or nothing); `board?show=<period>&at=<ISO>` adds
 each cell's `shown` numbers in that period (`periods.shown`; totals by
-`_combine_shown`) for the board's "Show by"; `&periods=N` adds `history`
+`_combine_shown`) - the board sends its metrics' own frequency (P-95: no
+"Show by" picker; metrics with several frequencies are shown a group at a
+time, picked in "Frequency"; any time = running totals); `&periods=N` adds `history`
 (that many periods up to `at`, `periods.shown_series`; a cell's `value` is
 null with no check-in in it, `count`/`last_at` describe them) for its "Over
 time" mode (its periods are a range from `PeriodPicker` - day/week/month/
@@ -359,7 +361,8 @@ member under the team's on the board (Targets lists every member with an
 "Own" tick). A tree is (template, team, assignee, cycle): pass the
 assignee to `tree_goals` (None = the team's own copy). The member checks
 in, the lead sets targets (`can_set_targets` ignores ownership of a
-member copy); a team with member copies is always totalled (its copy +
+member copy; P-96: no team copy needed - the template wizard's Teams step
+ticks people as well as teams); a team with member copies is always totalled (its copy +
 theirs). Metrics' `for_me` tells an agent which copy is the user's.
 **Placeholders** (P-92, `docs/team-templates.md` "Placeholders"): someone in a team
 with no account - platform-org's `Placeholder`, whose id stands in for a user id

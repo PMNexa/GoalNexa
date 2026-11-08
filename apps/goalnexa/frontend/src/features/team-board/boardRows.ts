@@ -81,8 +81,9 @@ export function goalOrder(board: Board): { id: string; title: string; depth: num
  *
  * Under a team's row come its members' rows: the members with a copy of
  * their own - and in Targets mode, for whoever may give them one, every
- * member of a team that has its copy, ticked or not. A team with members'
- * copies shows its total (its copy plus theirs) under each cell. Labels
+ * member of the team, ticked or not (P-96: a team needn't have a copy of
+ * its own). A team with members' copies shows its total (its copy, if
+ * any, plus theirs) under each cell. Labels
  * are in `locale` (the UI language by default).
  */
 export function buildRows(board: Board, root: string, mode: Mode, locale: Locale = getLocale()): { rows: Row[]; notJoined: number } {
@@ -97,10 +98,10 @@ export function buildRows(board: Board, root: string, mode: Mode, locale: Locale
   const targets = mode === "targets";
   const totalFor = new Set(board.total_for ?? ["org"]);
   let notJoined = 0;
-  const memberRows = (team: BoardTeam, depth: number, hasCopy: boolean): Row[] => {
+  const memberRows = (team: BoardTeam, depth: number): Row[] => {
     const copies = board.members?.[team.id] ?? {};
     const people = new Map<string, BoardPerson>();
-    if (targets && hasCopy && team.can_assign) for (const person of team.people ?? []) people.set(person.user_id, person);
+    if (targets && team.can_assign) for (const person of team.people ?? []) people.set(person.user_id, person);
     for (const userId of Object.keys(copies)) {
       if (!people.has(userId)) {
         const known = team.people?.find((p) => p.user_id === userId);
@@ -122,7 +123,7 @@ export function buildRows(board: Board, root: string, mode: Mode, locale: Locale
     const kids = children.get(team.id) ?? [];
     const instance = board.instances[team.id];
     const total = board.totals[team.id];
-    const members = memberRows(team, depth + 1, !!instance);
+    const members = memberRows(team, depth + 1);
     const memberCount = Object.keys(board.members?.[team.id] ?? {}).length;
     if (kids.length === 0) {
       if (instance || targets || members.length > 0) {
@@ -143,12 +144,12 @@ export function buildRows(board: Board, root: string, mode: Mode, locale: Locale
         ...below,
       ];
     }
-    if (!targets && below.length === 0) return [];
+    if (!targets && below.length === 0 && members.length === 0) return [];
     const head: Row =
       targets || total
-        ? { key: `total-${team.id}`, kind: "total", label: team.name, depth, team, total, ticked }
+        ? { key: `total-${team.id}`, kind: "total", label: team.name, depth, team, total, ticked, memberCount }
         : { key: `group-${team.id}`, kind: "group", label: team.name, depth, team };
-    return [head, ...below];
+    return [head, ...members, ...below];
   };
   const rows: Row[] = [];
   if (!root && (targets || board.totals.org)) {

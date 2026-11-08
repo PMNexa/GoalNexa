@@ -98,9 +98,9 @@ Last updated: 2026-10-26.
 | Organizations and roles | Done | Done | - | - | Web only | The apps only switch between them |
 | Invite and accept invitations | Done | Done | Partial | Planned | Ported | Apps accept or decline (on Today); inviting stays on the web |
 | Teams and the org chart | Done | Done | - | - | Web only | |
-| Goal templates | Done | Done | - | - | Web only | Template goals and metrics carry the check-in setting, inherited like goals; teams' copies follow it |
-| Team board (targets, apply, who plays) | Done | Done | - | - | Web only | Big grid; "Open on the web" from the app |
-| Team board: members' own targets | Done | Done | - | - | Web only | P-91. A member's own copy reaches the apps as an ordinary goal (not tried on a device); assigning stays on the web |
+| Goal templates | Done | Done | - | - | Web only | Template goals and metrics carry the frequency, inherited like goals; teams' copies follow it. The wizard takes several goals with their own sub-goals, a frequency per goal and "Same as goal" on metrics (P-94) |
+| Team board (targets, apply, who plays) | Done | Done | - | - | Web only | Big grid; "Open on the web" from the app. Shows by its metrics' frequency - several frequencies a group at a time (P-95) |
+| Team board: members' own targets | Done | Done | - | - | Web only | P-91; with or without the team's own copy, also picked in the template wizard (P-96). A member's own copy reaches the apps as an ordinary goal (not tried on a device); assigning stays on the web |
 | Teams: people with no account | Done | Done | - | - | Web only | P-92. Placeholders in teams, the lead checks in for them; linked to an account later (pick a member, or by invitation email) |
 | Team totals (rollups) | Done | Done | Done | Planned | Ported | Read-only, labeled |
 | Cycles: close, scores, roll over | Done | Done | - | - | Web only | |

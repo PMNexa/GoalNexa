@@ -1,5 +1,21 @@
 import { apiRequest } from "./client";
 import { fetchAll } from "./dashboard";
+
+/** Someone in a team (platform-org's `/api/v1/team-members`); `user_id` may be a placeholder's (no account yet). */
+export interface TeamPerson {
+  id: string;
+  team: string;
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  role: "lead" | "member";
+  placeholder?: boolean;
+}
+
+/** Everyone in the teams the caller can see (the wizard lists them per team). */
+export function fetchTeamPeople(accessToken: string): Promise<TeamPerson[]> {
+  return fetchAll<TeamPerson>("/api/v1/team-members?sort=name", accessToken).catch(() => []);
+}
 import type { Pace, TargetPer } from "./metrics";
 
 /**
@@ -263,7 +279,7 @@ export function createTemplate(
 
 export function createTemplateGoal(
   accessToken: string,
-  data: { template: string; title: string; parent?: string },
+  data: { template: string; title: string; parent?: string; snap_to?: string } & Record<string, unknown>,
 ): Promise<{ id: string }> {
   return apiRequest<{ id: string }>("/api/v1/template-goals", accessToken, { method: "POST", data });
 }
@@ -282,7 +298,7 @@ export function createTemplateMetric(
     count_days?: "all" | "weekdays";
     progress_by?: "total" | "hit_rate";
     one_per?: TargetPer;
-    snap_to?: TargetPer;
+    snap_to?: TargetPer | "goal";
     /** `snap_to`'s moment (`snap_weekday`, `snap_time`...). */
     [moment: `snap_${string}`]: unknown;
   },

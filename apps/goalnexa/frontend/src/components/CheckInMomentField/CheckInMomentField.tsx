@@ -54,7 +54,12 @@ function optionLabel(field: CrudField<Values> | undefined, value: unknown): stri
  * check-ins" (`resnap`) sits under it. Values are the schema's own
  * (`snap_to`, the `SnapMoment` fields, `resnap`), sent as picked.
  */
-export default function CheckInMomentField({ id, field, fields, values, onChange, errors }: FieldWidgetProps) {
+export default function CheckInMomentField({
+  id, field, fields, values, onChange, errors, inherited,
+}: FieldWidgetProps & {
+  /** What an inherited setting resolves to (`snap_to` + moment fields) - shown next to "Same as goal". */
+  inherited?: Values;
+}) {
   const t = useT(messages);
   const locale = useLocale();
   const [open, setOpen] = useState(false);
@@ -96,16 +101,24 @@ export default function CheckInMomentField({ id, field, fields, values, onChange
   const changed = saved.id === values.id && current !== saved.setting;
   const resnap = values.resnap === undefined || values.resnap === null ? changed : Boolean(values.resnap);
 
-  /** "Weekly on Friday at 17:00" - the frequency in words. */
-  function summary(): string {
-    if (!hasMoment) return optionLabel(field, per);
-    return t(`sum_${per as "day"}`, {
-      time,
-      weekday: weekdayName(weekday, "long", locale),
-      day,
-      month: t("quarterMonth", { n: Number(quarterMonth) }),
-      date: t("monthDay", { month: monthName(month, "long", locale), day }),
+  /** "Weekly on Friday at 17:00" - a frequency in words (`v`: its `snap_to` and moment fields). */
+  function inWords(v: Values): string {
+    const p = String(valueOf(v, field, "snap_to", ""));
+    if (!PERIODS.includes(p)) return optionLabel(field, p);
+    const d = Number(valueOf(v, fields.snap_day, "snap_day", 1));
+    return t(`sum_${p as "day"}`, {
+      time: String(valueOf(v, fields.snap_time, "snap_time", "00:00")),
+      weekday: weekdayName(valueOf(v, fields.snap_weekday, "snap_weekday", 1), "long", locale),
+      day: d,
+      month: t("quarterMonth", { n: Number(valueOf(v, fields.snap_quarter_month, "snap_quarter_month", 1)) }),
+      date: t("monthDay", { month: monthName(valueOf(v, fields.snap_month, "snap_month", 1), "long", locale), day: d }),
     });
+  }
+
+  /** The button's text: the frequency in words - inherited, what it inherits ("Same as goal · Weekly on Friday at 17:00"). */
+  function summary(): string {
+    if (hasMoment || !inherited || per === "") return inWords(values);
+    return `${optionLabel(field, per)} · ${inWords(inherited)}`;
   }
 
   function pickPer(value: unknown) {

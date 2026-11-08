@@ -59,3 +59,12 @@ export const CheckInsForAWeek: Story = {
     momentFields,
   },
 };
+
+/** "Same as goal" (the default): the picker says what it inherits - here the goal's weekly Friday 17:00. */
+export const SameAsGoal: Story = {
+  args: {
+    metric: { ...reading, snapTo: "goal", moment: {} },
+    momentFields,
+    inherited: { snapTo: "week", moment: { snap_weekday: "5", snap_time: "17:00" } },
+  },
+};

@@ -161,21 +161,24 @@ export function RangePicker({
   capped,
   onPerChange,
   onChange,
+  pers,
 }: {
   per: Snap;
+  /** The kinds offered (default: all) - one when the board shows a frequency's metrics. */
+  pers?: Snap[];
   /** The first days of the first and last period shown. */
   from: number;
   to: number;
   /** The picked range was longer than MAX_HISTORY - only the latest are shown. */
   capped: boolean;
-  onPerChange: (per: Snap) => void;
+  onPerChange?: (per: Snap) => void;
   onChange: (first: number, last: number) => void;
 }) {
   const t = useT(messages);
   return (
     <>
       <FormLabel htmlFor="gn-board-when">{t("periods")}</FormLabel>
-      <PeriodPicker id="gn-board-when" range per={per} onPerChange={onPerChange} from={from} to={to} onChange={onChange} />
+      <PeriodPicker id="gn-board-when" range per={per} pers={pers} onPerChange={onPerChange} from={from} to={to} onChange={onChange} />
       {capped && <div className="form-hint">{t("upTo", { n: MAX_HISTORY })}</div>}
     </>
   );
@@ -192,38 +195,50 @@ export function MomentPicker({ when, onChange }: { when: string; onChange: (when
   );
 }
 
-/** "Show by": running totals (the Totals tab) or one period, picked in one control. */
+/**
+ * "Period": which period of the board's frequency to show and check in for
+ * (P-95 - the board shows by its metrics' frequency, so only that kind).
+ */
 export function ShowPicker({
   show,
   picked,
-  onShowChange,
   onPick,
 }: {
-  /** The period shown by ("" = running totals). */
-  show: Snap | "";
-  /** The first day of the picked period (of `show`, or a week while on Totals). */
+  /** The frequency shown. */
+  show: Snap;
+  /** The first day of the picked period. */
   picked: number;
-  onShowChange: (show: Snap | "") => void;
-  /** A period picked: its first day, and the kind of period it was picked in. */
+  /** A period picked: its first day. */
   onPick: (last: number, per: Snap) => void;
 }) {
   const t = useT(messages);
-  const per = show || "week";
   return (
     <>
-      <FormLabel htmlFor="gn-board-show">{t("showBy")}</FormLabel>
-      <PeriodPicker
-        id="gn-board-show"
-        per={per}
-        onPerChange={onShowChange}
-        noneTab={t("totalsTab")}
-        noneText={t("runningTotals")}
-        none={!show}
-        onNone={() => onShowChange("")}
-        from={picked}
-        to={picked}
-        onChange={(_, last) => onPick(last, per)}
-      />
+      <FormLabel htmlFor="gn-board-show">{t("period")}</FormLabel>
+      <PeriodPicker id="gn-board-show" per={show} pers={[show]} from={picked} to={picked} onChange={(_, last) => onPick(last, show)} />
+    </>
+  );
+}
+
+/** "Frequency": which of the template's frequencies to show, when its metrics have several (P-95). */
+export function FrequencyPicker({
+  frequencies,
+  value,
+  onChange,
+}: {
+  frequencies: (Snap | "")[];
+  value: Snap | "";
+  onChange: (value: Snap | "") => void;
+}) {
+  const t = useT(messages);
+  return (
+    <>
+      <FormLabel htmlFor="gn-board-frequency">{t("frequency")}</FormLabel>
+      <FormSelect id="gn-board-frequency" value={value} onChange={(e) => onChange(e.target.value as Snap | "")}>
+        {frequencies.map((per) => (
+          <option key={per} value={per}>{t(`frequency_${per || "any"}`)}</option>
+        ))}
+      </FormSelect>
     </>
   );
 }

@@ -442,8 +442,9 @@ def _take_out(trees) -> bool | None:
 def assign_members(template: GoalTemplate, team_id, user_ids, cycle) -> list[Goal]:
     """A copy of the team's instance for each of `user_ids` (skipping those
     who have one): owned by the member, with the team's visibility and
-    target date and the template's default targets. The team must have its
-    own copy in `cycle`. Returns the new root goals."""
+    target date and the template's default targets. The team needn't have a
+    copy of its own (P-96): then its total is its members' copies. Returns
+    the new root goals."""
     from goalnexa.rollups import batched, schedule
 
     cycle_id = cycle.id if cycle else None
