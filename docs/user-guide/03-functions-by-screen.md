@@ -66,10 +66,11 @@ instead**; later they show above the dashboard.
 |---|---|---|
 | F-S2-1 | Choose a start | "How do you want to use GoalNexa?": **Use an AI agent** (Recommended) or **Use the website**. |
 | F-S2-2 | Skip | **Skip for now** - not asked again in this browser. |
-| F-S2-3 | Website: organization | **Organization name** (skipped for an existing org). |
-| F-S2-4 | Website: goals | **Goal**, **Target date** (optional), description; **+ Add goal**. |
+| F-S2-10 | Website: who | **Just me** (personal goals, no organization) or **My team** (asks the organization's name next). Skipped for an existing org. |
+| F-S2-3 | Website: organization | **Organization name** (My team only; skipped for an existing org). |
+| F-S2-4 | Website: goals | **Goal**, **Target date** (optional), description, **How often will you check in?** (weekly on Monday 09:00 by default; its metrics follow it); **+ Add goal**. |
 | F-S2-5 | Website: metrics | Per goal: metric name, unit, start, target (must differ), description; **+ Add metric**. |
-| F-S2-6 | Website: review and create | Summary, **Create and open dashboard**. A failed create can be retried without duplicates. |
+| F-S2-6 | Website: review and create | Summary, **Email me when a check-in is due** (when the server sends email), **Create and open dashboard**. Saves the browser's time zone first. A failed create can be retried without duplicates. |
 | F-S2-7 | AI agent: connect | Pick the app (Claude, ChatGPT, Cursor...), follow its steps; shows **Connected** when it reaches the server. |
 | F-S2-8 | AI agent: skills | Copy "Install the goalnexa skills from ...". |
 | F-S2-9 | AI agent: try it | Copy a starter prompt (plan / check in / review); **Done - open dashboard**. |

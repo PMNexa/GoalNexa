@@ -239,10 +239,16 @@ after (P-99). "No goals" means none that the tree would show - archived ones
 don't count (an org whose only goal was archived showed an empty
 dashboard). Any empty state must test the same filter as the list it
 stands in for. It first asks how they'll
-use GoalNexa, and each answer has its own steps. **Website**: org name →
-goals (optional target date) → metrics per goal (start → target, must
-differ) → review, then it creates everything over the REST API
-(`api/onboarding.ts`) and opens the dashboard on the new org.
+use GoalNexa, and each answer has its own steps. **Website**: who
+(`AudienceStep`: just me = personal goals, no org; my team = org name) →
+goals (optional target date; frequency from the goal schema's `snap_to`,
+weekly Monday 09:00 by default, metrics inherit it) → metrics per goal
+(start → target, must differ) → review ("Email me when a check-in is
+due" when `email_available`), then it saves the browser's time zone (and
+email reminders) on `reminder-settings` FIRST - a personal goal's
+schedule counts in it - creates everything over the REST API
+(`api/onboarding.ts`) and opens the dashboard on the new org (or personal
+goals).
 **AI agent**: connect (platform-mcp-frontend's `McpConnectGuide` wizard -
 pick the client, its own steps and snippet, "Create a token" fills it
 in, and it shows "Connected" once the client reaches the server) →

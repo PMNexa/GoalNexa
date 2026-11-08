@@ -493,8 +493,10 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
       <OnboardingWizard
         accessToken={accessToken}
         onComplete={(orgId) => {
-          // The org list reload picks the stored org, so the new one opens.
-          if (orgId) setCurrentOrg(orgId);
+          // The org list reload picks the stored org, so the new one (or personal goals) opens.
+          setCurrentOrg(orgId ?? PERSONAL_ORG);
+          // Personal goals may already be the picked view - reload them too.
+          setGoalsVersion((v) => v + 1);
           setOnboarding(false);
           setOrgsVersion((v) => v + 1);
         }}

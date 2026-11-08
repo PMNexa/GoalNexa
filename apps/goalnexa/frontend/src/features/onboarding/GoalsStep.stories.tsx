@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { inCard } from "../../storybook/decorators";
 import { draftGoals } from "./onboarding.mocks";
+import { momentFields, snapToField } from "../../components/CheckInMomentField/CheckInMomentField.mocks";
 import GoalsStep from "./GoalsStep";
 
 const meta = {
@@ -19,7 +20,12 @@ export const Filled: Story = {};
 
 /** A fresh start: one empty goal (its remove button is disabled - at least one is needed). */
 export const Empty: Story = {
-  args: { goals: [{ key: 1, title: "", description: "", targetDate: "", metrics: [] }] },
+  args: { goals: [{ key: 1, title: "", description: "", targetDate: "", snapTo: "week", moment: {}, metrics: [] }] },
+};
+
+/** With the goal schema loaded: each goal asks how often it's checked in. */
+export const WithFrequency: Story = {
+  args: { frequencyField: { ...snapToField, options: snapToField.options?.filter((o) => o.value !== "goal") }, momentFields },
 };
 
 /** After a failed create: the goal that went through is locked. */
