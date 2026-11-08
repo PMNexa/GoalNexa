@@ -36,6 +36,8 @@ export const draftGoals: GoalDraft[] = [
     title: "Grow monthly revenue",
     description: "Pay for two more hires",
     targetDate: "2026-12-31",
+    snapTo: "month",
+    moment: { snap_day: "1", snap_time: "09:00" },
     metrics: [
       { key: 201, name: "MRR", description: "From the billing dashboard", unit: "$", base: "40000", target: "60000" },
       { key: 202, name: "Churn rate", description: "", unit: "%", base: "8", target: "3" },
@@ -46,6 +48,8 @@ export const draftGoals: GoalDraft[] = [
     title: "Launch the beta",
     description: "",
     targetDate: "",
+    snapTo: "week",
+    moment: { snap_weekday: "5", snap_time: "17:00" },
     metrics: [{ key: 203, name: "Beta testers", description: "", unit: "", base: "0", target: "50" }],
   },
 ];

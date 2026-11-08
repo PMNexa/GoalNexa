@@ -8,6 +8,7 @@ const messages = defineMessages({
     step_goals: "Goals",
     step_metrics: "Metrics",
     step_review: "Review",
+    step_audience: "Who",
     step_connect: "Connect",
     step_skills: "Skills",
     step_try: "Try it",
@@ -17,6 +18,19 @@ const messages = defineMessages({
     setUpPrefix: "Set up",
     leadExisting: "Add what it's working toward - it takes a minute.",
     leadWeb: "Set up your organization and what it's working toward - it takes a minute.",
+    leadMe: "Set up what you're working toward - it takes a minute.",
+    // Who it's for
+    audienceTitle: "Who is it for?",
+    audienceHint: "You can start on your own and bring a team in later.",
+    meTitle: "Just me",
+    meText: "Personal goals - nothing to set up first.",
+    teamTitle: "My team",
+    teamText: "An organization whose members share its goals; teams and team targets come next.",
+    pickAudience: "Pick one to go on.",
+    remindEmail: "Email me when a check-in is due",
+    frequency: "How often will you check in?",
+    frequencyHint: "Its metrics follow it: a check-in counts for the period it falls in, and it's due - and reminded - at each moment.",
+    remindHint: "Change it, or add other places to be reminded, on the Reminders page.",
     leadAgent: "Connect your AI assistant - then just tell it what you're working toward.",
     createFailed: "{error} - fix it and try again; what was already created is kept.",
     skip: "Skip for now",
@@ -81,6 +95,11 @@ const messages = defineMessages({
         This creates <strong>{v.org as string}</strong> with {v.n} goal{v.n === 1 ? "" : "s"}.
       </>
     ),
+    reviewPersonal: (v: { n: number }) => (
+      <>
+        This creates {v.n} personal goal{v.n === 1 ? "" : "s"}.
+      </>
+    ),
     reviewLater: "You can change anything later, and log progress with check-ins from the dashboard.",
     by: "by {date}",
     // Problems
@@ -136,6 +155,7 @@ const messages = defineMessages({
     step_goals: "Mục tiêu",
     step_metrics: "Chỉ số",
     step_review: "Xem lại",
+    step_audience: "Đối tượng",
     step_connect: "Kết nối",
     step_skills: "Skill",
     step_try: "Dùng thử",
@@ -144,6 +164,18 @@ const messages = defineMessages({
     setUpPrefix: "Thiết lập",
     leadExisting: "Thêm những gì tổ chức đang hướng tới - chỉ mất một phút.",
     leadWeb: "Thiết lập tổ chức và những gì tổ chức đang hướng tới - chỉ mất một phút.",
+    leadMe: "Thiết lập những gì bạn đang hướng tới - chỉ mất một phút.",
+    audienceTitle: "Dành cho ai?",
+    audienceHint: "Bạn có thể bắt đầu một mình và mời nhóm vào sau.",
+    meTitle: "Chỉ mình tôi",
+    meText: "Mục tiêu cá nhân - không cần thiết lập gì trước.",
+    teamTitle: "Nhóm của tôi",
+    teamText: "Một tổ chức mà các thành viên cùng chia sẻ mục tiêu; nhóm và chỉ tiêu nhóm thiết lập sau.",
+    pickAudience: "Hãy chọn một mục để tiếp tục.",
+    remindEmail: "Gửi email cho tôi khi đến hạn check-in",
+    frequency: "Bạn sẽ check-in bao lâu một lần?",
+    frequencyHint: "Các chỉ số đi theo tần suất này: mỗi check-in tính cho kỳ chứa nó, và đến hạn - kèm nhắc nhở - ở mỗi mốc.",
+    remindHint: "Thay đổi, hoặc thêm nơi nhận nhắc nhở khác, ở trang Nhắc nhở.",
     leadAgent: "Kết nối trợ lý AI của bạn - rồi chỉ cần kể cho nó điều bạn đang hướng tới.",
     createFailed: "{error} - hãy sửa rồi thử lại; những gì đã tạo vẫn được giữ.",
     skip: "Để sau",
@@ -205,6 +237,7 @@ const messages = defineMessages({
         Thao tác này tạo <strong>{v.org as string}</strong> với {v.n} mục tiêu.
       </>
     ),
+    reviewPersonal: (v: { n: number }) => <>Thao tác này tạo {v.n} mục tiêu cá nhân.</>,
     reviewLater: "Bạn có thể thay đổi mọi thứ sau, và ghi nhận tiến độ bằng check-in từ bảng điều khiển.",
     by: "hạn {date}",
     metricNoName: "Chỉ số nào cũng cần có tên.",

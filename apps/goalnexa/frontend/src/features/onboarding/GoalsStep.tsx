@@ -1,4 +1,5 @@
-import { Button, FormControl, FormLabel, Icon, useT } from "platform-core";
+import { Button, FormControl, FormLabel, Icon, useT, type CrudField } from "platform-core";
+import CheckInMomentField from "../../components/CheckInMomentField";
 import messages from "./messages";
 import type { GoalDraft } from "./onboardingDrafts";
 
@@ -9,10 +10,17 @@ export interface GoalsStepProps {
   onUpdate: (key: number, patch: Partial<GoalDraft>) => void;
   onAdd: () => void;
   onRemove: (key: number) => void;
+  /** The goal schema's frequency (`snap_to`) and moment fields; without them no frequency is asked (the server's default). */
+  frequencyField?: CrudField<Record<string, unknown>>;
+  momentFields?: Partial<Record<string, CrudField<Record<string, unknown>>>>;
 }
 
-/** The website path's goals: a title, an optional target date and description each. */
-function GoalsStep({ goals, locked, onUpdate, onAdd, onRemove }: GoalsStepProps) {
+/**
+ * The website path's goals: a title, an optional target date and description
+ * each, and how often it's checked in (its frequency - its metrics follow it,
+ * and a check-in is due and reminded at each moment).
+ */
+function GoalsStep({ goals, locked, onUpdate, onAdd, onRemove, frequencyField, momentFields = {} }: GoalsStepProps) {
   const t = useT(messages);
   return (
     <div>
@@ -67,6 +75,22 @@ function GoalsStep({ goals, locked, onUpdate, onAdd, onRemove }: GoalsStepProps)
               onChange={(event) => onUpdate(goal.key, { description: event.target.value })}
             />
           </div>
+          {frequencyField && !locked.has(goal.key) && (
+            <div className="col-12 col-md-8">
+              <CheckInMomentField
+                id={`onboarding-goal-freq-${goal.key}`}
+                field={frequencyField}
+                fields={momentFields}
+                values={{ snap_to: goal.snapTo, ...goal.moment }}
+                onChange={(key, value) =>
+                  onUpdate(
+                    goal.key,
+                    key === "snap_to" ? { snapTo: String(value ?? "") } : { moment: { ...goal.moment, [key]: value } },
+                  )
+                }
+              />
+            </div>
+          )}
         </div>
       ))}
       <Button variant="link" className="px-0" onClick={onAdd}>

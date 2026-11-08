@@ -42,6 +42,11 @@ export function saveReminderSettings(accessToken: string, data: ReminderSettings
   return apiRequest<ReminderSettings>("/api/v1/reminder-settings", accessToken, { method: "PUT", data });
 }
 
+/** Changes only the fields sent (`PATCH`). */
+export function patchReminderSettings(accessToken: string, data: Partial<ReminderSettingsInput>): Promise<ReminderSettings> {
+  return apiRequest<ReminderSettings>("/api/v1/reminder-settings", accessToken, { method: "PATCH", data });
+}
+
 export function sendTestReminder(accessToken: string): Promise<void> {
   return apiRequest<void>("/api/v1/reminder-settings/test", accessToken, { method: "POST" });
 }
