@@ -255,7 +255,12 @@ export default function CheckInMomentField({
                     </select>
                   </>
                 )}
-                <div className="gn-mo-hint mt-3">{t("rule")}</div>
+                <div className="gn-mo-hint mt-3">
+                  {typeof values.time_zone === "string" && values.time_zone
+                    ? t("zoneOf", { zone: values.time_zone })
+                    : t("zoneRule")}{" "}
+                  {t("rule")}
+                </div>
                 <div className="gn-mo-foot">
                   <button type="button" className="btn btn-primary btn-sm" onClick={() => setOpen(false)}>
                     {t("done")}

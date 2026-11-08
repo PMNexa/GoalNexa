@@ -207,7 +207,8 @@ Generic detail page plus:
 | ID | Function | Details |
 |---|---|---|
 | F-S13-1 | Check-in reminders | **Send me reminders**; **Email them to my account address** (if the instance sends email); **Send to**: one Apprise URL per line (Telegram, Slack, Discord, ntfy, email...). |
-| F-S13-2 | Goals digest | Weekly / Daily / Off, weekday, hour (your browser's time zone). |
+| F-S13-2 | Goals digest | Weekly / Daily / Off, weekday, hour (in your time zone). |
+| F-S13-6 | Time zone | Every zone with its offset; **Use it** when the device is elsewhere. Your goals' check-in times, due dates and daily targets count in it (a goal in an organization with its own zone uses that one); changing it moves them. |
 | F-S13-3 | Save / test | **Save**, **Send a test** (after saving). |
 | F-S13-4 | Due now | Metrics whose check-in is overdue. |
 | F-S13-5 | URL examples | Ready-made URL formats. |

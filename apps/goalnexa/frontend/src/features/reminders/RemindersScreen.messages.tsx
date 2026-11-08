@@ -37,8 +37,12 @@ const messages = defineMessages({
     onDay6: "on Sunday",
     atHour: "at {time}",
     digestHint:
-      "What moved, what's at risk or off track, what's achieved and which check-ins are due - across your goals and your organizations' shared ones. Your time zone: {zone}",
-    zoneChanged: " (saved as {zone} - save to update)",
+      "What moved, what's at risk or off track, what's achieved and which check-ins are due - across your goals and your organizations' shared ones",
+    timezone: "Time zone",
+    timezoneHint:
+      "Your goals' check-in times (\"weekly on Monday at 09:00\"), due dates and daily targets count in it, and the digest goes out at its hour. A goal in an organization with a time zone of its own uses that one.",
+    deviceZone: "This device is in {zone}.",
+    useDeviceZone: "Use it",
     saved: "Saved.",
     save: "Save",
     saveFirst: "Save first",
@@ -87,8 +91,12 @@ const messages = defineMessages({
     onDay6: "vào Chủ nhật",
     atHour: "lúc {time}",
     digestHint:
-      "Những gì đã thay đổi, có rủi ro hay chậm tiến độ, đã đạt và check-in nào đến hạn - trên các mục tiêu của bạn và mục tiêu chung của các tổ chức bạn tham gia. Múi giờ của bạn: {zone}",
-    zoneChanged: " (đang lưu là {zone} - lưu để cập nhật)",
+      "Những gì đã thay đổi, có rủi ro hay chậm tiến độ, đã đạt và check-in nào đến hạn - trên các mục tiêu của bạn và mục tiêu chung của các tổ chức bạn tham gia",
+    timezone: "Múi giờ",
+    timezoneHint:
+      "Giờ check-in của các mục tiêu (\"hằng tuần vào thứ Hai lúc 09:00\"), hạn check-in và chỉ tiêu theo ngày được tính theo múi giờ này, và bản tóm tắt được gửi theo giờ của nó. Mục tiêu thuộc tổ chức có múi giờ riêng thì dùng múi giờ của tổ chức.",
+    deviceZone: "Thiết bị này đang ở múi giờ {zone}.",
+    useDeviceZone: "Dùng múi giờ này",
     saved: "Đã lưu.",
     save: "Lưu",
     saveFirst: "Hãy lưu trước",

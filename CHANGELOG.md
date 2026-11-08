@@ -9,6 +9,7 @@ of you beyond the usual upgrade steps.
 
 ### Changed
 
+- **Time zone** (P-106): the Reminders page has a **Time zone** picker, and the dashboard asks once when your saved zone isn't your device's (it was UTC unless you'd saved the Reminders page, so "Monday 00:00" showed as 07:00 in Vietnam). Changing your zone, or an organization's, moves existing check-ins and due times to it. Goals show theirs in the API (`time_zone`), and assistants now check it before setting a frequency.
 - Onboarding (P-100, P-101): the website path first asks **Just me** (personal goals, no organization) or **My team**; each goal asks how often you'll check in (weekly on Monday 09:00 by default - its metrics follow it), and the last step offers **Email me when a check-in is due**. Your browser's time zone is saved before anything is created, so schedules count in it.
 - Onboarding: an invitation waiting for you now shows first - **Join** or **Decline** - instead of the setup wizard, and above the dashboard (P-99). An organization with no goals asks only its owners and admins to set it up; a member sees that they will, with "Track personal goals" (P-98).
 - Team board, Over time (P-97): a **Value / Change** switch - Change shows each period's difference from the period before (green up, red down), in the table and the charts.

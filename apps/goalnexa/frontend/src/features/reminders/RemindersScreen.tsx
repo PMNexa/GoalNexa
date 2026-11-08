@@ -11,6 +11,8 @@ import {
   type ReminderSettings,
   type ReminderSettingsInput,
 } from "../../api/reminders";
+import TimeZoneSelect from "../../components/TimeZoneSelect";
+import { browserTimeZone } from "../../lib/timeZone";
 import messages from "./RemindersScreen.messages";
 
 export interface RemindersScreenProps {
@@ -20,15 +22,6 @@ export interface RemindersScreenProps {
 const DUE: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
 
 const WEEKDAYS = ["onDay0", "onDay1", "onDay2", "onDay3", "onDay4", "onDay5", "onDay6"] as const;
-
-/** The browser's IANA time zone - digests go out at the chosen hour there. */
-function browserTimeZone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
-  }
-}
 
 function formFrom(row: ReminderSettings): ReminderSettingsInput {
   const {
@@ -53,8 +46,8 @@ const EXAMPLES = [
 /**
  * Check-in reminders: where the signed-in user's reminders go (Apprise
  * URLs - email, ntfy, Telegram, Slack, Discord, webhooks, ...), their goals
- * digest (daily/weekly, at a local hour - the browser's time zone is saved
- * with it), a test message, and which of their metrics are due right now. A metric gets a
+ * digest (daily/weekly, at a local hour), their time zone (P-106: their goals'
+ * check-in times count in it), a test message, and which of their metrics are due right now. A metric gets a
  * schedule from its own "Check in every" field; the server's scheduler
  * (`manage.py goalnexa_jobs`) sends one message per run listing a goal
  * owner's overdue metrics, once per due date. Self-contained like every
@@ -105,7 +98,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
     event.preventDefault();
     if (!form) return;
     void act(async () => {
-      const saved = await saveReminderSettings(accessToken, { ...form, timezone: browserTimeZone() });
+      const saved = await saveReminderSettings(accessToken, form);
       setSettings(saved);
       setForm(formFrom(saved));
     }, t("saved"));
@@ -118,8 +111,8 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
   const dirty =
     settings !== null &&
     form !== null &&
-    (Object.keys(form) as (keyof ReminderSettingsInput)[]).some((key) => key !== "timezone" && form[key] !== settings[key]);
-  const zoneChanged = settings !== null && (settings.urls !== "" || settings.email || settings.push_devices > 0) && settings.timezone !== browserTimeZone();
+    (Object.keys(form) as (keyof ReminderSettingsInput)[]).some((key) => form[key] !== settings[key]);
+  const browserZone = browserTimeZone();
 
   return (
     <div className="row g-3">
@@ -237,8 +230,23 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
                   )}
                 </div>
                 <small className="form-hint">
-                  {t("digestHint", { zone: browserTimeZone() })}
-                  {zoneChanged && t("zoneChanged", { zone: settings.timezone })}.
+                  {t("digestHint")}.
+                </small>
+                <FormLabel className="mt-3" htmlFor="reminder-timezone">
+                  {t("timezone")}
+                </FormLabel>
+                <TimeZoneSelect id="reminder-timezone" value={form.timezone} onChange={(zone) => update("timezone", zone)} />
+                <small className="form-hint">
+                  {t("timezoneHint")}
+                  {browserZone && browserZone !== form.timezone && (
+                    <>
+                      {" "}
+                      {t("deviceZone", { zone: browserZone })}{" "}
+                      <button type="button" className="btn btn-link p-0 align-baseline" onClick={() => update("timezone", browserZone)}>
+                        {t("useDeviceZone")}
+                      </button>
+                    </>
+                  )}
                 </small>
               </form>
             )}
@@ -255,7 +263,7 @@ function RemindersScreen({ accessToken }: RemindersScreenProps) {
           </CardBody>
           {settings !== null && (
             <CardBody className="border-top d-flex gap-2">
-              <Button type="submit" form="reminder-settings-form" variant="primary" disabled={busy || !(dirty || zoneChanged)}>
+              <Button type="submit" form="reminder-settings-form" variant="primary" disabled={busy || !dirty}>
                 {t("save")}
               </Button>
               <Button

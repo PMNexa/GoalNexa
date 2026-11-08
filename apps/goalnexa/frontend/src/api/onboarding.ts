@@ -1,6 +1,7 @@
 import { apiRequest } from "./client";
 import type { Goal } from "./goals";
 import type { Metric } from "./metrics";
+import { browserTimeZone } from "../lib/timeZone";
 
 /**
  * The onboarding wizard's writes - plain HTTP against platform-org's
@@ -9,14 +10,7 @@ import type { Metric } from "./metrics";
  * `dashboard.ts`.
  */
 
-/** The browser's time zone (IANA), or "" when it can't tell. */
-export function browserTimeZone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
-  } catch {
-    return "";
-  }
-}
+export { browserTimeZone } from "../lib/timeZone";
 
 /** A new org counts its days (daily/weekly targets) in the creator's time zone. */
 export function createOrg(accessToken: string, name: string): Promise<{ id: string; name: string }> {

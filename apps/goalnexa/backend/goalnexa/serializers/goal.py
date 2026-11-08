@@ -43,7 +43,7 @@ class GoalSerializer(BaseSerializer):
     # generic form's emptied select sends null).
     snap_to = serializers.ChoiceField(
         label="Frequency", choices=GOAL_SNAP_TO_CHOICES, required=False, allow_blank=True, allow_null=True, initial=SNAP_TO_PARENT,
-        help_text="How often check-ins happen. Inherited (the default): the parent goal's - any time for a top-level goal. Any time: each check-in keeps its own time. Daily/weekly/monthly/quarterly/yearly at a moment (the snap_* fields, the organization's time zone): each check-in moves to the latest moment at or before it, and one is due at each moment. Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins (see resnap).",
+        help_text="How often check-ins happen. Inherited (the default): the parent goal's - any time for a top-level goal. Any time: each check-in keeps its own time. Daily/weekly/monthly/quarterly/yearly at a moment (the snap_* fields, in `time_zone`): each check-in moves to the latest moment at or before it, and one is due at each moment. Metrics and sub-goals inherit it unless they pick their own; changing it moves their check-ins (see resnap).",
     )
     snap_due = snap_due_field()
     resnap = resnap_field()
@@ -52,6 +52,9 @@ class GoalSerializer(BaseSerializer):
         help_text="The frequency in effect, after \"inherited\": empty = any time.",
     )
 
+    time_zone = serializers.SerializerMethodField(
+        help_text="The time zone its frequency, due times and quotas count in: the organization's, else the owner's (reminder settings), else UTC.",
+    )
     assignee_name = serializers.SerializerMethodField(
         help_text="The name of the team member this copy is for (`assignee_id`); empty on any other goal.",
     )
@@ -94,6 +97,11 @@ class GoalSerializer(BaseSerializer):
         if "snap_to" in attrs and attrs["snap_to"] is None:
             attrs["snap_to"] = ""
         return attrs
+
+    def get_time_zone(self, obj) -> str:
+        from goalnexa.periods import zone_for
+
+        return zone_for(obj, self.context.setdefault("_zones", {})).key
 
     def get_assignee_name(self, obj) -> str:
         if not obj.assignee_id:

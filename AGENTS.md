@@ -395,7 +395,14 @@ hit rate is never "achieved". `lib/progress.ts` mirrors it from the stored
 fields (`metricPct`, `pacePct`, `goalHealth(..., {canAchieve})`). Totals:
 `rollups.combine_period`. `pace` (serializer, `pace_hint`) is "what's left"
 for screens and agents. Template metrics carry the three fields (locked in
-instances). Client periods (`lib/periods.ts`: bars, `snapSeries` for the
+instances). **Time zone** (P-106): a goal's `time_zone` (serializer, read-only) is
+that zone; changing `ReminderSettings.timezone` or an org's `timezone`
+re-stamps and refreshes the goals it covers (`goalnexa/zones.py`: on
+commit; the org through a pre/post_save receiver on the registry's org
+model, so no import of platform-org). UI: the Reminders page's
+`TimeZoneSelect`, the dashboard's `TimeZoneNotice` (saved zone vs the
+device's), the zone in `CheckInMomentField`'s popover.
+Client periods (`lib/periods.ts`: bars, `snapSeries` for the
 dashboard's "Show check-ins by") count in the browser's zone. End-of-period
 nudges: `reminders.short_of_quota` (`period_reminded_for`). **One reading
 per period** (P-60..P-62): `Metric.one_per` counts only the last check-in
