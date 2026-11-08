@@ -25,6 +25,10 @@ import ShareDashboardModal from "./ShareDashboardModal";
 import { MAX_GOALS, useDashboardCharts } from "./useDashboardCharts";
 import { DASHBOARD_CSS } from "../../components/dashboardStyles";
 import OnboardingWizard from "../onboarding/OnboardingWizard";
+import OrgWaiting from "../onboarding/OrgWaiting";
+import PendingInvitations from "../onboarding/PendingInvitations";
+import onboardingMessages from "../onboarding/messages";
+import { fetchReceivedInvitations, type ReceivedInvitation } from "../../api/invitations";
 import { readStored, writeStored } from "../../lib/storedState";
 import { applyOrder, byPosition, goalGroup, metricGroup, moveId, saveOrder, type OrderKind } from "../../lib/ordering";
 import { getCurrentOrg, PERSONAL_ORG, setCurrentOrg, subscribeCurrentOrg } from "../../lib/currentOrg";
@@ -74,8 +78,12 @@ export interface DashboardScreenProps {
  * onboarding wizard (`onboarding/`) instead, until they finish or skip it. Self-contained like every screen in
  * this package - `accessToken` in, no router dependency.
  */
+// Org roles that set up an organization's goals (platform-org's `my_role`).
+const MANAGER_ROLES = new Set(["owner", "admin"]);
+
 function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }: DashboardScreenProps) {
   const t = useT(messages);
+  const tOnboarding = useT(onboardingMessages);
   const [orgs, setOrgs] = useState<OrgOption[] | null>(null);
   const [orgKey, setOrgKey] = useState<string | null>(null);
   const [goals, setGoals] = useState<Goal[] | null>(null);
@@ -108,6 +116,13 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   const [detailVersion, setDetailVersion] = useState(0);
   const [error, setError] = useState<Error | null>(null);
   const [onboarding, setOnboarding] = useState(false);
+  // Open invitations to the user's email: shown before onboarding (so an
+  // invited person joins instead of creating an org) and above the dashboard.
+  const [invitations, setInvitations] = useState<ReceivedInvitation[]>([]);
+  // A new user with invitations who chose "Set up my own instead".
+  const [ownInstead, setOwnInstead] = useState(false);
+  // Empty orgs a plain member chose to set up anyway (until reload).
+  const [setupAnyway, setSetupAnyway] = useState<Set<string>>(() => new Set());
   // Organizations whose empty-state setup wizard was skipped (until reload).
   const [setupSkipped, setSetupSkipped] = useState<Set<string>>(() => new Set());
   // Bumped after the wizard adds goals to an org that already exists - reloads its goals.
@@ -121,14 +136,19 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
   useEffect(() => {
     let cancelled = false;
     const focusId = focusGoalRef.current;
-    Promise.all([fetchOrgs(accessToken), focusId ? fetchGoal(accessToken, focusId) : null])
-      .then(async ([items, focusGoal]) => {
+    Promise.all([
+      fetchOrgs(accessToken),
+      focusId ? fetchGoal(accessToken, focusId) : null,
+      fetchReceivedInvitations(accessToken),
+    ])
+      .then(async ([items, focusGoal, received]) => {
         // No organization doesn't mean new: someone who started by chat
         // has personal goals already, and gets the dashboard, not the wizard.
         const isNew =
           items.length === 0 && !focusGoal && !onboardingSkipped() && (await fetchGoals(accessToken, null)).length === 0;
         if (cancelled) return;
         setOrgs(items);
+        setInvitations(received);
         setOnboarding(isNew);
         if (focusGoal) {
           // A linked goal picks its own organization.
@@ -398,16 +418,73 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
     orgKey !== null && orgKey !== PERSONAL_ORG && goals !== null && !hasActiveGoals && !setupSkipped.has(orgKey)
       ? orgs?.find((org) => org.id === orgKey)
       : undefined;
+  const invitationList = invitations.length > 0 && (
+    <PendingInvitations
+      accessToken={accessToken}
+      invitations={invitations}
+      onAccepted={(org) => {
+        // The org list reload picks the stored org, so the joined one opens.
+        setCurrentOrg(org.id);
+        setOnboarding(false);
+        setOrgsVersion((v) => v + 1);
+      }}
+      onDeclined={(declined) => setInvitations((prev) => prev.filter((item) => item.token !== declined.token))}
+    />
+  );
+
+  // Invited before they've set anything up: joining comes first, not the wizard.
+  if (onboarding && invitationList && !ownInstead) {
+    return (
+      <div className="row justify-content-center">
+        <div className="col-12 col-lg-9 col-xl-8">
+          <div className="text-center mb-4">
+            <h2 className="mb-1">{tOnboarding("invitedTitle")}</h2>
+            <p className="text-secondary mb-0">{tOnboarding("invitedLead")}</p>
+          </div>
+          <Card>
+            <CardBody>
+              {invitationList}
+              <Button variant="link" className="px-0 mt-3 text-secondary" onClick={() => setOwnInstead(true)}>
+                {tOnboarding("ownInstead")}
+              </Button>
+            </CardBody>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // A plain member isn't the one to set up the org's goals - its owners and admins are.
+  if (emptyOrg && !MANAGER_ROLES.has(emptyOrg.my_role ?? "") && !setupAnyway.has(emptyOrg.id)) {
+    return (
+      <>
+        {invitationList && <div className="mb-3">{invitationList}</div>}
+        <OrgWaiting
+          orgName={emptyOrg.name}
+          orgPicker={orgSelect("waiting-org", "md", "w-auto fw-semibold", t("organization"))}
+          onPersonal={() => {
+            setOrgKey(PERSONAL_ORG);
+            setCurrentOrg(PERSONAL_ORG);
+          }}
+          onSetUpAnyway={() => setSetupAnyway((prev) => new Set(prev).add(emptyOrg.id))}
+        />
+      </>
+    );
+  }
+
   if (emptyOrg) {
     return (
-      <OnboardingWizard
-        key={emptyOrg.id}
-        accessToken={accessToken}
-        existingOrg={{ id: emptyOrg.id, name: emptyOrg.name }}
-        orgPicker={orgSelect("setup-org", "md", "w-auto fw-semibold", t("organization"))}
-        onComplete={() => setGoalsVersion((v) => v + 1)}
-        onSkip={() => setSetupSkipped((prev) => new Set(prev).add(emptyOrg.id))}
-      />
+      <>
+        {invitationList && <div className="mb-3">{invitationList}</div>}
+        <OnboardingWizard
+          key={emptyOrg.id}
+          accessToken={accessToken}
+          existingOrg={{ id: emptyOrg.id, name: emptyOrg.name }}
+          orgPicker={orgSelect("setup-org", "md", "w-auto fw-semibold", t("organization"))}
+          onComplete={() => setGoalsVersion((v) => v + 1)}
+          onSkip={() => setSetupSkipped((prev) => new Set(prev).add(emptyOrg.id))}
+        />
+      </>
     );
   }
 
@@ -479,6 +556,7 @@ function DashboardScreen({ accessToken, linkComponent, resourcePath, shareUrl }:
         onDeleted={handleDetailDeleted}
         onChanged={() => setDetailVersion((v) => v + 1)}
       />
+      {invitationList && <div className="col-12">{invitationList}</div>}
       {error && (
         <div className="col-12">
           <div className="alert alert-danger mb-0">{error.message}</div>

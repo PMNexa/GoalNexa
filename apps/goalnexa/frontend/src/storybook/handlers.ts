@@ -89,6 +89,7 @@ export const handlers: HttpHandler[] = [
   ),
   http.post("*/api/v1/reminder-settings/test", () => new HttpResponse(null, { status: 204 })),
   http.post("*/api/v1/:kind/reorder", () => new HttpResponse(null, { status: 204 })),
+  http.get("*/api/v1/org-invitations/received", () => HttpResponse.json({ items: [] })),
   http.post("*/api/v1/check-ins/bulk", () => HttpResponse.json({ items: [] })),
   http.get("*/api/v1/org-members", () =>
     HttpResponse.json({ items: data.people, total: data.people.length, page: 1, page_size: 100 }),

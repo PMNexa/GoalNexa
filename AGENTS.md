@@ -232,7 +232,10 @@ table view - charts only. The color tokens live on the `.gn-dashboard` root, not
 A user with no organization and no goals gets the onboarding wizard instead
 (`features/onboarding/OnboardingWizard.tsx`); so does a picked organization
 with no goals (`existingOrg`: no org step; its heading's select switches
-org). "No goals" means none that the tree would show - archived ones
+org) - for its owners/admins only (`my_role`): a member gets `OrgWaiting`
+(P-98). Open invitations to the user's email (`org-invitations/received`,
+`PendingInvitations`) come before the wizard and sit above the dashboard
+after (P-99). "No goals" means none that the tree would show - archived ones
 don't count (an org whose only goal was archived showed an empty
 dashboard). Any empty state must test the same filter as the list it
 stands in for. It first asks how they'll

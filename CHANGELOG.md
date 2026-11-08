@@ -9,6 +9,7 @@ of you beyond the usual upgrade steps.
 
 ### Changed
 
+- Onboarding: an invitation waiting for you now shows first - **Join** or **Decline** - instead of the setup wizard, and above the dashboard (P-99). An organization with no goals asks only its owners and admins to set it up; a member sees that they will, with "Track personal goals" (P-98).
 - Team board, Over time (P-97): a **Value / Change** switch - Change shows each period's difference from the period before (green up, red down), in the table and the charts.
 - Template wizard (P-94): several goals, each with its own sub-goals and its own frequency; metrics default to "Same as goal" and show what that is. Team board (P-95): no more "Show by" - it shows by the metrics' frequency, and when they have several, a "Frequency" picker shows one group at a time. Team members (P-96): a member can get their own copy without the team having one - tick people in the wizard's Teams step, or on the board in Targets mode.
 

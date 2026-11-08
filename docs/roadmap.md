@@ -263,6 +263,23 @@ order.
 | P-81 | Confidence on check-ins | A check-in can carry an optional confidence (low / medium / high, or 1-10) that the person sets; shown next to the forecast on the goal's chart and in the digest, and readable by assistants - what strict OKR buyers look for next to the computed health | Proposed | From the OKR/KPI positioning (2026-10-21). The forecast stays the main status; confidence is the person's view beside it |
 
 
+### Onboarding by situation
+
+What someone sees first depends on where they stand: no organization,
+an invitation waiting, an organization with no goals, no team, no
+target of their own. Each row is one situation.
+
+| ID   | Item | Requirement | Status | Notes |
+| ---- | ---- | ----------- | ------ | ----- |
+| P-98 | Members don't set up the org | An organization with no goals shows its owners and admins the setup wizard; a plain member sees that its owners and admins set it up, with "Track personal goals" and "Set up its goals myself" | Done | 2026-11-08. Asked for directly. Was: every member got the wizard. Uses platform-org's `my_role` |
+| P-99 | Invitations before onboarding | Open invitations to the user's email are shown with Join / Decline: in place of the onboarding wizard for a new user ("Set up my own instead" opens it), and above the dashboard otherwise | Done | 2026-11-08. Asked for directly. Stops an invited person creating their own org by mistake. Uses `org-invitations/received` |
+| P-100 | Just me or a team | The wizard's first question is "Just me" (personal goals, no organization) or "My team" (organization, teams, then the template wizard) | Proposed | Today the website path always asks for an organization name |
+| P-101 | Frequency and reminders in onboarding | The wizard asks each metric's frequency and ends by turning on reminders (email; push when the app is linked) | Proposed | New users get no schedule and no reminders today |
+| P-102 | First steps for team members | A member's first visit shows their team's goal, their own target (member copy) and "Check in now" / "Turn on reminders"; a converted placeholder sees the check-ins logged for them | Proposed | |
+| P-103 | Nobody left stuck | A member with no team, or a team with no goals, says who sets it up; leads and admins see who joined without a team or target | Proposed | |
+| P-104 | No access | An account with no app-wide role gets a page saying so and who to contact, never empty screens | Proposed | E.g. an SSO account whose role was removed |
+| P-105 | Admin first steps | After first-run setup, a checklist: email, sign-in (SSO), invite people, then goals | Proposed | |
+
 ### Next - Q1 2027 - Phone apps
 
 Native apps, Android first (Kotlin + Compose), then iOS (Swift). The
