@@ -26,7 +26,7 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
-from django.db.models import Min
+from django.db.models import Min, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -150,11 +150,16 @@ def _combine_shown(rule: str, rows: list[dict]) -> dict | None:
     quota = None
     if quotas and all(q is not None for q in quotas):
         quota = sum(quotas) if rule == RollupRule.SUM else sum(quotas) / len(quotas) if rule == RollupRule.AVG else None
+    totals = [row["total"] for row in rows if row.get("total") is not None]
+    total = None
+    if totals:
+        total = sum(totals) if rule == RollupRule.SUM else sum(totals) / len(totals) if rule == RollupRule.AVG else min(totals)
     times = [row["last_at"] for row in rows if row.get("last_at")]
     period = {k: rows[0][k] for k in ("start", "first", "last", "opens", "closes") if k in rows[0]}
     return {**period, "value": None if value is None else round(value, 2),
             "quota": None if quota is None else round(quota, 2),
-            "count": sum(row.get("count", 0) for row in rows), "last_at": max(times) if times else None}
+            "count": sum(row.get("count", 0) for row in rows), "last_at": max(times) if times else None,
+            **({"total": round(total, 2)} if total is not None else {})}
 
 
 class GoalTemplateViewSet(BaseViewSet):
@@ -411,6 +416,7 @@ class GoalTemplateViewSet(BaseViewSet):
             at = timezone.make_aware(at)
         check_ins_by_metric: dict = {}
         first_by_metric: dict = {}
+        before_by_metric: dict = {}
         if show:
             instance_metric_ids = [m.id for m in metrics if not goal_by_id[m.goal_id].is_rollup]
             # Only the shown periods' check-ins and later ones (a period starts
@@ -422,6 +428,12 @@ class GoalTemplateViewSet(BaseViewSet):
             rows = CheckIn.objects.filter(metric_id__in=instance_metric_ids, checked_in_at__gte=since)
             for check_in in rows.only("id", "metric_id", "value", "checked_in_at", "created_at"):
                 check_ins_by_metric.setdefault(check_in.metric_id, []).append(check_in)
+            # Over time's running totals (a SUM metric): what counted before
+            # that window - the stored `replaced` flag, as `refresh_metric` set it.
+            before_by_metric = dict(
+                CheckIn.objects.filter(metric_id__in=instance_metric_ids, checked_in_at__lt=since, replaced=False)
+                .values("metric_id").annotate(done=Sum("value")).values_list("metric_id", "done")
+            ) if history_count else {}
             first_by_metric = dict(
                 CheckIn.objects.filter(metric_id__in=instance_metric_ids)
                 .values("metric_id").annotate(first=Min("checked_in_at")).values_list("metric_id", "first")
@@ -452,7 +464,10 @@ class GoalTemplateViewSet(BaseViewSet):
             if history_count:
                 row["history"] = [
                     {**n, **{k: n[k].isoformat() for k in ("start", "first", "last")}}
-                    for n in shown_series(metric, goal, check_ins, show, at, history_count, zone=zone, index=index)
+                    for n in shown_series(
+                        metric, goal, check_ins, show, at, history_count, zone=zone, index=index,
+                        before=before_by_metric.get(metric.id, Decimal(0)),
+                    )
                 ]
             return row
 

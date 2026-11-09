@@ -36,6 +36,9 @@ export const BOARD_CSS = `.gn-board-wrap { overflow-x: auto; }
 .gn-board .gn-pick .form-check-input { margin: 0; float: none; }
 .gn-board .gn-board-goal { border-left: 2px solid var(--tblr-border-color, #e6e7e9); }
 .gn-board .gn-head-btn { all: unset; cursor: pointer; }
+.gn-board .gn-head-menu { display: inline-block; margin-left: .3rem; vertical-align: middle; }
+.gn-board .gn-head-menu .btn { padding: 0 .3rem; min-height: 0; line-height: 1.2; }
+.gn-board .gn-head-add { vertical-align: middle; white-space: nowrap; }
 .gn-board .gn-head-remove { all: unset; cursor: pointer; margin-left: .3rem; color: var(--tblr-secondary, #667382); opacity: .45; font-size: .8rem; line-height: 1; }
 .gn-board th:hover .gn-head-remove, .gn-board .gn-head-remove:focus-visible { opacity: 1; }
 .gn-board .gn-head-remove:hover { color: var(--tblr-danger, #d63939); }

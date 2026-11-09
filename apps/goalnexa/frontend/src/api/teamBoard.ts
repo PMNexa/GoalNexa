@@ -127,6 +127,8 @@ export interface ShownNumbers {
   count?: number;
   /** The latest one's time (ISO). */
   last_at?: string | null;
+  /** Over time, an amount (SUM): its running total since the start at the period's close (P-108). */
+  total?: number;
 }
 
 export interface BoardInstance {

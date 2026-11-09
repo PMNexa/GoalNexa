@@ -58,6 +58,7 @@ const meta = {
     onToggleTotal: fn(),
     onEdit: fn(),
     onRemove: fn(),
+    onAdd: fn(),
   },
   // Live drafts, so typing into a cell shows what it'd do ("→ 64,500").
   render: function Render(args) {
@@ -71,6 +72,9 @@ type Story = StoryObj<typeof meta>;
 
 /** Check in, running totals: an input per cell, a period line for Calls (per week), "Last update" per goal, the totals' rows. */
 export const CheckIn: Story = {};
+
+/** An owner/admin: each goal header's "+" adds a metric or a sub-goal, "+ Goal" a goal (P-107); a member sees neither (`Member`). */
+export const AddToTemplate: Story = {};
 
 /** Check in, shown by week: each cell is this week's number, then which week and its %. */
 export const ShownByWeek: Story = {

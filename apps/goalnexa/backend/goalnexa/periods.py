@@ -663,7 +663,7 @@ def shown_index(
 
 def shown(
     metric, goal, check_ins, per: str, at, *, zone: ZoneInfo | None = None, key: date | None = None,
-    index: tuple[dict, date | None] | None = None,
+    index: tuple[dict, date | None] | None = None, before: Decimal | None = None,
 ) -> dict:
     """One metric in its own period of `per` running at `at` (or keyed `key`)
     - the team board's "Show by" (P-93: each metric's own period, from one of
@@ -693,23 +693,31 @@ def shown(
     if metric.target_per == per and metric.target_value != metric.base_value:
         period, amount = current_quota(metric, goal, zone=zone, first_check_in=first, key=start)
         quota = round(amount, 2) if period is not None else None
-    return {"start": start, "first": first_day, "last": last_day, "opens": opens.isoformat(), "closes": closes.isoformat(),
-            "value": None if value is None else round(value, 2), "quota": quota,
-            "count": len(inside), "last_at": max(c.checked_in_at for c in inside).isoformat() if inside else None}
+    numbers = {"start": start, "first": first_day, "last": last_day, "opens": opens.isoformat(), "closes": closes.isoformat(),
+               "value": None if value is None else round(value, 2), "quota": quota,
+               "count": len(inside), "last_at": max(c.checked_in_at for c in inside).isoformat() if inside else None}
+    if before is not None and metric.aggregation == MetricAggregation.SUM:
+        # The running total at the period's close: `before` (what counted
+        # before the check-ins given) + every counted one up to this period.
+        done = sum((c.value for k, rows in by_key.items() if k <= start for c in rows), before)
+        numbers["total"] = round(float(done), 2)
+    return numbers
 
 
 def shown_series(
     metric, goal, check_ins, per: str, at, count: int, *, zone: ZoneInfo | None = None,
-    index: tuple[dict, date | None] | None = None,
+    index: tuple[dict, date | None] | None = None, before: Decimal | None = None,
 ) -> list[dict]:
     """`shown` for the `count` periods of `metric`'s own `per` ending with the
-    one running at `at`, oldest first - the team board's "Over time" columns."""
+    one running at `at`, oldest first - the team board's "Over time" columns.
+    `before`: a SUM metric's amounts that count before `check_ins` - adds
+    each period's running `total`."""
     zone = zone or zone_for(goal)
     index = index or shown_index(metric, check_ins, per, zone)
     keys = [shown_key(metric, per, at, zone)]
     while len(keys) < count:
         keys.append(prev_start(keys[-1], per))
-    return [shown(metric, goal, check_ins, per, at, zone=zone, key=key, index=index) for key in reversed(keys)]
+    return [shown(metric, goal, check_ins, per, at, zone=zone, key=key, index=index, before=before) for key in reversed(keys)]
 
 
 def pace_hint(metric, goal, *, zone: ZoneInfo | None = None, today: date | None = None) -> dict | None:

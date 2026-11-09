@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import RowMenu from "../../components/RowMenu";
 import { Checkbox, FormControl, formatDate, useLocale, useT } from "platform-core";
 import type { Board, BoardMetric, CellNumbers, ShownNumbers } from "../../api/teamBoard";
 import { momentLabel, momentStart, type Snap } from "../../lib/periods";
@@ -125,7 +126,12 @@ export interface BoardTableProps {
   onEdit: (target: EditTarget) => void;
   /** A column header's "×": ask, then remove it from the template. */
   onRemove: (target: EditTarget & { name: string }) => void;
+  /** A goal header's "+" (Add metric / Add sub-goal) or the "+ Goal" header: add to the template (P-107). */
+  onAdd?: (target: AddTarget) => void;
 }
+
+/** What a header's "+" adds to the template: a goal (top-level or under `parent`) or a metric in `goal`. */
+export type AddTarget = { kind: "goal"; parent: string | null; parentName?: string } | { kind: "metric"; goal: string; goalName: string };
 
 /**
  * The board's grid in Check in and Targets mode: teams (and totals) as
@@ -153,6 +159,7 @@ function BoardTable({
   onToggleTotal,
   onEdit,
   onRemove,
+  onAdd,
 }: BoardTableProps) {
   const t = useT(messages);
   const locale = useLocale();
@@ -419,6 +426,22 @@ function BoardTable({
     return columns.flatMap((column) => [instanceCell(row, column), updateCell(t, row, column)]);
   }
 
+  /** A goal header's "+": add a metric to it, or a sub-goal under it. */
+  function addMenu(goal: string, name: string) {
+    return (
+      <span className="gn-head-menu">
+        <RowMenu
+          label={t("addToGoal", { name })}
+          icon="+"
+          items={[
+            { label: t("addMetric"), onSelect: () => onAdd?.({ kind: "metric", goal, goalName: name }) },
+            { label: t("addSubGoal"), onSelect: () => onAdd?.({ kind: "goal", parent: goal, parentName: name }) },
+          ]}
+        />
+      </span>
+    );
+  }
+
   /** The small "×" after a header's name: remove that goal or metric from the template. */
   function removeButton(target: EditTarget, name: string) {
     const metric = target.endpoint === "/api/v1/template-metrics";
@@ -474,10 +497,18 @@ function BoardTable({
                 ) : (
                   column.goalTitle
                 )}
+                {board.can_manage && onAdd && addMenu(column.metric.template_goal, column.goalTitle.replace(/^(› )+/, ""))}
                 {board.can_manage &&
                   removeButton({ endpoint: "/api/v1/template-goals", id: column.metric.template_goal }, column.goalTitle.replace(/^(› )+/, ""))}
               </th>
             ) : null,
+          )}
+          {board.can_manage && onAdd && (
+            <th className="gn-board-goal gn-head-add" rowSpan={2}>
+              <button type="button" className="btn btn-ghost-primary btn-sm" onClick={() => onAdd({ kind: "goal", parent: null })}>
+                {t("addGoal")}
+              </button>
+            </th>
           )}
         </tr>
         <tr>

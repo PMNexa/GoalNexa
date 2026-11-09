@@ -6,7 +6,14 @@ type Row = Record<string, unknown>;
 
 /** What to create (from the dashboard tree, the team board's pickers), and where it hangs. */
 export interface CreateTarget {
-  endpoint: "/api/v1/goals" | "/api/v1/metrics" | "/api/v1/goal-templates" | "/api/v1/cycles" | "/api/v1/teams";
+  endpoint:
+    | "/api/v1/goals"
+    | "/api/v1/metrics"
+    | "/api/v1/goal-templates"
+    | "/api/v1/template-goals"
+    | "/api/v1/template-metrics"
+    | "/api/v1/cycles"
+    | "/api/v1/teams";
   title: string;
   /** Sent as-is and left out of the form: the org, goal and/or parent the tree position implies. */
   preset: Row;
