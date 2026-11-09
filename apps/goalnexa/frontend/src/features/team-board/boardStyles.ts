@@ -11,6 +11,8 @@ export const BOARD_CSS = `.gn-board-wrap { overflow-x: auto; }
 .gn-period-tip > div:first-child { font-weight: 600; }
 .gn-period-tip > div:last-child:not(:first-child) { color: var(--tblr-secondary, #667382); }
 .gn-fold-btn { display: inline-flex; align-items: center; gap: .4rem; max-width: 100%; min-width: 0; font-weight: 500; }
+.gn-board .gn-row-fold { display: inline-flex; align-items: center; gap: .3rem; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.gn-board .gn-row-fold svg { flex: none; color: var(--tblr-secondary, #667382); }
 .gn-board-card:fullscreen { background: var(--tblr-body-bg, #f6f8fb); padding: 1rem; overflow: auto; }
 .gn-board-card:fullscreen .gn-board-wrap { overflow: auto; max-height: calc(100vh - 6.5rem); }
 .gn-board { border-collapse: separate; border-spacing: 0; font-size: .85rem; min-width: 100%; }

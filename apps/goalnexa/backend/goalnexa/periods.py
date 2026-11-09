@@ -642,7 +642,29 @@ def shown_key(metric, per: str, at, zone: ZoneInfo) -> date:
     return day_key(at, per, metric)
 
 
-def shown(metric, goal, check_ins, per: str, at, *, zone: ZoneInfo | None = None, key: date | None = None) -> dict:
+def shown_index(
+    metric, check_ins, per: str, zone: ZoneInfo, *, first_at: datetime | None = None,
+) -> tuple[dict, date | None]:
+    """What `shown` needs from `metric`'s check-ins, worked out once: the ones
+    that count, by the key of their period of `per` (oldest first), and the
+    first check-in's day (`first_at`: its time, when `check_ins` are only the
+    recent ones). Bucketing every check-in again for every shown period made
+    "Over time" cost periods x check-ins."""
+    kept, _ = counted(metric, check_ins, zone)
+    by_key: dict[date, list] = {}
+    for check_in in kept:
+        by_key.setdefault(period_key(check_in.checked_in_at, per, metric, zone), []).append(check_in)
+    if first_at is not None:
+        first = local_date(first_at, zone)
+    else:
+        first = min((local_date(c.checked_in_at, zone) for c in check_ins), default=None)
+    return by_key, first
+
+
+def shown(
+    metric, goal, check_ins, per: str, at, *, zone: ZoneInfo | None = None, key: date | None = None,
+    index: tuple[dict, date | None] | None = None,
+) -> dict:
     """One metric in its own period of `per` running at `at` (or keyed `key`)
     - the team board's "Show by" (P-93: each metric's own period, from one of
     its moments to the next): `value` = the amount done in it (SUM; only
@@ -659,8 +681,8 @@ def shown(metric, goal, check_ins, per: str, at, *, zone: ZoneInfo | None = None
     start = key or shown_key(metric, per, at, zone)
     first_day, last_day = period_days(start, per, metric)
     opens, closes = period_bounds(start, per, metric, zone)
-    kept, _ = counted(metric, check_ins, zone)
-    inside = [c for c in kept if period_key(c.checked_in_at, per, metric, zone) == start]
+    by_key, first = index or shown_index(metric, check_ins, per, zone)
+    inside = by_key.get(start, [])
     if not inside:
         value = None
     elif metric.aggregation == MetricAggregation.SUM:
@@ -669,7 +691,6 @@ def shown(metric, goal, check_ins, per: str, at, *, zone: ZoneInfo | None = None
         value = float(inside[-1].value)
     quota = None
     if metric.target_per == per and metric.target_value != metric.base_value:
-        first = min((local_date(c.checked_in_at, zone) for c in check_ins), default=None)
         period, amount = current_quota(metric, goal, zone=zone, first_check_in=first, key=start)
         quota = round(amount, 2) if period is not None else None
     return {"start": start, "first": first_day, "last": last_day, "opens": opens.isoformat(), "closes": closes.isoformat(),
@@ -677,14 +698,18 @@ def shown(metric, goal, check_ins, per: str, at, *, zone: ZoneInfo | None = None
             "count": len(inside), "last_at": max(c.checked_in_at for c in inside).isoformat() if inside else None}
 
 
-def shown_series(metric, goal, check_ins, per: str, at, count: int, *, zone: ZoneInfo | None = None) -> list[dict]:
+def shown_series(
+    metric, goal, check_ins, per: str, at, count: int, *, zone: ZoneInfo | None = None,
+    index: tuple[dict, date | None] | None = None,
+) -> list[dict]:
     """`shown` for the `count` periods of `metric`'s own `per` ending with the
     one running at `at`, oldest first - the team board's "Over time" columns."""
     zone = zone or zone_for(goal)
+    index = index or shown_index(metric, check_ins, per, zone)
     keys = [shown_key(metric, per, at, zone)]
     while len(keys) < count:
         keys.append(prev_start(keys[-1], per))
-    return [shown(metric, goal, check_ins, per, at, zone=zone, key=key) for key in reversed(keys)]
+    return [shown(metric, goal, check_ins, per, at, zone=zone, key=key, index=index) for key in reversed(keys)]
 
 
 def pace_hint(metric, goal, *, zone: ZoneInfo | None = None, today: date | None = None) -> dict | None:

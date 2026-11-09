@@ -208,6 +208,8 @@ const messages = defineMessages({
     // HistoryTable
     historyHead: "Team · goal · metric",
     noHistory: "No check-ins in these periods.",
+    collapseRow: "Collapse {name}",
+    expandRow: "Expand {name}",
 
     // BoardModals
     leaveMemberTitle: "Take {name}'s own targets away?",
@@ -425,6 +427,8 @@ const messages = defineMessages({
 
     historyHead: "Nhóm · mục tiêu · chỉ số",
     noHistory: "Không có check-in nào trong các kỳ này.",
+    collapseRow: "Thu gọn {name}",
+    expandRow: "Mở rộng {name}",
 
     leaveMemberTitle: "Bỏ chỉ tiêu riêng của {name}?",
     leaveTeamTitle: "Đưa {name} ra khỏi mẫu?",

@@ -214,6 +214,24 @@ export function changeBlocks(blocks: BoardBlock[]): BoardBlock[] {
   }));
 }
 
+/**
+ * Which blocks show, and which are folded: a folded block hides its goals
+ * and metrics; a folded total also hides the teams under it (the blocks
+ * after it, deeper in the tree).
+ */
+export function foldBlocks(blocks: BoardBlock[], folded: ReadonlySet<string>): { block: BoardBlock; folded: boolean }[] {
+  const out: { block: BoardBlock; folded: boolean }[] = [];
+  let under: number | null = null;
+  for (const block of blocks) {
+    if (under !== null && block.depth > under) continue;
+    under = null;
+    const isFolded = folded.has(block.key);
+    if (isFolded && block.sub) under = block.depth;
+    out.push({ block, folded: isFolded });
+  }
+  return out;
+}
+
 /** Over time's periods: their first days, from any cell that has them all (a team's always does), and their names. */
 export function historyStarts(blocks: BoardBlock[], per: Snap) {
   const sample = blocks.flatMap((b) => Object.values(b.metrics)).find((n) => n.history?.length && n.history.every(Boolean));
