@@ -26,6 +26,7 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.db.models import Min
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -57,7 +58,7 @@ from goalnexa.models import (
     TemplateGoal,
     TemplateMetric,
 )
-from goalnexa.periods import STAMP_FIELDS, local_date, pace_hint, shown, shown_series, zone_for
+from goalnexa.periods import STAMP_FIELDS, local_date, pace_hint, shown, shown_index, shown_series, zone_for
 from goalnexa.progress import metric_pct, refresh_goal, refresh_metric
 from goalnexa.models.template import ORG_TOTAL, default_total_for
 from goalnexa.rollups import batched, combine, schedule
@@ -124,6 +125,10 @@ def _decimal(value, field):
 
 def _num(value) -> float | None:
     return None if value is None else float(value)
+
+
+#: The longest a period of each kind runs, in days.
+PERIOD_DAYS = {"day": 1, "week": 7, "month": 31, "quarter": 92, "year": 366}
 
 
 def _combine_shown(rule: str, rows: list[dict]) -> dict | None:
@@ -405,10 +410,22 @@ class GoalTemplateViewSet(BaseViewSet):
         if timezone.is_naive(at):
             at = timezone.make_aware(at)
         check_ins_by_metric: dict = {}
+        first_by_metric: dict = {}
         if show:
             instance_metric_ids = [m.id for m in metrics if not goal_by_id[m.goal_id].is_rollup]
-            for check_in in CheckIn.objects.filter(metric_id__in=instance_metric_ids):
+            # Only the shown periods' check-ins and later ones (a period starts
+            # at most one period before its calendar start, hence the +1): an
+            # earlier check-in is never the last of a period that's kept, so
+            # leaving it out changes no number. The first check-in's time
+            # (for quotas) comes from all of them.
+            since = at - timedelta(days=PERIOD_DAYS[show] * ((history_count or 1) + 1) + 2)
+            rows = CheckIn.objects.filter(metric_id__in=instance_metric_ids, checked_in_at__gte=since)
+            for check_in in rows.only("id", "metric_id", "value", "checked_in_at", "created_at"):
                 check_ins_by_metric.setdefault(check_in.metric_id, []).append(check_in)
+            first_by_metric = dict(
+                CheckIn.objects.filter(metric_id__in=instance_metric_ids)
+                .values("metric_id").annotate(first=Min("checked_in_at")).values_list("metric_id", "first")
+            )
 
         # "Last update" per instance goal: its latest check-in on `at`'s day
         # (the goal's zone) - from check-ins within a day either side.
@@ -429,12 +446,13 @@ class GoalTemplateViewSet(BaseViewSet):
             zone = zone_for(goal, zones)
             check_ins = check_ins_by_metric.get(metric.id, [])
             # Each metric's own period running at `at` (P-93: moment to moment).
-            numbers = shown(metric, goal, check_ins, show, at, zone=zone)
+            index = shown_index(metric, check_ins, show, zone, first_at=first_by_metric.get(metric.id))  # once, for every period
+            numbers = shown(metric, goal, check_ins, show, at, zone=zone, index=index)
             row = {**numbers, **{k: numbers[k].isoformat() for k in ("start", "first", "last")}}
             if history_count:
                 row["history"] = [
                     {**n, **{k: n[k].isoformat() for k in ("start", "first", "last")}}
-                    for n in shown_series(metric, goal, check_ins, show, at, history_count, zone=zone)
+                    for n in shown_series(metric, goal, check_ins, show, at, history_count, zone=zone, index=index)
                 ]
             return row
 

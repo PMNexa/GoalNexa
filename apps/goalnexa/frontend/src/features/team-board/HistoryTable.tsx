@@ -3,8 +3,13 @@ import { FormControl, useT } from "platform-core";
 import type { Board, BoardMetric, CellNumbers, ShownNumbers } from "../../api/teamBoard";
 import type { Snap } from "../../lib/periods";
 import { fmt, fmtChange, heat, periodEditable, shownPct } from "./boardHelpers";
-import { historyStarts, periodTipLines, goalOrder, type BoardBlock } from "./boardRows";
+import { foldBlocks, historyStarts, periodTipLines, goalOrder, type BoardBlock } from "./boardRows";
+import { ChevronIcon } from "./boardIcons";
+import { readStored, writeStored } from "../../lib/storedState";
 import messages from "./messages";
+
+/** Folded Over time rows, per template: block keys (`goalnexa:board-folded`). */
+const FOLDED_KEY = "goalnexa:board-folded";
 
 /** The floating details under a hovered "Over time" cell. */
 export interface PeriodTip {
@@ -42,6 +47,21 @@ function HistoryTable({ board, blocks, per, busy, tip: periodTip, onTip, onSaveP
   const [periodEdit, setPeriodEdit] = useState<{ key: string; value: string } | null>(null);
   // Esc drops the typed number - the input's blur then mustn't save it.
   const periodCancel = useRef(false);
+  const templateId = board.template.id;
+  const [folded, setFolded] = useState<Set<string>>(() => new Set(readStored<Record<string, string[]>>(FOLDED_KEY, {})[templateId] ?? []));
+  const [foldedFor, setFoldedFor] = useState(templateId);
+  if (foldedFor !== templateId) {
+    setFoldedFor(templateId);
+    setFolded(new Set(readStored<Record<string, string[]>>(FOLDED_KEY, {})[templateId] ?? []));
+  }
+
+  function toggleFold(key: string) {
+    const next = new Set(folded);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setFolded(next);
+    writeStored(FOLDED_KEY, { ...readStored<Record<string, string[]>>(FOLDED_KEY, {}), [templateId]: [...next] });
+  }
 
   function savePeriod(metric: BoardMetric, numbers: CellNumbers, cell: ShownNumbers, typed: string) {
     setPeriodEdit(null);
@@ -75,16 +95,27 @@ function HistoryTable({ board, blocks, per, busy, tip: periodTip, onTip, onSaveP
         </tr>
       </thead>
       <tbody>
-        {blocks.map((block) => (
+        {foldBlocks(blocks, folded).map(({ block, folded: isFolded }) => (
           <Fragment key={block.key}>
             <tr className={block.sub ? "gn-total" : "gn-group"}>
               <th className="gn-team" style={{ paddingLeft: `${0.55 + block.depth * 1.1}rem` }}>
-                {block.label}
-                {block.sub && <span className="gn-sub">{block.sub}</span>}
+                <button
+                  type="button"
+                  className="gn-row-fold"
+                  aria-expanded={!isFolded}
+                  title={t(isFolded ? "expandRow" : "collapseRow", { name: block.sub ? `${block.label} ${block.sub}` : block.label })}
+                  onClick={() => toggleFold(block.key)}
+                >
+                  {ChevronIcon(!isFolded)}
+                  <span>
+                    {block.label}
+                    {block.sub && <span className="gn-sub">{block.sub}</span>}
+                  </span>
+                </button>
               </th>
               <td colSpan={span}></td>
             </tr>
-            {goals.map((goal) => {
+            {!isFolded && goals.map((goal) => {
               const metrics = board.metrics.filter((m) => m.template_goal === goal.id);
               if (metrics.length === 0) return null;
               return (

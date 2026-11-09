@@ -55,3 +55,18 @@ export const Change: Story = (() => {
   const base = history("week", 8);
   return { args: { ...base, blocks: changeBlocks(base.blocks), change: true } };
 })();
+
+/** A folded total (its chevron): its goals and the teams under it are hidden; click it to unfold. Remembered per template. */
+export const FoldedTotal: Story = (() => {
+  const base = history("week", 8);
+  const total = base.blocks.find((b) => b.sub);
+  return {
+    args: base,
+    beforeEach: () => {
+      const key = "goalnexa:board-folded";
+      const before = window.localStorage.getItem(key);
+      window.localStorage.setItem(key, JSON.stringify({ [base.board.template.id]: total ? [total.key] : [] }));
+      return () => (before === null ? window.localStorage.removeItem(key) : window.localStorage.setItem(key, before));
+    },
+  };
+})();
