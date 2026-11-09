@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export interface RowMenuItem {
   label: string;
@@ -28,6 +29,7 @@ export interface RowMenuProps {
 function RowMenu({ label, icon, items }: RowMenuProps) {
   const [position, setPosition] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
   const open = position !== null;
@@ -36,7 +38,8 @@ function RowMenu({ label, icon, items }: RowMenuProps) {
     if (!open) return;
     const close = () => setPosition(null);
     function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) close();
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) close();
     }
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
@@ -82,8 +85,13 @@ function RowMenu({ label, icon, items }: RowMenuProps) {
       >
         {icon}
       </button>
-      {position && (
-        <div id={menuId} className="dropdown-menu show gn-row-menu-list" style={{ position: "fixed", top: position.top, bottom: position.bottom, right: position.right, left: "auto" }}>
+      {position && createPortal(
+        <div
+          ref={menuRef}
+          id={menuId}
+          className="dropdown-menu show gn-row-menu-list"
+          style={{ position: "fixed", top: position.top, bottom: position.bottom, right: position.right, left: "auto", zIndex: 1050, minWidth: "10rem" }}
+        >
           {items.map((item) => (
             <Fragment key={item.label}>
               {item.divider && <div className="dropdown-divider" />}
@@ -99,7 +107,10 @@ function RowMenu({ label, icon, items }: RowMenuProps) {
               </button>
             </Fragment>
           ))}
-        </div>
+        </div>,
+        // In <body>: a transformed or clipping ancestor (the team board's
+        // sticky header cells use `transform`) would trap a fixed menu.
+        document.body,
       )}
     </div>
   );
