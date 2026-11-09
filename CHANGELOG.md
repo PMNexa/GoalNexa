@@ -9,7 +9,7 @@ of you beyond the usual upgrade steps.
 
 ### Changed
 
-- Team board (P-107): owners and admins add to the template from the board itself - a goal header's **+** (Add metric / Add sub-goal) and **+ Goal**; a new goal asks for its first metric right away. Every team's copy gets it.
+- Team board (P-107): owners and admins change the template from the board itself - each goal header's **⋯** menu (Add metric, Add sub-goal, Add goal, Edit, Delete) and each metric header's (Edit, Delete); a new goal asks for its first metric right away. Every team's copy gets it.
 - Team board, Over time (P-108): **Show** has two more choices - **vs. start** (how far each period ended from the start value; an amount's running total) and **% of target** (against the period's own target, else start to target). "Change" is now called **vs. previous**. API: each `history` cell of an amount metric carries its running `total`.
 - Team board, Over time: much faster to load and to refresh after changing a cell - the server reads only the shown periods' check-ins and sorts them once instead of once per column, and API answers are gzip-compressed (the board's JSON is about 10x smaller over the wire). Each team or total row now folds with its chevron; folding a total also hides the teams under it (remembered per template in the browser).
 - **Time zone** (P-106): the Reminders page has a **Time zone** picker, and the dashboard asks once when your saved zone isn't your device's (it was UTC unless you'd saved the Reminders page, so "Monday 00:00" showed as 07:00 in Vietnam). Changing your zone, or an organization's, moves existing check-ins and due times to it. Goals show theirs in the API (`time_zone`), and assistants now check it before setting a frequency.

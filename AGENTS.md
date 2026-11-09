@@ -358,8 +358,8 @@ for an amount - `savePeriod`; a Show switch - Value / vs. previous / vs.
 start / % of target - turns each cell into its change from the period
 before, its distance from the start value (an amount's running `total`,
 sent per history cell) or its % of target - `shownBlocks`, P-97, P-108;
-owners/admins add template goals and metrics from the column headers'
-"+" menus, P-107) (rows team -> goal -> metric, columns periods); Check in and Over time
+owners/admins add, edit and delete template goals and metrics from
+the column headers' "⋯" menus - RowMenu, P-107) (rows team -> goal -> metric, columns periods); Check in and Over time
 also draw as charts (Table/Chart, `components/charts/BoardCharts/BoardCharts.tsx`: bars as
 % of each team's target, lines per team; totals listed apart) - goalnexa-frontend's
 `TeamBoardScreen` (`createTeamBoardRoutes("board")`; templates' pages:

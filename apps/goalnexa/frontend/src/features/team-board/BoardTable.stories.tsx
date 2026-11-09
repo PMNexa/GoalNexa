@@ -73,7 +73,7 @@ type Story = StoryObj<typeof meta>;
 /** Check in, running totals: an input per cell, a period line for Calls (per week), "Last update" per goal, the totals' rows. */
 export const CheckIn: Story = {};
 
-/** An owner/admin: each goal header's "+" adds a metric or a sub-goal, "+ Goal" a goal (P-107); a member sees neither (`Member`). */
+/** An owner/admin: each header's "⋯" (faint until hovered) - a goal's adds a metric, sub-goal or goal, edits or deletes; a metric's edits or deletes (P-107). A member sees none (`Member`). */
 export const AddToTemplate: Story = {};
 
 /** Check in, shown by week: each cell is this week's number, then which week and its %. */

@@ -426,35 +426,57 @@ function BoardTable({
     return columns.flatMap((column) => [instanceCell(row, column), updateCell(t, row, column)]);
   }
 
-  /** A goal header's "+": add a metric to it, or a sub-goal under it. */
-  function addMenu(goal: string, name: string) {
+  const ellipsis = (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </svg>
+  );
+
+  /**
+   * A goal header's "⋯" (P-107): add a metric to it, a sub-goal under it or
+   * a goal beside it; edit it; remove it from the template.
+   */
+  function goalMenu(goal: string, name: string) {
+    const target: EditTarget = { endpoint: "/api/v1/template-goals", id: goal };
+    const parent = board.goals.find((g) => g.id === goal)?.parent ?? null;
+    const parentName = parent ? board.goals.find((g) => g.id === parent)?.title : undefined;
     return (
       <span className="gn-head-menu">
         <RowMenu
-          label={t("addToGoal", { name })}
-          icon="+"
+          label={t("goalActions", { name })}
+          icon={ellipsis}
           items={[
-            { label: t("addMetric"), onSelect: () => onAdd?.({ kind: "metric", goal, goalName: name }) },
-            { label: t("addSubGoal"), onSelect: () => onAdd?.({ kind: "goal", parent: goal, parentName: name }) },
+            ...(onAdd
+              ? [
+                  { label: t("addMetric"), onSelect: () => onAdd({ kind: "metric", goal, goalName: name }) },
+                  { label: t("addSubGoal"), onSelect: () => onAdd({ kind: "goal", parent: goal, parentName: name }) },
+                  { label: t("addGoalBeside"), onSelect: () => onAdd({ kind: "goal", parent, parentName }) },
+                ]
+              : []),
+            { label: t("editAction"), divider: !!onAdd, onSelect: () => onEdit(target) },
+            { label: t("removeAction"), danger: true, onSelect: () => onRemove({ ...target, name }) },
           ]}
         />
       </span>
     );
   }
 
-  /** The small "×" after a header's name: remove that goal or metric from the template. */
-  function removeButton(target: EditTarget, name: string) {
-    const metric = target.endpoint === "/api/v1/template-metrics";
+  /** A metric header's "⋯": edit it, or remove it from the template. */
+  function metricMenu(metric: BoardMetric) {
+    const target: EditTarget = { endpoint: "/api/v1/template-metrics", id: metric.id };
     return (
-      <button
-        type="button"
-        className="gn-head-remove"
-        title={t(metric ? "removeMetricTitle" : "removeGoalTitle")}
-        aria-label={t(metric ? "removeMetricAria" : "removeGoalAria", { name })}
-        onClick={() => onRemove({ ...target, name })}
-      >
-        ✕
-      </button>
+      <span className="gn-head-menu">
+        <RowMenu
+          label={t("metricActions", { name: metric.name })}
+          icon={ellipsis}
+          items={[
+            { label: t("editAction"), onSelect: () => onEdit(target) },
+            { label: t("removeAction"), danger: true, onSelect: () => onRemove({ ...target, name: metric.name }) },
+          ]}
+        />
+      </span>
     );
   }
 
@@ -466,6 +488,11 @@ function BoardTable({
             {t("team")}
             {templateHref && (
               <a className="gn-sub" href={templateHref(templateId)}>{t("editTemplate")}</a>
+            )}
+            {board.can_manage && onAdd && columns.length === 0 && (
+              <button type="button" className="gn-sub gn-head-link" onClick={() => onAdd({ kind: "goal", parent: null })}>
+                {t("addGoal")}
+              </button>
             )}
           </th>
           {picking && (
@@ -497,18 +524,9 @@ function BoardTable({
                 ) : (
                   column.goalTitle
                 )}
-                {board.can_manage && onAdd && addMenu(column.metric.template_goal, column.goalTitle.replace(/^(› )+/, ""))}
-                {board.can_manage &&
-                  removeButton({ endpoint: "/api/v1/template-goals", id: column.metric.template_goal }, column.goalTitle.replace(/^(› )+/, ""))}
+                {board.can_manage && goalMenu(column.metric.template_goal, column.goalTitle.replace(/^(› )+/, ""))}
               </th>
             ) : null,
-          )}
-          {board.can_manage && onAdd && (
-            <th className="gn-board-goal gn-head-add" rowSpan={2}>
-              <button type="button" className="btn btn-ghost-primary btn-sm" onClick={() => onAdd({ kind: "goal", parent: null })}>
-                {t("addGoal")}
-              </button>
-            </th>
           )}
         </tr>
         <tr>
@@ -528,7 +546,7 @@ function BoardTable({
                 column.metric.name
               )}
               {column.metric.unit && <span className="text-secondary"> ({column.metric.unit})</span>}
-              {board.can_manage && removeButton({ endpoint: "/api/v1/template-metrics", id: column.metric.id }, column.metric.name)}
+              {board.can_manage && metricMenu(column.metric)}
               <span className="gn-sub">
                 {column.metric.target_per ? `${perLabel(column.metric.target_per)}${column.metric.count_days === "weekdays" ? t("weekdays") : ""} · ` : ""}
                 {column.metric.rollup === "none" ? t("notTotalled") : t(`rollup_${column.metric.rollup}`)}

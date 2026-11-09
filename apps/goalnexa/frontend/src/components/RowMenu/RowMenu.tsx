@@ -1,8 +1,12 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 export interface RowMenuItem {
   label: string;
   onSelect: () => void;
+  /** Draw a divider above this item (to set it apart, e.g. Edit / Delete after the adds). */
+  divider?: boolean;
+  /** A destructive action, drawn in red. */
+  danger?: boolean;
 }
 
 export interface RowMenuProps {
@@ -81,17 +85,19 @@ function RowMenu({ label, icon, items }: RowMenuProps) {
       {position && (
         <div id={menuId} className="dropdown-menu show gn-row-menu-list" style={{ position: "fixed", top: position.top, bottom: position.bottom, right: position.right, left: "auto" }}>
           {items.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              className="dropdown-item"
-              onClick={() => {
-                setPosition(null);
-                item.onSelect();
-              }}
-            >
-              {item.label}
-            </button>
+            <Fragment key={item.label}>
+              {item.divider && <div className="dropdown-divider" />}
+              <button
+                type="button"
+                className={`dropdown-item${item.danger ? " text-danger" : ""}`}
+                onClick={() => {
+                  setPosition(null);
+                  item.onSelect();
+                }}
+              >
+                {item.label}
+              </button>
+            </Fragment>
           ))}
         </div>
       )}
