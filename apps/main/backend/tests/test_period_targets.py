@@ -402,6 +402,13 @@ class BoardShowByTests(TestCase):
         self.assertEqual(north_calls["history"][-1]["start"], noon.date().isoformat())
         self.assertEqual([h["value"] for h in data["totals"]["org"]["metrics"][calls["id"]]["history"]], [None, 13.0, 4.0])
         self.assertNotIn("history", board(show="day")["instances"][north["id"]]["metrics"][calls["id"]])
+        # An amount's running `total` at each period's close (P-108 "vs. start") - counting check-ins
+        # from before the window too (a check-in 40 days back); a reading has none.
+        self.ok(self.alice, "check-ins", metric=metric(calls, north), value=5, checked_in_at=(noon - timedelta(days=40)).isoformat())
+        data = board(show="day", periods=3)
+        self.assertEqual([h["total"] for h in data["instances"][north["id"]]["metrics"][calls["id"]]["history"]], [5.0, 11.0, 15.0])
+        self.assertEqual([h["total"] for h in data["totals"]["org"]["metrics"][calls["id"]]["history"]], [5.0, 18.0, 22.0])
+        self.assertNotIn("total", data["instances"][north["id"]]["metrics"][mrr["id"]]["history"][-1])
         for bad in ({"periods": 3}, {"show": "day", "periods": -1}, {"show": "day", "periods": 61}, {"show": "day", "periods": "x"}):
             self.assertEqual(self.alice.get(f"{API}/goal-templates/{template['id']}/board", bad).status_code, 400, bad)
 

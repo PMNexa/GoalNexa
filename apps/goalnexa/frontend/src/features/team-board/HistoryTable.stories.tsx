@@ -1,7 +1,7 @@
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { useState } from "react";
-import { boardBlocks, buildRows, changeBlocks } from "./boardRows";
+import { boardBlocks, buildRows, changeBlocks, shownBlocks } from "./boardRows";
 import { BOARD_CSS } from "./boardStyles";
 import { makeBoard, memberBoard, withShown } from "./TeamBoardScreen.mocks";
 import HistoryTable, { type PeriodTip } from "./HistoryTable";
@@ -53,7 +53,19 @@ export const Busy: Story = { args: { busy: true } };
 /** "Change": each period minus the one before - signed, coloured, not editable. */
 export const Change: Story = (() => {
   const base = history("week", 8);
-  return { args: { ...base, blocks: changeBlocks(base.blocks), change: true } };
+  return { args: { ...base, blocks: changeBlocks(base.blocks), show: "change" } };
+})();
+
+/** "vs. start": how far each period ended from the start value - an amount's running total, a reading minus its base. */
+export const VsStart: Story = (() => {
+  const base = history("week", 8);
+  return { args: { ...base, blocks: shownBlocks(base.blocks, "start", base.board.metrics), show: "start" } };
+})();
+
+/** "% of target": against the period's own target (Calls, 50 a week), else the way from start to target. */
+export const PctOfTarget: Story = (() => {
+  const base = history("week", 8);
+  return { args: { ...base, blocks: shownBlocks(base.blocks, "pct", base.board.metrics), show: "pct" } };
 })();
 
 /** A folded total (its chevron): its goals and the teams under it are hidden; click it to unfold. Remembered per template. */

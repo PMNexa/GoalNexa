@@ -28,12 +28,43 @@ export function viewOptions(): { value: View; label: string }[] {
 }
 export const VIEW_KEY = "goalnexa:board-view";
 
-/** "Over time" cells: each period's value, or its change from the period before. */
-export type HistoryShow = "value" | "change";
+/**
+ * "Over time" cells: each period's value, its change from the period before,
+ * its distance from the start value, or its % of target (P-97, P-108).
+ */
+export type HistoryShow = "value" | "change" | "start" | "pct";
 export const HISTORY_SHOW_KEY = "goalnexa:board-history-show";
-/** The Value / Change switch's options, in the UI language. */
+/** The Show switch's options, in the UI language. */
 export function historyShowOptions(): { value: HistoryShow; label: string }[] {
-  return (["value", "change"] as const).map((value) => ({ value, label: translate(messages, `historyShow_${value}`) }));
+  return (["value", "change", "start", "pct"] as const).map((value) => ({ value, label: translate(messages, `historyShow_${value}`) }));
+}
+
+/**
+ * "vs. start": how far a metric is from its start value at a period's close -
+ * an amount's running total (the server's `total`), a reading's last value in
+ * the period minus the base (null without one).
+ */
+export function periodSinceStart(cell: ShownNumbers | null, numbers: CellNumbers, metric: BoardMetric): number | null {
+  if (!cell) return null;
+  if (metric.aggregation === "sum") return cell.total ?? null;
+  return cell.value === null ? null : Math.round((cell.value - numbers.base_value) * 100) / 100;
+}
+
+/**
+ * "% of target": against the period's own target when it has one (40 of
+ * 50 a week = 80%), else the way from base to target at the period's close.
+ * Null for a tracked metric, or a period target outside the goal's range.
+ */
+export function periodPct(cell: ShownNumbers | null, numbers: CellNumbers, metric: BoardMetric): number | null {
+  if (!cell) return null;
+  if (cell.quota) {
+    const done = cell.value ?? (metric.aggregation === "sum" ? 0 : null);
+    return done === null ? null : Math.round((done / cell.quota) * 1000) / 10;
+  }
+  if (numbers.target_per) return null;
+  const span = numbers.target_value - numbers.base_value;
+  const done = periodSinceStart(cell, numbers, metric);
+  return !span || done === null ? null : Math.round((done / span) * 1000) / 10;
 }
 
 /**

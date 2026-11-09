@@ -5,7 +5,7 @@ import BoardPickers, { FrequencyPicker, MomentPicker, RangePicker, ShowPicker } 
 
 /** The frequencies a board can show, in order ("" = any time). */
 const FREQUENCY_ORDER: (Snap | "")[] = ["day", "week", "month", "quarter", "year", ""];
-import BoardTable from "./BoardTable";
+import BoardTable, { type AddTarget } from "./BoardTable";
 import HistoryTable, { type PeriodTip } from "./HistoryTable";
 import { LeaveTemplateModal, RemoveFromTemplateModal } from "./BoardModals";
 import { BOARD_CSS } from "./boardStyles";
@@ -32,7 +32,7 @@ import {
   type Mode,
   type View,
 } from "./boardHelpers";
-import { boardBlocks, buildColumns, buildRows, changeBlocks, chartPoint, goalOrder, historyStarts, type Row } from "./boardRows";
+import { boardBlocks, buildColumns, buildRows, chartPoint, shownBlocks, goalOrder, historyStarts, type Row } from "./boardRows";
 import { useBoardDrafts } from "./useBoardDrafts";
 import { useBoardLayout, useFullscreen } from "./useBoardLayout";
 import { BOARD_CHART_CSS, BoardBarCharts, BoardLineCharts, type ChartSeries } from "../../components/charts/BoardCharts";
@@ -154,7 +154,6 @@ function TeamBoardScreen({
     setHistoryShowState(value);
     writeStored(HISTORY_SHOW_KEY, value);
   }
-  const change = historyShow === "change";
   // The picker card folds to one summary line (remembered per browser).
   const [pickersFolded, setPickersFoldedState] = useState(() => readStored<boolean>(PICKERS_KEY, false));
   function setPickersFolded(value: boolean) {
@@ -420,9 +419,9 @@ function TeamBoardScreen({
     const goals = goalOrder(board);
     if (historyPer) {
       const { starts, label } = historyStarts(blocks, historyPer);
-      const lines = change
-        ? changeBlocks(blocks).map((b) => ({ key: b.key, label: b.label, total: !!b.sub, metrics: b.metrics }))
-        : series;
+      const lines = historyShow === "value"
+        ? series
+        : shownBlocks(blocks, historyShow, board.metrics).map((b) => ({ key: b.key, label: b.label, total: !!b.sub, metrics: b.metrics }));
       return <BoardLineCharts goals={goals} metrics={board.metrics} series={lines} starts={starts} label={label} />;
     }
     return <BoardBarCharts goals={goals} metrics={board.metrics} series={series} point={(numbers, metric) => chartPoint(numbers, metric, showing)} />;
@@ -487,9 +486,37 @@ function TeamBoardScreen({
     });
   }
 
+  /** A header's "+": a new template goal or metric, in the shared create form (P-107). */
+  function addToTemplate(target: AddTarget) {
+    if (!templateId) return;
+    if (target.kind === "metric") {
+      setCreating({ endpoint: "/api/v1/template-metrics", title: t("newMetricIn", { name: target.goalName }), preset: { template_goal: target.goal } });
+      return;
+    }
+    const name = target.parentName ?? templates.find((x) => x.id === templateId)?.title ?? "";
+    setCreating({
+      endpoint: "/api/v1/template-goals",
+      title: target.parent ? t("newSubGoalOf", { name }) : t("newGoalIn", { name }),
+      preset: { template: templateId, parent: target.parent },
+    });
+  }
+
   function created(row: Record<string, unknown>) {
     const target = creating;
     setCreating(null);
+    if (target?.endpoint === "/api/v1/template-goals") {
+      // A goal with no metric has no column yet: ask for its first one straight away.
+      const name = String(row.title ?? "");
+      setVersion((v) => v + 1);
+      setNotice(t("goalAddedNowMetric", { name }));
+      setCreating({ endpoint: "/api/v1/template-metrics", title: t("newMetricIn", { name }), preset: { template_goal: String(row.id) } });
+      return;
+    }
+    if (target?.endpoint === "/api/v1/template-metrics") {
+      setVersion((v) => v + 1);
+      setNotice(t("metricAdded", { name: String(row.name ?? "") }));
+      return;
+    }
     if (!target || !orgId) return;
     if (target.endpoint === "/api/v1/cycles") {
       const cycle = row as unknown as Cycle;
@@ -600,7 +627,7 @@ function TeamBoardScreen({
             </div>
           )}
           {mode === "history" && (
-            <div className="col-sm-6 col-lg-2" title={t("historyShowHint")}>
+            <div className="col-12 col-lg-auto" title={t("historyShowHint")}>
               <FormLabel>{t("historyShow")}</FormLabel>
               <div>
                 <SegmentedControl label={t("historyShow")} variant="secondary" options={historyShowOptions()} value={historyShow} onChange={setHistoryShow} />
@@ -701,8 +728,8 @@ function TeamBoardScreen({
                 {historyPer ? (
                   <HistoryTable
                     board={board}
-                    blocks={change ? changeBlocks(boardBlocks(rows)) : boardBlocks(rows)}
-                    change={change}
+                    blocks={shownBlocks(boardBlocks(rows), historyShow, board.metrics)}
+                    show={historyShow}
                     per={historyPer}
                     busy={busy}
                     tip={periodTip}
@@ -729,6 +756,7 @@ function TeamBoardScreen({
                     onToggleTotal={(key, on) => void toggleTotal(key, on)}
                     onEdit={setEditing}
                     onRemove={setRemoving}
+                    onAdd={addToTemplate}
                   />
                 )}
               </div>

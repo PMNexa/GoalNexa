@@ -275,6 +275,11 @@ export function withShown(board: Board, show: Snap, at: number, periods: number)
     const seed = NUMBERS[teamId]?.seed ?? 1;
     for (const metric of board.metrics) {
       const series = starts.map((start, i) => shownCell(metric, seed, NUMBERS[teamId]?.revenue ?? 0, start, show, i, starts.length));
+      // An amount's running total since the start (`total`), as the server sends it.
+      if (metric.aggregation === "sum") {
+        let done = 0;
+        for (const cell of series) cell.total = done += cell.value ?? 0;
+      }
       (teamCells[teamId] ??= {})[metric.id] = series;
       const cell = inst.metrics[metric.id];
       if (!cell) continue;
@@ -294,7 +299,9 @@ export function withShown(board: Board, show: Snap, at: number, periods: number)
         const cells = (members[key] ?? []).map((id) => teamCells[id]?.[metric.id]?.[i]).filter((c): c is ShownNumbers => !!c);
         const values = cells.map((c) => c.value).filter((v): v is number => v !== null);
         const quotas = cells.map((c) => c.quota).filter((q): q is number => q !== null);
+        const totals = cells.map((c) => c.total).filter((v): v is number => v !== undefined);
         return {
+          ...(totals.length ? { total: totals.reduce((a, b) => a + b, 0) } : {}),
           start: day(start),
           last: cells[0]?.last ?? day(start),
           value: values.length ? values.reduce((a, b) => a + b, 0) : null,
