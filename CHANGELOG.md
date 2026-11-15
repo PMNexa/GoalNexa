@@ -26,6 +26,10 @@ of you beyond the usual upgrade steps.
 - "Check-ins are for" is now called **Check-in period**, and the template wizard picks its moment too (weekday, day, time, due) in the same menu as goal and metric forms.
 - Forms no longer ask "Which check-ins count": in a check-in period, the metric's type decides - the last new value counts (a later one replaces it, and the form says so), amounts add up. Metrics that already have the setting keep it and still show it, so it can be cleared; the API and assistants can still set it. The dashboard draws one point per check-in period.
 
+### Fixed
+
+- Team board, Targets: when a template's metrics had more than one frequency, Targets mode showed only one frequency's metrics with no way to switch - so adding a metric with another frequency looked like it removed the others. Targets now lists every metric (nothing was ever deleted).
+
 ### Added
 
 - **Vietnamese** (P-16): the website in English or Tiếng Việt. Pick it

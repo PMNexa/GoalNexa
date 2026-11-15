@@ -141,10 +141,14 @@ function TeamBoardScreen({
     setPickedFrequency(value);
     writeStored(SHOW_KEY, value);
   }
-  // The board as shown: only the picked frequency's metrics.
+  // The board as shown: only the picked frequency's metrics. Targets aren't per period, and
+  // Targets mode has no Frequency picker, so it shows every metric.
   const board = useMemo(
-    () => (fullBoard && frequencies.length > 1 ? { ...fullBoard, metrics: fullBoard.metrics.filter((m) => (m.snap_to || "") === show) } : fullBoard),
-    [fullBoard, frequencies, show],
+    () =>
+      fullBoard && frequencies.length > 1 && mode !== "targets"
+        ? { ...fullBoard, metrics: fullBoard.metrics.filter((m) => (m.snap_to || "") === show) }
+        : fullBoard,
+    [fullBoard, frequencies, show, mode],
   );
   // Over time for metrics with no frequency: by day, or another kind picked in the range picker.
   const [anyTimePer, setAnyTimePer] = useState<Snap>("day");
